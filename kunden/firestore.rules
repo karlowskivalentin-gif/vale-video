@@ -1,0 +1,89 @@
+rules_version = '2';
+
+// =====================================================================
+// vale-kunden — Firestore Security Rules
+//
+// Diese Regeln sind die ECHTE Sicherheitsgrenze (nicht roles.js, das ist
+// nur UI). In der Firebase-Console unter Firestore Database → Rules
+// einfügen und PUBLISH. NICHT aufs Hosting hochladen.
+//
+// Allowlist MUSS mit js/roles.js übereinstimmen.
+// Übergangs-Whitelist MUSS mit js/status.js (kundenFreigabeZiel /
+// kundenAenderungZiel) übereinstimmen.
+// =====================================================================
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---- Identität ---------------------------------------------------
+    function istEingeloggt() {
+      return request.auth != null
+          && request.auth.token.email != null
+          && request.auth.token.email_verified == true;
+    }
+    function email() {
+      return request.auth.token.email.lower();
+    }
+    function adminEmails() {
+      return ['karlowskivalentin@gmail.com'];
+    }
+    function kundeEmails() {
+      return ['n.berghaus@deussen-immobilien.de', 'c.deussen@deussen-immobilien.de'];
+    }
+    function istAdmin() {
+      return istEingeloggt() && email() in adminEmails();
+    }
+    function istKunde() {
+      return istEingeloggt() && email() in kundeEmails();
+    }
+    function istErlaubt() {
+      return istAdmin() || istKunde();
+    }
+
+    // ---- Kunden-Übergangs-Whitelist (gespiegelt aus status.js) -------
+    function erlaubterUebergang(alt, neu) {
+      return (alt == '🔍 Freigabe Skript'  && (neu == '🎬 Drehbereit' || neu == '📝 Skript'))
+          || (alt == '🔎 Freigabe Schnitt' && (neu == '✅ Freigegeben' || neu == '✂️ Schnitt'));
+    }
+    // Kunde darf bei Video-Updates NUR diese Felder ändern und nur die
+    // 4 erlaubten Status-Übergänge auslösen.
+    function kundenVideoUpdateOk() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['status', 'freigabeSkript', 'freigabeSchnitt', 'aktualisiertAm'])
+          && erlaubterUebergang(resource.data.status, request.resource.data.status);
+    }
+
+    // ---- objekte -----------------------------------------------------
+    match /objekte/{objektId} {
+      allow read: if istErlaubt();
+      allow create: if istErlaubt()
+                    && request.resource.data.gemeldetVon.lower() == email()
+                    && (istAdmin() || request.resource.data.status == 'Eingegangen');
+      allow update, delete: if istAdmin();
+    }
+
+    // ---- videos ------------------------------------------------------
+    match /videos/{videoId} {
+      allow read:          if istErlaubt();
+      allow create, delete: if istAdmin();
+      allow update:        if istAdmin()
+                           || (istKunde() && kundenVideoUpdateOk());
+
+      // ---- kommentare (Subcollection) -------------------------------
+      match /kommentare/{kommentarId} {
+        allow read: if istErlaubt();
+        allow create: if istErlaubt()
+                      && request.resource.data.autor.lower() == email()
+                      && (
+                        (istAdmin() && request.resource.data.rolle == 'admin') ||
+                        (istKunde() && request.resource.data.rolle == 'kunde')
+                      );
+        allow update, delete: if false;
+      }
+    }
+
+    // ---- Alles andere: zu ------------------------------------------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

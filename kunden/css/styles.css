@@ -1,0 +1,445 @@
+/* =====================================================================
+   vale-video Kundenportal — Branding 1:1 aus der Hauptseite (style.css)
+   Inter, warmes Fast-Schwarz, Orange-Akzent #e2622c. Kein neues Design.
+   ===================================================================== */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+:root {
+  --black: #14110d;        /* Primärtext — warmes Fast-Schwarz */
+  --off-black: #faf8f5;    /* heller Hover-Surface */
+  --dark: #efece7;         /* Karten / Surface */
+  --mid: #e3ded6;          /* Hairline-Borders */
+  --muted: #6b6258;        /* Sekundärtext (AA auf Weiß) */
+  --light: #8a8175;        /* Labels / tertiär */
+  --off-white: #f6f4f1;    /* alt. Sektions-BG */
+  --white: #ffffff;        /* Seiten-Hintergrund */
+  --accent: #e2622c;       /* Orange-Akzent */
+  --accent-dim: #b8491c;   /* dunkleres Orange für Kleintext */
+  --surface: #ffffff;
+  --surface-2: #f6f4f1;
+  --shadow-card: 0 1px 3px rgba(20,17,13,.06), 0 8px 24px rgba(20,17,13,.05);
+  --error: #c0392b;
+  --error-bg: #fdecea;
+  --ok: #2e7d4f;
+  --font: 'Inter', system-ui, -apple-system, sans-serif;
+  --radius: 6px;
+  --radius-lg: 10px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--white);
+  color: var(--black);
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: inherit; text-decoration: none; }
+
+.muted { color: var(--muted); }
+
+/* --- Brand-Lockup ---------------------------------------------------- */
+.brand {
+  font-weight: 800;
+  font-size: 1rem;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--black);
+}
+.brand span { color: var(--accent); }
+.brand--lg { font-size: 1.35rem; display: inline-block; margin-bottom: 1.25rem; }
+
+/* --- Boot / Lade-Zustand --------------------------------------------- */
+.boot {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  letter-spacing: 0.05em;
+}
+
+/* --- Topbar + Navigation --------------------------------------------- */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1rem 1.75rem;
+  background: rgba(255,255,255,0.9);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--mid);
+}
+.topbar .brand { flex: 0 0 auto; }
+.topnav {
+  display: flex;
+  gap: 0.35rem;
+  flex: 1 1 auto;
+}
+.topnav-link {
+  padding: 0.5rem 0.85rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--muted);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.topnav-link:hover { color: var(--black); background: var(--off-white); }
+.topnav-link.is-active { color: var(--accent); background: rgba(226,98,44,0.08); }
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  flex: 0 0 auto;
+}
+.topbar-user {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.role-pill {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent-dim);
+  background: rgba(226,98,44,0.10);
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+}
+.user-email { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* --- Buttons --------------------------------------------------------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  font-family: var(--font);
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 600;
+  text-decoration: none;
+  padding: 0.95rem 1.6rem;
+  border-radius: 999px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+.btn:disabled { opacity: 0.6; cursor: default; }
+.btn--accent { background: var(--accent); color: #fff; }
+.btn--accent:hover:not(:disabled) { background: var(--accent-dim); transform: translateY(-1px); }
+.btn--ghost { background: transparent; color: var(--black); border-color: var(--mid); }
+.btn--ghost:hover:not(:disabled) { border-color: var(--black); }
+.btn--sm { padding: 0.55rem 1rem; font-size: 0.68rem; }
+.btn--block { width: 100%; }
+
+/* --- Karten ---------------------------------------------------------- */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--mid);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+.card--pad { padding: 1.75rem; }
+
+/* --- View-Container -------------------------------------------------- */
+.view {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 2rem 1.75rem 4rem;
+}
+.view-title {
+  font-size: 1.6rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem;
+  letter-spacing: -0.01em;
+}
+
+/* --- Notices --------------------------------------------------------- */
+.notice {
+  border-radius: var(--radius);
+  padding: 0.85rem 1rem;
+  font-size: 0.9rem;
+  margin: 0 0 1.1rem;
+  line-height: 1.45;
+}
+.notice--error { background: var(--error-bg); color: var(--error); border: 1px solid #f3c4bd; }
+
+/* --- Login ----------------------------------------------------------- */
+.login-wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background:
+    radial-gradient(1200px 600px at 50% -10%, var(--off-white), var(--white));
+}
+.login-card {
+  width: 100%;
+  max-width: 400px;
+  padding: 2.5rem 2rem;
+  text-align: center;
+}
+.login-eyebrow {
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent-dim);
+  margin: 0 0 0.35rem;
+  font-weight: 600;
+}
+.login-title { font-size: 1.6rem; font-weight: 700; margin: 0 0 0.6rem; }
+.login-sub { font-size: 0.9rem; margin: 0 0 1.5rem; }
+.login-card .notice { text-align: left; }
+.login-card .btn--block { margin-top: 0.25rem; }
+.login-foot { font-size: 0.72rem; margin: 1.5rem 0 0; letter-spacing: 0.04em; }
+
+/* --- Formfelder (für spätere Phasen vorbereitet) --------------------- */
+.field { margin-bottom: 1.1rem; text-align: left; }
+.field label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 0.35rem;
+}
+.field input,
+.field select,
+.field textarea {
+  width: 100%;
+  font-family: var(--font);
+  font-size: 0.95rem;
+  color: var(--black);
+  background: var(--white);
+  border: 1px solid var(--mid);
+  border-radius: var(--radius);
+  padding: 0.7rem 0.85rem;
+}
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(226,98,44,0.12);
+}
+.field textarea { resize: vertical; min-height: 110px; }
+
+/* --- Notice: Erfolg -------------------------------------------------- */
+.notice--ok { background: #eaf5ee; color: var(--ok); border: 1px solid #bfe0cb; }
+
+/* --- Sektionen / Layout-Helfer --------------------------------------- */
+.view-intro { margin: -0.25rem 0 1.5rem; }
+.stack { margin-bottom: 2rem; }
+.stack:last-child { margin-bottom: 0; }
+.section-title {
+  font-size: 1.05rem; font-weight: 700; margin: 0 0 0.8rem;
+  display: flex; align-items: center; gap: 0.5rem;
+}
+.count-badge {
+  font-size: 0.7rem; font-weight: 700; color: #fff;
+  background: var(--accent); border-radius: 999px; padding: 0.1rem 0.5rem;
+}
+
+/* --- Pills (Status) -------------------------------------------------- */
+.pill {
+  display: inline-block; font-size: 0.72rem; font-weight: 600;
+  letter-spacing: 0.02em; line-height: 1.3; white-space: nowrap;
+  padding: 0.25rem 0.6rem; border-radius: 999px;
+}
+.pill--neutral { background: var(--off-white); color: var(--muted); border: 1px solid var(--mid); }
+.pill--ok      { background: #eaf5ee; color: var(--ok); border: 1px solid #bfe0cb; }
+.pill--aktion  { background: rgba(226,98,44,0.10); color: var(--accent-dim); border: 1px solid rgba(226,98,44,0.25); }
+
+/* --- Aufgaben-Karten ------------------------------------------------- */
+.task-list { display: flex; flex-direction: column; gap: 0.75rem; }
+.task-card {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+.task-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+.task-main { display: flex; flex-direction: column; gap: 0.4rem; align-items: flex-start; min-width: 0; }
+.task-name { font-weight: 600; font-size: 1rem; color: var(--black); }
+.task-typ { font-size: 0.8rem; }
+.task-cta { flex: 0 0 auto; }
+
+/* --- Zeilen-Listen (Videos / Objekte) -------------------------------- */
+.row-list { overflow: hidden; padding: 0; }
+.row-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  padding: 0.9rem 1.25rem; border-bottom: 1px solid var(--mid);
+  color: var(--black); transition: background 0.12s ease;
+}
+.row-item:last-child { border-bottom: none; }
+a.row-item:hover { background: var(--off-white); }
+.row-item--static { cursor: default; }
+.row-main { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+.row-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row-sub { font-size: 0.78rem; }
+
+/* --- Leerzustände ---------------------------------------------------- */
+.empty-card { text-align: center; }
+.empty-emoji { font-size: 1.8rem; }
+.empty-title { font-weight: 700; margin: 0.3rem 0 0.15rem; }
+.empty-card .btn { margin-top: 0.8rem; }
+
+/* --- Formular-Karte -------------------------------------------------- */
+.form-card { max-width: 560px; }
+.req { color: var(--accent); }
+.field-hint { font-size: 0.75rem; margin: 0.35rem 0 0; }
+
+/* --- Video-Detail ---------------------------------------------------- */
+.back-link { display: inline-block; font-size: 0.82rem; color: var(--muted); margin-bottom: 0.6rem; }
+.back-link:hover { color: var(--accent); }
+.vd-media { margin-bottom: 1.25rem; }
+.vd-action { margin-bottom: 2rem; }
+.media-card { overflow: hidden; }
+.media-label {
+  font-size: 0.8rem; font-weight: 600; color: var(--muted);
+  padding: 0.85rem 1.25rem; border-bottom: 1px solid var(--mid);
+}
+.embed-wrap { position: relative; width: 100%; aspect-ratio: 16 / 9; background: #000; }
+.embed-wrap iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.embed-pdf { width: 100%; height: 70vh; min-height: 480px; background: var(--off-white); }
+.embed-pdf iframe { width: 100%; height: 100%; border: 0; }
+.media-extern { display: inline-block; font-size: 0.78rem; padding: 0.7rem 1.25rem; }
+.media-extern:hover { color: var(--accent); }
+
+/* --- Aktionen (Freigeben / Änderungen) ------------------------------- */
+.action-card .action-hint { margin: 0.7rem 0 1rem; }
+.action-btns { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+
+/* --- Kommentar-Thread ------------------------------------------------ */
+.vd-komm { margin-top: 1rem; }
+.komm-list { display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1.25rem; }
+.komm {
+  border: 1px solid var(--mid); border-radius: var(--radius);
+  padding: 0.8rem 1rem; background: var(--surface);
+}
+.komm--admin { border-left: 3px solid var(--accent); background: var(--off-white); }
+.komm-head { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.3rem; flex-wrap: wrap; }
+.komm-autor { font-weight: 600; font-size: 0.85rem; }
+.komm-zeit { font-size: 0.72rem; margin-left: auto; }
+.komm-text { font-size: 0.92rem; white-space: pre-wrap; line-height: 1.5; }
+.komm-form textarea { min-height: 80px; }
+
+/* ===================================================================== */
+/* ADMIN-ANSICHTEN                                                        */
+/* ===================================================================== */
+
+/* --- Kopfzeile mit Aktion (Pipeline / Objekte / Kalender) ------------ */
+.admin-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 1rem; margin-bottom: 0.4rem;
+}
+
+/* --- Inline-Select (in Listenzeilen) -------------------------------- */
+.field-inline {
+  border: 1px solid var(--mid); border-radius: var(--radius);
+  padding: 0.5rem 0.6rem; background: var(--surface);
+  font: inherit; font-size: 0.85rem; color: var(--black); max-width: 100%;
+}
+.field-inline:focus {
+  outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(226,98,44,0.12);
+}
+
+/* --- Pipeline-Zeile -------------------------------------------------- */
+.pl-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  padding: 0.9rem 1.25rem; border-bottom: 1px solid var(--mid);
+}
+.pl-row:last-child { border-bottom: none; }
+.pl-main { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
+.pl-main .row-name { color: var(--black); }
+.pl-main .row-name:hover { color: var(--accent); }
+.pl-status { flex: 0 0 auto; }
+
+/* --- Video-Edit-Formular -------------------------------------------- */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 1.25rem; }
+.freigabe-info {
+  display: flex; flex-wrap: wrap; gap: 0.4rem 1.5rem;
+  padding: 0.9rem 1rem; margin: 0.5rem 0 0.25rem;
+  background: var(--off-white); border: 1px solid var(--mid);
+  border-radius: var(--radius); font-size: 0.85rem;
+}
+
+/* --- Objekte-Zeile --------------------------------------------------- */
+.ob-row {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 1rem; padding: 1rem 1.25rem; border-bottom: 1px solid var(--mid);
+}
+.ob-row:last-child { border-bottom: none; }
+.ob-main { display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; }
+.ob-beschr { font-size: 0.85rem; margin: 0.2rem 0 0; line-height: 1.5; white-space: pre-wrap; }
+.ob-link { font-size: 0.78rem; }
+.ob-link:hover { color: var(--accent); }
+.ob-aktionen {
+  display: flex; flex-direction: column; gap: 0.5rem;
+  flex: 0 0 auto; align-items: stretch;
+}
+
+/* --- Kalender -------------------------------------------------------- */
+.kal-bar { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; }
+.kal-titel { font-weight: 700; font-size: 1.05rem; min-width: 11rem; }
+.kal-titel + button { margin-left: 0; }
+.kal-bar #kalHeute { margin-left: auto; }
+.kal-card { padding: 0.75rem; }
+.kal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.kal-wt {
+  text-align: center; font-size: 0.72rem; font-weight: 700; color: var(--muted);
+  padding: 0.3rem 0; letter-spacing: 0.04em;
+}
+.kal-tag {
+  min-height: 84px; border: 1px solid var(--mid); border-radius: var(--radius);
+  padding: 0.3rem; display: flex; flex-direction: column; gap: 0.25rem;
+  background: var(--surface);
+}
+.kal-tag--leer { border-color: transparent; background: transparent; }
+.kal-tag--heute { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.kal-tag-num { font-size: 0.72rem; font-weight: 600; color: var(--muted); }
+.kal-chip {
+  display: block; font-size: 0.7rem; line-height: 1.2; font-weight: 600;
+  background: rgba(226,98,44,0.10); color: var(--accent-dim);
+  border: 1px solid rgba(226,98,44,0.25); border-radius: 4px;
+  padding: 0.2rem 0.3rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.kal-chip:hover { background: rgba(226,98,44,0.18); }
+
+/* --- Mobil ----------------------------------------------------------- */
+@media (max-width: 720px) {
+  .topbar { flex-wrap: wrap; gap: 0.75rem 1rem; padding: 0.85rem 1.1rem; }
+  .topnav { order: 3; flex-basis: 100%; overflow-x: auto; }
+  .user-email { display: none; }
+  .view { padding: 1.5rem 1.1rem 3rem; }
+
+  .task-card { flex-direction: column; align-items: stretch; }
+  .task-cta { width: 100%; }
+  .embed-pdf { height: 60vh; min-height: 360px; }
+  .action-btns .btn { flex: 1 1 auto; }
+
+  .grid-2 { grid-template-columns: 1fr; gap: 0; }
+  .pl-row { flex-direction: column; align-items: stretch; gap: 0.6rem; }
+  .pl-status { width: 100%; }
+  .ob-row { flex-direction: column; }
+  .ob-aktionen { flex-direction: row; flex-wrap: wrap; }
+  .ob-aktionen .field-inline { flex: 1 1 100%; }
+  .kal-tag { min-height: 60px; }
+  .kal-chip { font-size: 0.62rem; }
+  .kal-titel { min-width: 0; flex: 1; font-size: 0.95rem; }
+}

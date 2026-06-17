@@ -578,6 +578,15 @@ footer {
   letter-spacing: 0.1em;
 }
 
+.footer-login {
+  font-size: 0.72rem;
+  color: var(--light);
+  letter-spacing: 0.1em;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+.footer-login:hover { color: var(--gold-dim); }
+
 /* ── Work Section ── */
 .work-section {
   border-top: 1px solid var(--mid);

@@ -31,15 +31,19 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SECRETS = os.path.join(HERE, "config", "secrets.php")
 
 # Welche Dateien/Ordner gehoeren zur Seite und werden hochgeladen.
-INCLUDE_DIRS = ["css", "js", "assets"]
+# "kunden" = das Kundenportal (SPA). Es wird rekursiv mitgenommen; einzig
+# firestore.rules darf NICHT hoch (gehoert in die Firebase-Console), siehe
+# EXCLUDE_NAMES / EXCLUDE_EXT unten.
+INCLUDE_DIRS = ["css", "js", "assets", "kunden"]
 INCLUDE_ROOT_FILES_EXT = (".html", ".css", ".js", ".ico", ".png", ".jpg",
                           ".jpeg", ".webp", ".svg", ".txt", ".xml", ".webmanifest")
 
 # Niemals hochladen (lokale Artefakte / Geheimnisse / Repo / Rohmaterial).
+# firestore.rules wird in der Firebase-Console veroeffentlicht, nicht aufs Hosting.
 EXCLUDE_NAMES = {".git", ".gitignore", "config", "deploy.py", "node_modules",
-                 ".vscode", ".idea", "__pycache__"}
+                 ".vscode", ".idea", "__pycache__", "firestore.rules"}
 EXCLUDE_EXT = (".mp4", ".mov", ".avi", ".mkv", ".prproj", ".drp",
-               ".py", ".php", ".log", ".tmp")
+               ".py", ".php", ".log", ".tmp", ".rules")
 
 
 def load_secrets(path):
@@ -81,6 +85,8 @@ def gather_files():
         for root, dirs, files in os.walk(base):
             dirs[:] = [x for x in dirs if x not in EXCLUDE_NAMES]
             for f in files:
+                if f in EXCLUDE_NAMES:
+                    continue
                 ext = os.path.splitext(f)[1].lower()
                 if ext in EXCLUDE_EXT:
                     continue
