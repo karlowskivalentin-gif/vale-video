@@ -3,15 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>vale-video — Imagefilm & Videografie</title>
-  <meta name="description" content="Valentin Karlowski — Cineastische Imagefilme für lokale Unternehmen. Düsseldorf." />
+  <title>vale-video — Imagefilm & Videografie Düsseldorf</title>
+  <meta name="description" content="Valentin Karlowski — Imagefilme, Social Reels und Objektvideos für lokale Unternehmen in Düsseldorf. Klar, modern, wirkungsvoll." />
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
-
-  <!-- Custom Cursor -->
-  <div class="cursor" id="cursor"></div>
-  <div class="cursor-follower" id="cursorFollower"></div>
 
   <!-- Navigation -->
   <nav>
@@ -20,137 +16,295 @@
       <li><a href="portfolio.html">Portfolio</a></li>
       <li><a href="about.html">About</a></li>
       <li><a href="contact.html">Kontakt</a></li>
+      <li><a href="contact.html" class="nav-cta">Projekt anfragen</a></li>
     </ul>
   </nav>
 
   <!-- Hero -->
-  <section class="hero">
-    <div class="hero-bg"></div>
-    <div class="hero-grain"></div>
-    <div class="hero-line"></div>
+  <section class="hero" id="hero">
+    <div class="hero-head">
+      <p class="hero-eyebrow">Imagefilm · Social Reels · Düsseldorf</p>
+      <h1 class="hero-title">
+        Videos, die dein Unternehmen <em>sichtbar</em> machen.
+      </h1>
+      <p class="hero-sub">
+        Imagefilme, Social Reels und Objektvideos für lokale Unternehmen —
+        visuell stark, klar erzählt und auf dein Ziel gebaut.
+      </p>
+      <div class="hero-actions">
+        <a href="contact.html" class="btn btn--accent">Projekt anfragen</a>
+        <a href="#work" class="btn btn--ghost">Arbeiten ansehen</a>
+      </div>
+    </div>
 
-    <p class="hero-eyebrow">Imagefilm · Social Reels · Düsseldorf</p>
+    <!-- HERO VIDEO SLOT: später <video autoplay muted loop playsinline poster> hier einsetzen,
+         data-video-src auf die Showreel-Datei setzen und das hidden-Attribut entfernen.
+         Solange data-video-src leer ist, bleibt das Projekt-Grid das Hauptvisual. -->
+    <div class="hero-video-slot" data-video-src="" hidden>
+      <!-- <video autoplay muted loop playsinline poster="assets/images/showreel-poster.jpg">
+             <source src="" type="video/mp4" />
+           </video> -->
+    </div>
 
-    <h1 class="hero-title">
-      Film, der<br/>
-      <em>bleibt.</em>
-    </h1>
-
-    <p class="hero-sub">
-      Cineastische Imagefilme für lokale Unternehmen —
-      visuell stark, emotional wirkungsvoll.
-    </p>
-
-    <a href="portfolio.html" class="hero-cta">
-      <span class="hero-cta-line"></span>
-      Zum Portfolio
-    </a>
-
-    <div class="hero-scroll">
-      <div class="scroll-line"></div>
-      <span>Scroll</span>
+    <!-- Projekt-Grid — aktuelles Hauptvisual -->
+    <div class="hero-grid">
+      <a href="projekt-amsterdam.html" class="hero-tile is-wide">
+        <img src="assets/images/thumb-amsterdam.png" alt="Amsterdam Reel" />
+        <div class="hero-tile-cap">
+          <p class="hero-tile-tag">Reel · Amsterdam</p>
+          <p class="hero-tile-name">Amsterdam</p>
+        </div>
+      </a>
+      <a href="projekt-schneider.html" class="hero-tile">
+        <img src="assets/images/thumb-schneider.png" alt="Café Schneider Imagefilm" />
+        <div class="hero-tile-cap">
+          <p class="hero-tile-tag">Imagefilm</p>
+          <p class="hero-tile-name">Café Schneider</p>
+        </div>
+      </a>
+      <a href="projekt-zicke.html" class="hero-tile">
+        <img src="assets/images/thumb-zicke.png" alt="Bistro Zicke Imagefilm" />
+        <div class="hero-tile-cap">
+          <p class="hero-tile-tag">Imagefilm</p>
+          <p class="hero-tile-name">Bistro Zicke</p>
+        </div>
+      </a>
+      <a href="projekt-clubpilates.html" class="hero-tile">
+        <img src="assets/images/thumb-clubpilates.png" alt="Club Pilates Reel" />
+        <div class="hero-tile-cap">
+          <p class="hero-tile-tag">Reel · Fibo 2026</p>
+          <p class="hero-tile-name">Club Pilates</p>
+        </div>
+      </a>
+      <a href="projekt-cathy.html" class="hero-tile">
+        <img src="assets/images/thumb-cathy.png" alt="Cathy Hummels Interview Reel" />
+        <div class="hero-tile-cap">
+          <p class="hero-tile-tag">Interview · Reel</p>
+          <p class="hero-tile-name">Cathy Hummels</p>
+        </div>
+      </a>
     </div>
   </section>
 
-  <!-- Was ich mache -->
-  <section class="work-section">
+  <!-- Leistungen -->
+  <section class="services-section" id="leistungen">
+    <div class="section-header">
+      <div>
+        <p class="section-label">Leistungen</p>
+        <h2 class="section-title">Alles aus einer Hand — von der Idee bis zum fertigen Film.</h2>
+      </div>
+      <p class="section-desc">
+        Konzept, Dreh, Schnitt und Color: Du bekommst ein durchdachtes
+        Ergebnis ohne Schnittstellen-Chaos.
+      </p>
+    </div>
+
+    <div class="services-grid">
+      <div class="service-item">
+        <p class="service-num">01</p>
+        <h3 class="service-name">Imagefilm</h3>
+        <p class="service-desc">Dein Unternehmen cineastisch erzählt — wer du bist, was dich ausmacht, in Bewegtbild.</p>
+      </div>
+      <div class="service-item">
+        <p class="service-num">02</p>
+        <h3 class="service-name">Objekt- & Immobilienvideo</h3>
+        <p class="service-desc">Räume, die sich verkaufen. Klare, lichtstarke Touren, die Interessenten überzeugen.</p>
+      </div>
+      <div class="service-item">
+        <p class="service-num">03</p>
+        <h3 class="service-name">Social Reels</h3>
+        <p class="service-desc">Kurz, stark, scroll-stoppend. Vertikales Bewegtbild für Instagram, TikTok & Co.</p>
+      </div>
+      <div class="service-item">
+        <p class="service-num">04</p>
+        <h3 class="service-name">Drohnenaufnahmen</h3>
+        <p class="service-desc">Perspektiven, die Eindruck machen — Luftbilder für Objekt, Event und Image.</p>
+      </div>
+      <div class="service-item">
+        <p class="service-num">05</p>
+        <h3 class="service-name">Interview & Statement</h3>
+        <p class="service-desc">Authentische O-Töne, gut ausgeleuchtet und sauber geschnitten.</p>
+      </div>
+      <div class="service-item">
+        <p class="service-num">06</p>
+        <h3 class="service-name">Schnitt & Color</h3>
+        <p class="service-desc">Erzählrhythmus und Look — auch für vorhandenes Material aus deiner Hand.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Work / Portfolio-Grid -->
+  <section class="work-section" id="work">
     <div class="work-intro">
-      <p class="section-label">Was ich mache</p>
-      <h2 class="work-intro-title">Zwei Formate.<br/><em>Eine Haltung.</em></h2>
+      <p class="section-label">Ausgewählte Arbeiten</p>
+      <h2 class="work-intro-title">Projekte, die <em>wirken.</em></h2>
     </div>
 
-    <!-- Imagefilm -->
-    <div class="work-block" id="block-imagefilm">
-      <div class="work-block-header" onclick="toggleBlock('block-imagefilm')">
-        <div class="work-block-left">
-          <span class="work-num">01</span>
-          <h3 class="work-name">Imagefilm</h3>
-        </div>
-        <div class="work-block-right">
-          <p class="work-tag">Café Schneider · Bistro Zicke</p>
-          <span class="work-chevron">+</span>
-        </div>
-      </div>
-      <div class="work-block-body">
-        <div class="work-block-inner">
-          <p class="work-block-desc">
-            Dein Unternehmen, cineastisch erzählt. Kein generischer Werbefilm —
-            ein Film, der zeigt wer du wirklich bist. Mit echten Menschen,
-            echten Momenten, echtem Licht.
-          </p>
-          <div class="work-projects">
-            <a href="projekt-schneider.html" class="work-project-card">
-              <img src="assets/images/thumb-schneider.png" alt="Café Schneider" />
-              <div class="work-project-info">
-                <p class="work-project-tag">Imagefilm · Düsseldorf-Benrath</p>
-                <p class="work-project-name">Café Schneider</p>
-              </div>
-              <div class="work-project-arrow">→</div>
-            </a>
-            <a href="projekt-zicke.html" class="work-project-card">
-              <img src="assets/images/thumb-zicke.png" alt="Bistro Zicke" />
-              <div class="work-project-info">
-                <p class="work-project-tag">Imagefilm · Düsseldorf Altstadt</p>
-                <p class="work-project-name">Bistro Zicke</p>
-              </div>
-              <div class="work-project-arrow">→</div>
-            </a>
-          </div>
-        </div>
-      </div>
+    <div class="work-filter" id="workFilter">
+      <button class="filter-chip is-active" data-filter="all">Alle</button>
+      <button class="filter-chip" data-filter="imagefilm">Imagefilm</button>
+      <button class="filter-chip" data-filter="reels">Reels</button>
     </div>
 
-    <!-- Social Reels -->
-    <div class="work-block" id="block-reels">
-      <div class="work-block-header" onclick="toggleBlock('block-reels')">
-        <div class="work-block-left">
-          <span class="work-num">02</span>
-          <h3 class="work-name">Social Reels</h3>
+    <div class="work-grid" id="workGrid">
+      <a href="projekt-amsterdam.html" class="work-card" data-category="reels">
+        <img src="assets/images/thumb-amsterdam.png" alt="Amsterdam Reel" />
+        <div class="work-card-overlay">
+          <p class="work-card-tag">Reel · Amsterdam</p>
+          <p class="work-card-name">Amsterdam</p>
         </div>
-        <div class="work-block-right">
-          <p class="work-tag">Club Pilates · Cathy Hummels · Fibo 2026</p>
-          <span class="work-chevron">+</span>
+      </a>
+      <a href="projekt-schneider.html" class="work-card" data-category="imagefilm">
+        <img src="assets/images/thumb-schneider.png" alt="Café Schneider Imagefilm" />
+        <div class="work-card-overlay">
+          <p class="work-card-tag">Imagefilm · Düsseldorf-Benrath</p>
+          <p class="work-card-name">Café Schneider</p>
         </div>
-      </div>
-      <div class="work-block-body">
-        <div class="work-block-inner">
-          <p class="work-block-desc">
-            Kurz, stark, scroll-stoppend. Auf der Fibo 2026 durfte ich
-            für Club Pilates und ihre Kooperationspartnerin Cathy Hummels
-            den ganzen Tag mit der Kamera dabei sein — das Ergebnis sind
-            Reels, die die Energie des Events wirklich transportieren.
-          </p>
-          <div class="work-projects">
-            <a href="projekt-clubpilates.html" class="work-project-card">
-              <img src="assets/images/thumb-clubpilates.png" alt="Club Pilates" />
-              <div class="work-project-info">
-                <p class="work-project-tag">Reels · Fibo 2026</p>
-                <p class="work-project-name">Club Pilates</p>
-              </div>
-              <div class="work-project-arrow">→</div>
-            </a>
-            <a href="projekt-cathy.html" class="work-project-card">
-              <img src="assets/images/thumb-cathy.png" alt="Cathy Hummels" />
-              <div class="work-project-info">
-                <p class="work-project-tag">Interview · Reel · Fibo 2026</p>
-                <p class="work-project-name">Cathy Hummels</p>
-              </div>
-              <div class="work-project-arrow">→</div>
-            </a>
-          </div>
+      </a>
+      <a href="projekt-zicke.html" class="work-card" data-category="imagefilm">
+        <img src="assets/images/thumb-zicke.png" alt="Bistro Zicke Imagefilm" />
+        <div class="work-card-overlay">
+          <p class="work-card-tag">Imagefilm · Düsseldorf Altstadt</p>
+          <p class="work-card-name">Bistro Zicke</p>
         </div>
-      </div>
+      </a>
+      <a href="projekt-clubpilates.html" class="work-card" data-category="reels">
+        <img src="assets/images/thumb-clubpilates.png" alt="Club Pilates Reel" />
+        <div class="work-card-overlay">
+          <p class="work-card-tag">Reel · Fibo 2026</p>
+          <p class="work-card-name">Club Pilates</p>
+        </div>
+      </a>
+      <a href="projekt-cathy.html" class="work-card" data-category="reels">
+        <img src="assets/images/thumb-cathy.png" alt="Cathy Hummels Interview Reel" />
+        <div class="work-card-overlay">
+          <p class="work-card-tag">Interview · Reel · Fibo 2026</p>
+          <p class="work-card-name">Cathy Hummels</p>
+        </div>
+      </a>
     </div>
 
+    <div class="work-filter" style="justify-content:center; padding-top:0;">
+      <a href="portfolio.html" class="btn btn--ghost">Alle Projekte ansehen</a>
+    </div>
+  </section>
+
+  <!-- Ablauf / Prozess -->
+  <section class="process" id="ablauf">
+    <div class="section-header">
+      <div>
+        <p class="section-label">Ablauf</p>
+        <h2 class="section-title">So entsteht dein Film.</h2>
+      </div>
+      <p class="section-desc">
+        Klarer Prozess, keine Überraschungen. Du weißt jederzeit,
+        wo dein Projekt steht.
+      </p>
+    </div>
+
+    <div class="process-grid">
+      <div class="process-item">
+        <p class="process-num">01</p>
+        <h3>Erstgespräch</h3>
+        <p>Wir klären Ziel, Botschaft und Budget — unverbindlich und ehrlich.</p>
+      </div>
+      <div class="process-item">
+        <p class="process-num">02</p>
+        <h3>Konzept</h3>
+        <p>Idee, Look und Ablaufplan. Du weißt vorher genau, was entsteht.</p>
+      </div>
+      <div class="process-item">
+        <p class="process-num">03</p>
+        <h3>Dreh</h3>
+        <p>Professionelles Equipment, ruhige Regie, echte Momente vor der Kamera.</p>
+      </div>
+      <div class="process-item">
+        <p class="process-num">04</p>
+        <h3>Schnitt</h3>
+        <p>Erzählrhythmus, Sounddesign und Color — der Film bekommt seinen Look.</p>
+      </div>
+      <div class="process-item">
+        <p class="process-num">05</p>
+        <h3>Feedback</h3>
+        <p>Eine Korrekturschleife inklusive. Wir feilen, bis es sitzt.</p>
+      </div>
+      <div class="process-item">
+        <p class="process-num">06</p>
+        <h3>Übergabe</h3>
+        <p>Fertige Dateien in allen Formaten — bereit für Web, Social und Pitch.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Preis-Orientierung -->
+  <section class="pricing" id="preise">
+    <div class="section-header">
+      <div>
+        <p class="section-label">Orientierung</p>
+        <h2 class="section-title">Pakete als Startpunkt.</h2>
+      </div>
+      <p class="section-desc">
+        Jedes Projekt ist individuell — diese Pakete geben dir ein Gefühl.
+        Den genauen Preis bekommst du nach dem Erstgespräch.
+      </p>
+    </div>
+
+    <!-- PRICING PLACEHOLDER: echte Preise nach Valentins Freigabe eintragen -->
+    <div class="pricing-grid">
+      <div class="pricing-tier">
+        <p class="pricing-name">Social Reel</p>
+        <p class="pricing-price">ab €—<span> / Reel</span></p>
+        <ul>
+          <li>Halber Drehtag vor Ort</li>
+          <li>1 vertikales Reel (15–45 Sek.)</li>
+          <li>Schnitt, Musik & Untertitel</li>
+          <li>1 Korrekturschleife</li>
+        </ul>
+        <a href="contact.html" class="btn btn--ghost">Anfragen</a>
+      </div>
+
+      <div class="pricing-tier is-featured">
+        <span class="pricing-badge">Beliebt</span>
+        <p class="pricing-name">Imagefilm</p>
+        <p class="pricing-price">ab €—<span> / Projekt</span></p>
+        <ul>
+          <li>Konzept & Drehplan</li>
+          <li>Ganzer Drehtag</li>
+          <li>Hauptfilm 60–120 Sek.</li>
+          <li>2 Social-Cutdowns</li>
+          <li>2 Korrekturschleifen</li>
+        </ul>
+        <a href="contact.html" class="btn btn--accent">Anfragen</a>
+      </div>
+
+      <div class="pricing-tier">
+        <p class="pricing-name">Immobilien-Paket</p>
+        <p class="pricing-price">ab €—<span> / Objekt</span></p>
+        <ul>
+          <li>Objektvideo inkl. Tour</li>
+          <li>Drohnenaufnahmen</li>
+          <li>Hochformat-Version für Social</li>
+          <li>Schnelle Lieferung</li>
+        </ul>
+        <a href="contact.html" class="btn btn--ghost">Anfragen</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA-Band -->
+  <section class="cta-band">
+    <h2>Ein Projekt im Kopf? Lass uns <em>reden.</em></h2>
+    <div class="cta-band-actions">
+      <a href="contact.html" class="btn btn--accent">Projekt anfragen</a>
+      <!-- WHATSAPP: <NUMMER> durch echte E.164-Nummer ersetzen, z. B. 49151XXXXXXXX -->
+      <a href="https://wa.me/49000000000?text=Hi%20Valentin%2C%20ich%20habe%20ein%20Videoprojekt%20im%20Kopf." target="_blank" rel="noopener" class="btn btn--whatsapp">Per WhatsApp schreiben</a>
+    </div>
   </section>
 
   <!-- About Teaser -->
   <section class="about-teaser">
     <div class="about-quote">
-      "Ich filme nicht,<br/>
-      was ich sehe —<br/>
-      ich filme, was ich
-      <em>fühle.</em>"
+      Ich filme nicht nur, was ich sehe — ich filme, was dein Unternehmen <em>ausmacht.</em>
     </div>
     <div class="about-body">
       <p>
@@ -161,7 +315,7 @@
       <p>
         Mein Fokus liegt auf lokalen Unternehmen, die mehr verdienen
         als einen beliebigen Clip. Jedes Bild ist bewusst gesetzt,
-        jeder Schnitt hat Grund.
+        jeder Schnitt hat einen Grund.
       </p>
       <a href="about.html" class="about-link">
         <span class="about-link-line"></span>
@@ -173,7 +327,7 @@
   <!-- Footer -->
   <footer>
     <span class="footer-logo">vale<span>—</span>video</span>
-    <span class="footer-copy">© 2024 Valentin Karlowski</span>
+    <span class="footer-copy">© 2026 Valentin Karlowski</span>
   </footer>
 
   <script src="js/main.js"></script>

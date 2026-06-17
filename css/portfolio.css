@@ -8,10 +8,11 @@
 
 .portfolio-title {
   font-family: var(--font-display);
-  font-weight: 300;
-  font-size: clamp(5rem, 14vw, 13rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  font-size: clamp(4rem, 12vw, 11rem);
   line-height: 0.9;
-  color: var(--white);
+  color: var(--black);
   margin-bottom: 1.5rem;
 }
 
@@ -24,7 +25,7 @@
 
 /* ── Nav active state ── */
 .nav-active {
-  color: var(--white) !important;
+  color: var(--black) !important;
 }
 
 .nav-active::after {
@@ -81,7 +82,7 @@
 .project-thumb-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, rgba(201,168,76,0.04), transparent);
+  background: linear-gradient(135deg, rgba(226,98,44,0.05), transparent);
   pointer-events: none;
 }
 
@@ -175,13 +176,13 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  filter: saturate(0.5) brightness(0.45);
+  filter: saturate(0.95) brightness(0.92);
 }
 
 .detail-hero-gradient {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, rgba(8,8,8,0.95) 0%, rgba(8,8,8,0.2) 60%, transparent 100%);
+  background: linear-gradient(to top, rgba(20,17,13,0.85) 0%, rgba(20,17,13,0.25) 55%, transparent 100%);
 }
 
 .detail-hero-content {
@@ -199,15 +200,17 @@
 
 .detail-title {
   font-family: var(--font-display);
-  font-weight: 300;
+  font-weight: 700;
+  letter-spacing: -0.02em;
   font-size: clamp(3rem, 8vw, 7rem);
   line-height: 0.95;
-  color: var(--white);
+  color: #fff;
 }
 
 .detail-title em {
-  font-style: italic;
-  color: var(--gold);
+  font-style: normal;
+  font-weight: 700;
+  color: var(--accent);
 }
 
 /* Detail Body */
@@ -240,9 +243,10 @@
 
 .detail-text h2 {
   font-family: var(--font-display);
-  font-weight: 300;
+  font-weight: 700;
+  letter-spacing: -0.02em;
   font-size: clamp(1.8rem, 3vw, 2.8rem);
-  color: var(--white);
+  color: var(--black);
   margin-bottom: 2rem;
   line-height: 1.2;
 }
@@ -262,29 +266,25 @@
 
 .video-quality-hint {
   font-family: var(--font-display);
-  font-style: italic;
-  font-weight: 300;
-  font-size: 2rem;
-  letter-spacing: 0.04em;
+  font-style: normal;
+  font-weight: 600;
+  font-size: 1.5rem;
+  letter-spacing: -0.01em;
   text-align: center;
   margin-bottom: 2.5rem;
   margin-top: 3rem;
   padding: 0 2rem;
-  animation: candlebeat 3.5s ease-in-out infinite;
-  color: var(--gold);
+  color: var(--accent);
 }
 
 .video-quality-hint em {
   font-style: normal;
-  color: var(--white);
+  color: var(--black);
 }
 
 @keyframes candlebeat {
-  0%   { opacity: 0.45; text-shadow: 0 0 8px rgba(201,168,76,0.2); }
-  35%  { opacity: 0.85; text-shadow: 0 0 18px rgba(201,168,76,0.5), 0 0 40px rgba(201,168,76,0.15); }
-  50%  { opacity: 0.75; text-shadow: 0 0 12px rgba(201,168,76,0.35); }
-  65%  { opacity: 0.9;  text-shadow: 0 0 22px rgba(201,168,76,0.55), 0 0 50px rgba(201,168,76,0.2); }
-  100% { opacity: 0.45; text-shadow: 0 0 8px rgba(201,168,76,0.2); }
+  0%, 100% { opacity: 0.85; }
+  50%      { opacity: 1; }
 }
 
 /* ── Custom YouTube Facade ── */
@@ -302,33 +302,21 @@
   height: 100%;
   object-fit: cover;
   display: block;
-  filter: brightness(0.75) saturate(0.6);
+  filter: brightness(0.94) saturate(0.98);
   transition: filter 0.5s ease, transform 0.6s ease;
 }
 
 .yt-facade:hover img {
-  filter: brightness(0.55) saturate(0.5);
+  filter: brightness(0.85) saturate(0.95);
   transform: scale(1.03);
 }
 
-/* Grain overlay */
-.yt-facade::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E");
-  background-size: 200px;
-  opacity: 0.04;
-  pointer-events: none;
-  z-index: 1;
-}
-
-/* Gold vignette */
+/* Soft vignette for play-button contrast */
 .yt-facade::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse at center, transparent 40%, rgba(8,8,8,0.7) 100%);
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(20,17,13,0.28) 100%);
   pointer-events: none;
   z-index: 1;
 }
@@ -354,19 +342,19 @@
 .yt-play-ring {
   width: 72px;
   height: 72px;
-  border: 1px solid rgba(201, 168, 76, 0.6);
+  border: 1px solid rgba(226, 98, 44, 0.7);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: border-color 0.3s ease, background 0.3s ease;
   backdrop-filter: blur(4px);
-  background: rgba(8,8,8,0.3);
+  background: rgba(20,17,13,0.3);
 }
 
 .yt-facade:hover .yt-play-ring {
   border-color: var(--gold);
-  background: rgba(201, 168, 76, 0.1);
+  background: rgba(226, 98, 44, 0.18);
 }
 
 .yt-play-triangle {
@@ -382,7 +370,7 @@
   font-size: 0.6rem;
   letter-spacing: 0.35em;
   text-transform: uppercase;
-  color: rgba(201, 168, 76, 0.7);
+  color: rgba(255, 217, 196, 0.9);
   font-family: var(--font-ui);
 }
 
@@ -565,9 +553,10 @@
 
 .nav-title {
   font-family: var(--font-display);
-  font-size: 1.6rem;
-  font-weight: 300;
-  color: var(--white);
+  font-size: 1.4rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--black);
   line-height: 1;
   transition: color 0.3s ease;
 }

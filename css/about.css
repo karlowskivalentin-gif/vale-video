@@ -1,7 +1,7 @@
 /* ── About Page ── */
 
 .nav-active {
-  color: var(--white) !important;
+  color: var(--black) !important;
 }
 
 .nav-active::after {
@@ -16,30 +16,20 @@
   justify-content: flex-end;
   position: relative;
   overflow: hidden;
-  background:
-    radial-gradient(circle at 72% 35%, rgba(201, 168, 76, 0.08), transparent 36%),
-    radial-gradient(circle at 18% 78%, rgba(201, 168, 76, 0.04), transparent 34%),
-    var(--black);
+  background: var(--surface-2);
   border-bottom: 1px solid var(--mid);
 }
 
 .about-glow {
-  position: absolute;
-  right: -160px;
-  bottom: 10%;
-  width: 520px;
-  height: 520px;
-  background: rgba(201, 168, 76, 0.08);
-  filter: blur(130px);
-  pointer-events: none;
+  display: none;
 }
 
 .about-title {
   font-family: var(--font-display);
-  font-weight: 300;
+  font-weight: 700;
   font-size: clamp(3.3rem, 8vw, 8rem);
   line-height: 0.95;
-  color: var(--white);
+  color: var(--black);
   max-width: 980px;
   letter-spacing: -0.04em;
   opacity: 0;
@@ -47,8 +37,9 @@
 }
 
 .about-title em {
-  color: var(--gold);
-  font-style: italic;
+  color: var(--accent);
+  font-style: normal;
+  font-weight: 700;
 }
 
 .about-sub {
@@ -75,11 +66,19 @@
 .process-intro h2,
 .about-cta-section h2 {
   font-family: var(--font-display);
-  font-weight: 300;
+  font-weight: 700;
+  letter-spacing: -0.02em;
   font-size: clamp(2.2rem, 4vw, 4rem);
   line-height: 1.05;
-  color: var(--white);
+  color: var(--black);
   margin-top: 1rem;
+}
+
+.statement-left h2 em,
+.about-cta-section h2 em {
+  font-style: normal;
+  font-weight: 700;
+  color: var(--accent);
 }
 
 .statement-right {
@@ -117,7 +116,7 @@
 .proof-card {
   min-height: 320px;
   padding: 2.5rem;
-  background: var(--black);
+  background: var(--surface);
   text-decoration: none;
   display: flex;
   flex-direction: column;
@@ -154,9 +153,10 @@
 
 .proof-card h3 {
   font-family: var(--font-display);
-  font-weight: 300;
-  font-size: 2.1rem;
-  color: var(--white);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  font-size: 1.8rem;
+  color: var(--black);
   margin-bottom: 1rem;
 }
 
@@ -197,9 +197,10 @@
 
 .process-item h3 {
   font-family: var(--font-display);
-  font-weight: 300;
-  font-size: 2rem;
-  color: var(--white);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  font-size: 1.7rem;
+  color: var(--black);
   margin-bottom: 0.8rem;
 }
 
@@ -218,19 +219,24 @@
   align-items: center;
   justify-content: center;
   border-bottom: 1px solid var(--mid);
-  background:
-    radial-gradient(circle at center, rgba(201, 168, 76, 0.07), transparent 38%),
-    var(--black);
+  background: var(--surface-2);
 }
 
 .about-philosophy p {
   font-family: var(--font-display);
-  font-weight: 300;
-  font-size: clamp(3rem, 7vw, 7rem);
-  line-height: 1;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-size: clamp(2.6rem, 6vw, 6rem);
+  line-height: 1.02;
   text-align: center;
-  color: var(--white);
+  color: var(--black);
   max-width: 980px;
+}
+
+.about-philosophy p em {
+  font-style: normal;
+  font-weight: 700;
+  color: var(--accent);
 }
 
 /* CTA */
@@ -248,7 +254,7 @@
   align-items: center;
   gap: 1rem;
   text-decoration: none;
-  color: var(--white);
+  color: var(--black);
   font-size: 0.75rem;
   letter-spacing: 0.22em;
   text-transform: uppercase;

@@ -7,39 +7,44 @@ function playYT(wrapperId, videoId) {
   wrap.classList.add('active');
 }
 
-
-const cursor = document.getElementById('cursor');
-const follower = document.getElementById('cursorFollower');
-
-let mouseX = 0, mouseY = 0;
-let followerX = 0, followerY = 0;
-
-document.addEventListener('mousemove', (e) => {
-  mouseX = e.clientX;
-  mouseY = e.clientY;
-  cursor.style.left = mouseX + 'px';
-  cursor.style.top  = mouseY + 'px';
+// ── Portfolio / Work Filter
+document.querySelectorAll('[data-filter]').forEach(chip => {
+  chip.addEventListener('click', () => {
+    const group = chip.closest('.work-filter');
+    const filter = chip.getAttribute('data-filter');
+    if (group) {
+      group.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('is-active'));
+    }
+    chip.classList.add('is-active');
+    document.querySelectorAll('.work-card').forEach(card => {
+      const cat = card.getAttribute('data-category');
+      const show = filter === 'all' || cat === filter;
+      card.classList.toggle('is-hidden', !show);
+    });
+  });
 });
 
-function animateFollower() {
-  followerX += (mouseX - followerX) * 0.12;
-  followerY += (mouseY - followerY) * 0.12;
-  follower.style.left = followerX + 'px';
-  follower.style.top  = followerY + 'px';
-  requestAnimationFrame(animateFollower);
-}
-animateFollower();
-
-// ── Accordion Toggle
-function toggleBlock(id) {
-  const block = document.getElementById(id);
-  if (!block) return;
-  const isOpen = block.classList.contains('open');
-  // Schließe alle
-  document.querySelectorAll('.work-block').forEach(b => b.classList.remove('open'));
-  // Öffne angeklickten wenn er vorher zu war
-  if (!isOpen) block.classList.add('open');
-}
+// ── Hero Video Swap-in Hook
+// Sobald der Showreel-Slot ein data-video-src trägt, wird das <video> injiziert
+// und das Projekt-Grid durch das Cover-Video ersetzt. No-Op solange leer.
+(function initHeroVideo() {
+  const slot = document.querySelector('.hero-video-slot');
+  const hero = document.getElementById('hero');
+  if (!slot || !hero) return;
+  const src = slot.getAttribute('data-video-src');
+  if (!src) return;
+  slot.removeAttribute('hidden');
+  if (!slot.querySelector('video')) {
+    const video = document.createElement('video');
+    video.src = src;
+    video.autoplay = true;
+    video.muted = true;
+    video.loop = true;
+    video.playsInline = true;
+    slot.appendChild(video);
+  }
+  hero.classList.add('hero--video');
+})();
 
 // ── Scroll Reveal
 const observer = new IntersectionObserver((entries) => {
@@ -51,7 +56,7 @@ const observer = new IntersectionObserver((entries) => {
   });
 }, { threshold: 0.15 });
 
-document.querySelectorAll('.work-block, .about-quote, .about-body').forEach(el => {
+document.querySelectorAll('.service-item, .work-card, .process-item, .pricing-tier, .cta-band, .about-quote, .about-body').forEach(el => {
   el.style.opacity = '0';
   el.style.transform = 'translateY(24px)';
   el.style.transition = 'opacity 0.8s ease, transform 0.8s ease';
