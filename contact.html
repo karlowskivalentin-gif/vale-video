@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kontakt — vale-video</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/contact.css" />
+</head>
+<body>
+
+  <div class="cursor" id="cursor"></div>
+  <div class="cursor-follower" id="cursorFollower"></div>
+
+  <nav>
+    <a href="index.html" class="nav-logo">vale<span>—</span>video</a>
+    <ul class="nav-links">
+      <li><a href="portfolio.html">Portfolio</a></li>
+      <li><a href="about.html">About</a></li>
+      <li><a href="contact.html" class="nav-active">Kontakt</a></li>
+    </ul>
+  </nav>
+
+  <section class="contact-page">
+    <div class="hero-grain"></div>
+
+    <div class="contact-left">
+      <p class="hero-eyebrow">Lass uns reden</p>
+      <h1 class="contact-title">
+        Ein Projekt<br/>
+        im <em>Kopf?</em>
+      </h1>
+      <p class="contact-sub">
+        Schreib mir — ich melde mich schnell und wir schauen
+        gemeinsam was möglich ist.
+      </p>
+      <div class="contact-details">
+        <div class="contact-detail-item">
+          <p class="contact-detail-label">Standort</p>
+          <p class="contact-detail-value">Düsseldorf, Deutschland</p>
+        </div>
+        <div class="contact-detail-item">
+          <p class="contact-detail-label">Verfügbar für</p>
+          <p class="contact-detail-value">Imagefilm · Social Reels · Events</p>
+        </div>
+        <div class="contact-detail-item">
+          <p class="contact-detail-label">Antwortzeit</p>
+          <p class="contact-detail-value">In der Regel innerhalb von 24h</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="contact-right">
+
+      <div id="formSuccess" class="form-success" style="display:none; opacity:0; transform:translateY(20px); transition: opacity 0.6s ease, transform 0.6s ease;">
+        <div class="success-check">✓</div>
+        <p class="success-title">Nachricht übermittelt.</p>
+        <p class="success-sub">Deine Nachricht wurde erfolgreich an Valentin Karlowski übermittelt — er meldet sich so schnell wie möglich.</p>
+        <a href="portfolio.html" class="about-link" style="margin-top:1rem;">
+          <span class="about-link-line"></span>
+          Portfolio ansehen
+        </a>
+      </div>
+
+      <div data-fs-error class="form-error-global"></div>
+
+      <form class="contact-form" id="contactForm">
+
+        <div class="form-row">
+          <div class="form-field">
+            <input type="text" id="name" name="name" required autocomplete="off" data-fs-field />
+            <label for="name">Dein Name</label>
+            <div class="field-line"></div>
+            <span class="field-error" data-fs-error="name"></span>
+          </div>
+          <div class="form-field">
+            <input type="email" id="email" name="email" required autocomplete="off" data-fs-field />
+            <label for="email">Deine E-Mail</label>
+            <div class="field-line"></div>
+            <span class="field-error" data-fs-error="email"></span>
+          </div>
+        </div>
+
+        <div class="form-field">
+          <input type="text" id="subject" name="subject" required autocomplete="off" data-fs-field />
+          <label for="subject">Was planst du?</label>
+          <div class="field-line"></div>
+        </div>
+
+        <div class="form-field">
+          <textarea id="message" name="message" required rows="5" data-fs-field></textarea>
+          <label for="message">Erzähl mir mehr</label>
+          <div class="field-line"></div>
+          <span class="field-error" data-fs-error="message"></span>
+        </div>
+
+        <button type="submit" class="form-submit" data-fs-submit-btn>
+          <span class="submit-text">Nachricht senden</span>
+          <span class="submit-arrow">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+              <path d="M4 10h12M11 5l5 5-5 5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+        </button>
+
+        <p class="form-note">
+          Oder direkt per Mail:
+          <a href="mailto:karlowskivalentin@gmail.com">karlowskivalentin@gmail.com</a>
+        </p>
+
+      </form>
+    </div>
+
+  </section>
+
+  <footer>
+    <span class="footer-logo">vale<span>—</span>video</span>
+    <span class="footer-copy">© 2024 Valentin Karlowski</span>
+  </footer>
+
+  <script src="js/main.js"></script>
+  <script>
+    const form = document.getElementById('contactForm');
+    const successBox = document.getElementById('formSuccess');
+    const submitBtn = form.querySelector('.form-submit');
+    const submitText = submitBtn.querySelector('.submit-text');
+    const submitArrow = submitBtn.querySelector('.submit-arrow');
+
+    form.addEventListener('submit', async function(e) {
+      e.preventDefault();
+
+      // Loading state
+      submitText.textContent = 'Wird gesendet…';
+      submitArrow.style.opacity = '0';
+      submitBtn.disabled = true;
+
+      const data = new FormData(form);
+
+      try {
+        const response = await fetch('https://formspree.io/f/mjgjdzkq', {
+          method: 'POST',
+          body: data,
+          headers: { 'Accept': 'application/json' }
+        });
+
+        if (response.ok) {
+          // Hide form, show success
+          form.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+          form.style.opacity = '0';
+          form.style.transform = 'translateY(10px)';
+          setTimeout(() => {
+            form.style.display = 'none';
+            successBox.style.display = 'flex';
+            requestAnimationFrame(() => {
+              successBox.style.opacity = '1';
+              successBox.style.transform = 'translateY(0)';
+            });
+          }, 400);
+        } else {
+          submitText.textContent = 'Fehler — nochmal versuchen';
+          submitArrow.style.opacity = '1';
+          submitBtn.disabled = false;
+        }
+      } catch(err) {
+        submitText.textContent = 'Fehler — nochmal versuchen';
+        submitArrow.style.opacity = '1';
+        submitBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

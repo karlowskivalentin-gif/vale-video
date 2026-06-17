@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vale-video — Imagefilm & Videografie</title>
+  <meta name="description" content="Valentin Karlowski — Cineastische Imagefilme für lokale Unternehmen. Düsseldorf." />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <!-- Custom Cursor -->
+  <div class="cursor" id="cursor"></div>
+  <div class="cursor-follower" id="cursorFollower"></div>
+
+  <!-- Navigation -->
+  <nav>
+    <a href="index.html" class="nav-logo">vale<span>—</span>video</a>
+    <ul class="nav-links">
+      <li><a href="portfolio.html">Portfolio</a></li>
+      <li><a href="about.html">About</a></li>
+      <li><a href="contact.html">Kontakt</a></li>
+    </ul>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-bg"></div>
+    <div class="hero-grain"></div>
+    <div class="hero-line"></div>
+
+    <p class="hero-eyebrow">Imagefilm · Social Reels · Düsseldorf</p>
+
+    <h1 class="hero-title">
+      Film, der<br/>
+      <em>bleibt.</em>
+    </h1>
+
+    <p class="hero-sub">
+      Cineastische Imagefilme für lokale Unternehmen —
+      visuell stark, emotional wirkungsvoll.
+    </p>
+
+    <a href="portfolio.html" class="hero-cta">
+      <span class="hero-cta-line"></span>
+      Zum Portfolio
+    </a>
+
+    <div class="hero-scroll">
+      <div class="scroll-line"></div>
+      <span>Scroll</span>
+    </div>
+  </section>
+
+  <!-- Was ich mache -->
+  <section class="work-section">
+    <div class="work-intro">
+      <p class="section-label">Was ich mache</p>
+      <h2 class="work-intro-title">Zwei Formate.<br/><em>Eine Haltung.</em></h2>
+    </div>
+
+    <!-- Imagefilm -->
+    <div class="work-block" id="block-imagefilm">
+      <div class="work-block-header" onclick="toggleBlock('block-imagefilm')">
+        <div class="work-block-left">
+          <span class="work-num">01</span>
+          <h3 class="work-name">Imagefilm</h3>
+        </div>
+        <div class="work-block-right">
+          <p class="work-tag">Café Schneider · Bistro Zicke</p>
+          <span class="work-chevron">+</span>
+        </div>
+      </div>
+      <div class="work-block-body">
+        <div class="work-block-inner">
+          <p class="work-block-desc">
+            Dein Unternehmen, cineastisch erzählt. Kein generischer Werbefilm —
+            ein Film, der zeigt wer du wirklich bist. Mit echten Menschen,
+            echten Momenten, echtem Licht.
+          </p>
+          <div class="work-projects">
+            <a href="projekt-schneider.html" class="work-project-card">
+              <img src="assets/images/thumb-schneider.png" alt="Café Schneider" />
+              <div class="work-project-info">
+                <p class="work-project-tag">Imagefilm · Düsseldorf-Benrath</p>
+                <p class="work-project-name">Café Schneider</p>
+              </div>
+              <div class="work-project-arrow">→</div>
+            </a>
+            <a href="projekt-zicke.html" class="work-project-card">
+              <img src="assets/images/thumb-zicke.png" alt="Bistro Zicke" />
+              <div class="work-project-info">
+                <p class="work-project-tag">Imagefilm · Düsseldorf Altstadt</p>
+                <p class="work-project-name">Bistro Zicke</p>
+              </div>
+              <div class="work-project-arrow">→</div>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Social Reels -->
+    <div class="work-block" id="block-reels">
+      <div class="work-block-header" onclick="toggleBlock('block-reels')">
+        <div class="work-block-left">
+          <span class="work-num">02</span>
+          <h3 class="work-name">Social Reels</h3>
+        </div>
+        <div class="work-block-right">
+          <p class="work-tag">Club Pilates · Cathy Hummels · Fibo 2026</p>
+          <span class="work-chevron">+</span>
+        </div>
+      </div>
+      <div class="work-block-body">
+        <div class="work-block-inner">
+          <p class="work-block-desc">
+            Kurz, stark, scroll-stoppend. Auf der Fibo 2026 durfte ich
+            für Club Pilates und ihre Kooperationspartnerin Cathy Hummels
+            den ganzen Tag mit der Kamera dabei sein — das Ergebnis sind
+            Reels, die die Energie des Events wirklich transportieren.
+          </p>
+          <div class="work-projects">
+            <a href="projekt-clubpilates.html" class="work-project-card">
+              <img src="assets/images/thumb-clubpilates.png" alt="Club Pilates" />
+              <div class="work-project-info">
+                <p class="work-project-tag">Reels · Fibo 2026</p>
+                <p class="work-project-name">Club Pilates</p>
+              </div>
+              <div class="work-project-arrow">→</div>
+            </a>
+            <a href="projekt-cathy.html" class="work-project-card">
+              <img src="assets/images/thumb-cathy.png" alt="Cathy Hummels" />
+              <div class="work-project-info">
+                <p class="work-project-tag">Interview · Reel · Fibo 2026</p>
+                <p class="work-project-name">Cathy Hummels</p>
+              </div>
+              <div class="work-project-arrow">→</div>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- About Teaser -->
+  <section class="about-teaser">
+    <div class="about-quote">
+      "Ich filme nicht,<br/>
+      was ich sehe —<br/>
+      ich filme, was ich
+      <em>fühle.</em>"
+    </div>
+    <div class="about-body">
+      <p>
+        Ich bin Valentin Karlowski, Videograf aus Düsseldorf.
+        Was als Leidenschaft begann, ist heute mein Handwerk —
+        Geschichten erzählen, die man sieht und spürt.
+      </p>
+      <p>
+        Mein Fokus liegt auf lokalen Unternehmen, die mehr verdienen
+        als einen beliebigen Clip. Jedes Bild ist bewusst gesetzt,
+        jeder Schnitt hat Grund.
+      </p>
+      <a href="about.html" class="about-link">
+        <span class="about-link-line"></span>
+        Mehr über mich
+      </a>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <span class="footer-logo">vale<span>—</span>video</span>
+    <span class="footer-copy">© 2024 Valentin Karlowski</span>
+  </footer>
+
+  <script src="js/main.js"></script>
+</body>
+</html>

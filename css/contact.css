@@ -1,0 +1,272 @@
+/* ── Contact Page ── */
+.contact-page {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  position: relative;
+  overflow: hidden;
+}
+
+.contact-left {
+  padding: 12rem 4rem 6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+  justify-content: center;
+  border-right: 1px solid var(--mid);
+  position: relative;
+  z-index: 1;
+}
+
+.contact-title {
+  font-family: var(--font-display);
+  font-weight: 300;
+  font-size: clamp(3.5rem, 7vw, 7rem);
+  line-height: 0.95;
+  color: var(--white);
+}
+
+.contact-title em {
+  font-style: italic;
+  color: var(--gold);
+}
+
+.contact-sub {
+  font-size: 0.9rem;
+  color: var(--muted);
+  line-height: 1.9;
+  max-width: 380px;
+}
+
+/* Mail Button */
+.contact-mail-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 1rem;
+  text-decoration: none;
+  background: transparent;
+  border: 1px solid var(--mid);
+  color: var(--white);
+  padding: 1.25rem 1.75rem;
+  font-size: 0.82rem;
+  letter-spacing: 0.05em;
+  font-family: var(--font-ui);
+  transition: border-color 0.3s ease, background 0.3s ease, color 0.3s ease;
+  width: fit-content;
+}
+
+.contact-mail-btn:hover {
+  border-color: var(--gold);
+  background: rgba(201, 168, 76, 0.06);
+  color: var(--gold);
+}
+
+.contact-mail-icon {
+  font-size: 1rem;
+  opacity: 0.6;
+}
+
+/* Detail items */
+.contact-details {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--mid);
+}
+
+.contact-detail-label {
+  font-size: 0.6rem;
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  color: var(--gold-dim);
+  margin-bottom: 0.3rem;
+}
+
+.contact-detail-value {
+  font-size: 0.88rem;
+  color: var(--light);
+}
+
+/* Decorative right side / Form container */
+.contact-right {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8rem 4rem;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ── Form ── */
+.contact-form {
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+}
+
+.form-field {
+  position: relative;
+  padding-top: 1.4rem;
+}
+
+.form-field input,
+.form-field textarea {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--mid);
+  color: var(--white);
+  font-family: var(--font-ui);
+  font-size: 0.95rem;
+  padding: 0.5rem 0;
+  outline: none;
+  transition: border-color 0.3s ease;
+  resize: none;
+}
+
+.form-field textarea {
+  min-height: 100px;
+}
+
+.form-field input:focus,
+.form-field textarea:focus {
+  border-color: var(--gold);
+}
+
+.form-field label {
+  position: absolute;
+  top: 1.9rem;
+  left: 0;
+  font-size: 0.8rem;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  pointer-events: none;
+  transition: top 0.25s ease, font-size 0.25s ease, color 0.25s ease;
+}
+
+.form-field input:focus ~ label,
+.form-field input:not(:placeholder-shown) ~ label,
+.form-field textarea:focus ~ label,
+.form-field textarea:not(:placeholder-shown) ~ label {
+  top: 0;
+  font-size: 0.6rem;
+  letter-spacing: 0.25em;
+  color: var(--gold);
+}
+
+/* hide placeholder so label trick works */
+.form-field input::placeholder,
+.form-field textarea::placeholder { color: transparent; }
+
+.field-error {
+  font-size: 0.65rem;
+  color: #e05555;
+  letter-spacing: 0.1em;
+  margin-top: 0.3rem;
+  display: block;
+}
+
+.form-error-global {
+  font-size: 0.75rem;
+  color: #e05555;
+  letter-spacing: 0.1em;
+  margin-bottom: 1rem;
+}
+
+/* Submit button */
+.form-submit {
+  display: inline-flex;
+  align-items: center;
+  gap: 1rem;
+  background: transparent;
+  border: 1px solid var(--mid);
+  color: var(--white);
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  padding: 1.1rem 1.75rem;
+  cursor: pointer;
+  transition: border-color 0.3s ease, background 0.3s ease, color 0.3s ease;
+  width: fit-content;
+}
+
+.form-submit:hover {
+  border-color: var(--gold);
+  background: rgba(201,168,76,0.06);
+  color: var(--gold);
+}
+
+.form-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.form-note {
+  font-size: 0.75rem;
+  color: var(--muted);
+  letter-spacing: 0.05em;
+}
+
+.form-note a {
+  color: var(--gold-dim);
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+.form-note a:hover { color: var(--gold); }
+
+/* ── Success State ── */
+.form-success {
+  width: 100%;
+  max-width: 480px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1.5rem;
+  padding: 1rem 0;
+}
+
+.success-check {
+  width: 64px;
+  height: 64px;
+  border: 1px solid var(--gold);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  color: var(--gold);
+  animation: candlebeat 3.5s ease-in-out infinite;
+}
+
+.success-title {
+  font-family: var(--font-display);
+  font-weight: 300;
+  font-size: 2.8rem;
+  color: var(--white);
+  line-height: 1;
+}
+
+.success-sub {
+  font-size: 0.9rem;
+  color: var(--muted);
+  line-height: 1.9;
+  max-width: 380px;
+}
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  .contact-page { grid-template-columns: 1fr; min-height: auto; }
+  .contact-left { padding: 10rem 1.5rem 4rem; border-right: none; border-bottom: 1px solid var(--mid); }
+  .contact-right { padding: 4rem 1.5rem; justify-content: flex-start; }
+  .form-row { grid-template-columns: 1fr; gap: 2rem; }
+}

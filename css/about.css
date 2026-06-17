@@ -1,0 +1,314 @@
+/* ── About Page ── */
+
+.nav-active {
+  color: var(--white) !important;
+}
+
+.nav-active::after {
+  width: 100% !important;
+}
+
+.about-hero {
+  min-height: 100vh;
+  padding: 14rem 3rem 6rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 72% 35%, rgba(201, 168, 76, 0.08), transparent 36%),
+    radial-gradient(circle at 18% 78%, rgba(201, 168, 76, 0.04), transparent 34%),
+    var(--black);
+  border-bottom: 1px solid var(--mid);
+}
+
+.about-glow {
+  position: absolute;
+  right: -160px;
+  bottom: 10%;
+  width: 520px;
+  height: 520px;
+  background: rgba(201, 168, 76, 0.08);
+  filter: blur(130px);
+  pointer-events: none;
+}
+
+.about-title {
+  font-family: var(--font-display);
+  font-weight: 300;
+  font-size: clamp(3.3rem, 8vw, 8rem);
+  line-height: 0.95;
+  color: var(--white);
+  max-width: 980px;
+  letter-spacing: -0.04em;
+  opacity: 0;
+  animation: fadeUp 1.2s ease 0.45s forwards;
+}
+
+.about-title em {
+  color: var(--gold);
+  font-style: italic;
+}
+
+.about-sub {
+  max-width: 520px;
+  margin-top: 2.5rem;
+  font-size: 0.9rem;
+  line-height: 1.9;
+  color: var(--muted);
+  opacity: 0;
+  animation: fadeUp 1.2s ease 0.75s forwards;
+}
+
+/* Statement */
+.about-statement {
+  padding: 8rem 3rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6rem;
+  border-bottom: 1px solid var(--mid);
+}
+
+.statement-left h2,
+.proof-header h2,
+.process-intro h2,
+.about-cta-section h2 {
+  font-family: var(--font-display);
+  font-weight: 300;
+  font-size: clamp(2.2rem, 4vw, 4rem);
+  line-height: 1.05;
+  color: var(--white);
+  margin-top: 1rem;
+}
+
+.statement-right {
+  display: flex;
+  flex-direction: column;
+  gap: 1.8rem;
+  align-self: end;
+}
+
+.statement-right p {
+  font-size: 0.92rem;
+  line-height: 2;
+  color: var(--muted);
+  max-width: 560px;
+}
+
+/* Proof */
+.about-proof {
+  padding: 8rem 3rem;
+  border-bottom: 1px solid var(--mid);
+}
+
+.proof-header {
+  margin-bottom: 4rem;
+}
+
+.proof-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--mid);
+  border: 1px solid var(--mid);
+}
+
+.proof-card {
+  min-height: 320px;
+  padding: 2.5rem;
+  background: var(--black);
+  text-decoration: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: background 0.4s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.proof-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 0;
+  height: 1px;
+  background: var(--gold);
+  transition: width 0.5s ease;
+}
+
+.proof-card:hover {
+  background: var(--off-black);
+}
+
+.proof-card:hover::before {
+  width: 100%;
+}
+
+.proof-card span {
+  font-size: 0.62rem;
+  letter-spacing: 0.35em;
+  color: var(--gold-dim);
+}
+
+.proof-card h3 {
+  font-family: var(--font-display);
+  font-weight: 300;
+  font-size: 2.1rem;
+  color: var(--white);
+  margin-bottom: 1rem;
+}
+
+.proof-card p {
+  font-size: 0.84rem;
+  line-height: 1.9;
+  color: var(--muted);
+}
+
+/* Process */
+.about-process {
+  padding: 8rem 3rem;
+  display: grid;
+  grid-template-columns: 0.85fr 1.15fr;
+  gap: 6rem;
+  border-bottom: 1px solid var(--mid);
+}
+
+.process-list {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--mid);
+}
+
+.process-item {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  gap: 2rem;
+  padding: 2.5rem 0;
+  border-bottom: 1px solid var(--mid);
+}
+
+.process-item span {
+  font-size: 0.65rem;
+  letter-spacing: 0.35em;
+  color: var(--gold-dim);
+}
+
+.process-item h3 {
+  font-family: var(--font-display);
+  font-weight: 300;
+  font-size: 2rem;
+  color: var(--white);
+  margin-bottom: 0.8rem;
+}
+
+.process-item p {
+  font-size: 0.88rem;
+  line-height: 1.9;
+  color: var(--muted);
+  max-width: 540px;
+}
+
+/* Philosophy */
+.about-philosophy {
+  min-height: 70vh;
+  padding: 8rem 3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 1px solid var(--mid);
+  background:
+    radial-gradient(circle at center, rgba(201, 168, 76, 0.07), transparent 38%),
+    var(--black);
+}
+
+.about-philosophy p {
+  font-family: var(--font-display);
+  font-weight: 300;
+  font-size: clamp(3rem, 7vw, 7rem);
+  line-height: 1;
+  text-align: center;
+  color: var(--white);
+  max-width: 980px;
+}
+
+/* CTA */
+.about-cta-section {
+  padding: 8rem 3rem;
+  display: grid;
+  grid-template-columns: 1.3fr 0.7fr;
+  gap: 4rem;
+  align-items: end;
+}
+
+.about-cta {
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  gap: 1rem;
+  text-decoration: none;
+  color: var(--white);
+  font-size: 0.75rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  transition: gap 0.35s ease, color 0.35s ease;
+}
+
+.about-cta span {
+  width: 44px;
+  height: 1px;
+  background: var(--gold);
+  transition: width 0.35s ease;
+}
+
+.about-cta:hover {
+  gap: 1.5rem;
+  color: var(--gold);
+}
+
+.about-cta:hover span {
+  width: 64px;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .about-hero {
+    padding: 11rem 1.5rem 4rem;
+    min-height: 90vh;
+  }
+
+  .about-statement,
+  .about-process,
+  .about-cta-section {
+    grid-template-columns: 1fr;
+    gap: 3rem;
+    padding: 5rem 1.5rem;
+  }
+
+  .about-proof {
+    padding: 5rem 1.5rem;
+  }
+
+  .proof-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .proof-card {
+    min-height: 260px;
+  }
+
+  .process-item {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .about-philosophy {
+    min-height: 50vh;
+    padding: 5rem 1.5rem;
+  }
+
+  .about-cta {
+    justify-self: start;
+  }
+}
