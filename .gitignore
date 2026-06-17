@@ -16,3 +16,7 @@ desktop.ini
 # Temporär
 *.tmp
 *.log
+
+# Secrets / Deploy-Zugangsdaten — NIEMALS committen
+config/secrets.php
+config/secrets.py
