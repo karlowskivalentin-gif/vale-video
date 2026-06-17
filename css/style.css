@@ -859,6 +859,14 @@ footer {
 
 .pricing-tier .btn { width: 100%; justify-content: center; margin-top: auto; }
 
+.pricing-note {
+  text-align: center;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  color: var(--light);
+  margin-top: 2.5rem;
+}
+
 /* ── CTA band ── */
 .cta-band {
   padding: 6rem 3rem;
