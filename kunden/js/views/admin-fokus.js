@@ -211,10 +211,16 @@ export function renderAdminFokus(container) {
     const pl = body.querySelector("#fokusPflanze"); if (pl) pl.textContent = pflanze(f);
   }
 
-  // --- Kategorien (= Subs der Mindmaps) + verbundene To-Dos ------------
+  // --- Kategorien (= Subs/Bereiche mit 🎯-Häkchen) + verbundene To-Dos --
+  // Default ohne gesetztes Feld: Subs zählen als Kategorie, Bereiche nicht —
+  // per 🎯 an der Karte explizit an-/abschaltbar.
+  function istFokusKategorie(g) {
+    if (typeof g.fokusKategorie === "boolean") return g.fokusKategorie;
+    return g.ebene === "sub";
+  }
   function subKategorien() {
     return alleGedanken
-      .filter((g) => g.ebene === "sub" && !g.archiviert)
+      .filter((g) => (g.ebene === "sub" || g.ebene === "bereich") && !g.archiviert && istFokusKategorie(g))
       .map((g) => ({ id: g.id, name: g.text || "Unbenannter Sub" }))
       .sort((a, b) => a.name.localeCompare(b.name, "de"));
   }

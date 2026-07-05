@@ -34,6 +34,9 @@ export function renderTodos(container, opts) {
   container.innerHTML = `
     <div class="admin-head">
       <h1 class="view-title" style="margin:0">To-Dos</h1>
+      <select class="gd-filter" id="todoKat" aria-label="Nach Kategorie (Sub/Bereich) filtern">
+        <option value="">Alle Kategorien</option>
+      </select>
       <select class="gd-filter" id="todoFilter" aria-label="To-Dos filtern">
         <option value="alle">Alle</option>
         <option value="meine">Mir zugewiesen</option>
@@ -41,10 +44,36 @@ export function renderTodos(container, opts) {
       </select>
     </div>
     <p class="muted view-intro">Alle anstehenden To-Dos aus deinen Mindmaps an einem Ort.
-      Abhaken erledigt sie auch in der Mindmap; wer verantwortlich ist, wählst du direkt am To-Do.</p>
+      Abhaken erledigt sie auch in der Mindmap; wer verantwortlich ist, wählst du direkt am To-Do.
+      Die Kategorien entstehen aus deinen Subs/Bereichen — ein To-Do gehört dazu, wenn es damit verbunden ist.</p>
     <div id="todoBody"><p class="muted">Lädt…</p></div>`;
   const body = container.querySelector("#todoBody");
+  const katSelect = container.querySelector("#todoKat");
+  let katFilter = "";   // Gedanken-Id des gewählten Subs/Bereichs ("" = alle)
   container.querySelector("#todoFilter").addEventListener("change", (e) => { filter = e.target.value; render(); });
+  katSelect.addEventListener("change", () => { katFilter = katSelect.value; render(); });
+
+  // Kategorien = alle (nicht archivierten) Subs/Bereiche der sichtbaren Maps.
+  function kategorien() {
+    const mapIds = new Set(meineMaps().map((m) => m.id));
+    return [...daten.values()]
+      .filter((g) => (g.ebene === "sub" || g.ebene === "bereich") && !g.archiviert && mapIds.has(g.mapId || DEFAULT_MAP))
+      .map((g) => ({ id: g.id, name: (g.text || "Unbenannt").trim() || "Unbenannt" }))
+      .sort((a, b) => a.name.localeCompare(b.name, "de"));
+  }
+  function renderKatSelect() {
+    const aktuell = katSelect.value;
+    katSelect.innerHTML = `<option value="">Alle Kategorien</option>` +
+      kategorien().map((k) => `<option value="${escapeHtml(k.id)}"${k.id === aktuell ? " selected" : ""}>🎯 ${escapeHtml(k.name)}</option>`).join("");
+    if (aktuell && ![...katSelect.options].some((o) => o.value === aktuell)) { katFilter = ""; katSelect.value = ""; }
+  }
+  // Gehört das To-Do zur gewählten Kategorie (Verbindung in eine Richtung)?
+  function passtKategorie(g) {
+    if (!katFilter) return true;
+    const kat = daten.get(katFilter);
+    if (!kat) return true;
+    return (kat.verbindungen || []).includes(g.id) || (g.verbindungen || []).includes(katFilter);
+  }
 
   // Maps, die dieser Nutzer sieht: Admin = Standard + Mitglieds-Maps
   // (Altbestände ohne mitglieder-Feld gehören ihm; fremde private Maps NICHT).
@@ -90,10 +119,11 @@ export function renderTodos(container, opts) {
   }
 
   function render() {
+    renderKatSelect();
     const maps = meineMaps();
     const mapVon = (g) => maps.find((m) => m.id === (g.mapId || DEFAULT_MAP)) || null;
     const offene = [...daten.values()]
-      .filter((g) => istOffen(g) && mapVon(g) && passtFilter(g))
+      .filter((g) => istOffen(g) && mapVon(g) && passtFilter(g) && passtKategorie(g))
       .sort((a, b) => (a.text || "").localeCompare(b.text || "", "de"));
 
     if (!offene.length) {

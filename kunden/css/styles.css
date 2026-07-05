@@ -1209,6 +1209,16 @@ a.row-item:hover { background: var(--off-white); }
 .gd-farbe-dot:hover { transform: scale(1.15); }
 .gd-farbe-keine { background: var(--surface); color: var(--muted); font-size: 11px; line-height: 1; }
 
+/* 🎯 Fokus-Kategorie-Häkchen an Subs/Bereichen */
+.gd-kat {
+  border: none; background: transparent; cursor: pointer;
+  font-size: 11px; line-height: 1; padding: 3px 4px; border-radius: var(--radius);
+  filter: grayscale(1); opacity: .55;
+}
+.gd-kat:hover { background: var(--dark); opacity: .85; }
+.gd-kat.is-active { filter: none; opacity: 1; }
+.gd-kat[hidden] { display: none; }
+
 /* ---- Gedanken: NEU-Markierung + Anerkennen + Kommentar (④) ---- */
 .gd-node.is-neu { box-shadow: 0 0 0 2px #3b82f6, var(--shadow-card); }
 .gd-neu-wrap { display: inline-flex; align-items: center; gap: 2px; min-width: 0; }
@@ -1241,6 +1251,7 @@ a.row-item:hover { background: var(--off-white); }
 }
 .gd-neu-alle { color: #1d4ed8; }
 .gd-neu-alle:hover { border-color: #3b82f6; color: #1d4ed8; }
+.gd-neu-alle[hidden] { display: none; }   /* .btn-display darf hidden nicht überschreiben */
 
 /* ---- Benachrichtigungs-Glocke (Topbar) ---- */
 .glocke-btn { position: relative; }
@@ -1250,6 +1261,7 @@ a.row-item:hover { background: var(--off-white); }
   background: var(--error); color: #fff; font-size: 10px; font-weight: 700;
   border-radius: 999px; padding: 0 4px;
 }
+.glocke-zahl[hidden] { display: none; }   /* display:flex darf hidden nicht überschreiben */
 .glocke-panel {
   position: absolute; top: 100%; right: 1rem; z-index: 60;
   width: 340px; max-width: calc(100vw - 2rem); max-height: 60vh; overflow: auto;

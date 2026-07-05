@@ -90,6 +90,11 @@ export function renderAdminGedanken(container, opts) {
   function istSichtbar(g) {
     if ((g.mapId || DEFAULT_MAP) !== aktiveMapId) return false;
     if ((!!g.archiviert) !== (ansicht === "archiv")) return false;
+    // „Nur kommentierte": ausschließlich Karten mit rotem Partner-Kommentar —
+    // egal welcher Ebene, nichts anderes (auch keine unkommentierten Subs/Bereiche).
+    if (ansicht !== "archiv" && filterModus === "kommentare") {
+      return !!(g.hinweis && g.hinweis.text);
+    }
     if (ansicht !== "archiv" && filterModus !== "alle" && istEinzelGedanke(g)) {
       if (filterModus === "todos"  && !istTodo(g)) return false;
       if (filterModus === "system" &&  istTodo(g)) return false;
@@ -117,6 +122,7 @@ export function renderAdminGedanken(container, opts) {
           <option value="alle">Alle</option>
           <option value="todos">Nur To-Dos</option>
           <option value="system">Nur beständige</option>
+          <option value="kommentare">Nur kommentierte</option>
         </select>
         <button class="btn btn--ghost btn--sm gd-neu-alle" id="gdNeuAlle" type="button" title="Alle neuen Elemente des Partners anerkennen" hidden>✓ Neu</button>
         <button class="btn btn--ghost btn--sm gd-archiv-toggle" id="gdArchivToggle" type="button" title="Archiv erledigter Gedanken ein-/ausblenden" aria-pressed="false">🗄 Archiv</button>
@@ -753,6 +759,27 @@ export function renderAdminGedanken(container, opts) {
       fb.style.setProperty("--f", f ? f.hex : "transparent");
       fb.classList.toggle("hat-farbe", !!f);
     }
+    // 🎯 Fokus-Kategorie-Häkchen: nur an Subs/Bereichen sichtbar.
+    const kb = el.querySelector(".gd-kat");
+    if (kb) {
+      const gruppe = ebeneOk(g.ebene) !== "gedanke";
+      kb.hidden = !gruppe;
+      const an = istFokusKategorie(g);
+      kb.classList.toggle("is-active", an);
+      kb.setAttribute("aria-pressed", String(an));
+      kb.title = an ? "Fokus-Session-Kategorie: AN — erscheint beim Session-Start" : "Als Fokus-Session-Kategorie anbieten";
+    }
+  }
+  // Gilt dieser Sub/Bereich als Fokus-Session-Kategorie?
+  // Default (Feld nicht gesetzt): Subs ja, Bereiche nein — explizit umschaltbar.
+  function istFokusKategorie(g) {
+    if (typeof g.fokusKategorie === "boolean") return g.fokusKategorie;
+    return ebeneOk(g.ebene) === "sub";
+  }
+  function setzeFokusKategorie(id, val) {
+    const g = daten.get(id); if (g) g.fokusKategorie = !!val;
+    const el = knoten.get(id); if (el) wendeFarbeAn(el, daten.get(id) || {});
+    aktualisiereGedanke(id, { fokusKategorie: !!val }).catch((err) => console.warn(err));
   }
   function setzeTodo(id, val) {
     const g = daten.get(id); if (g) g.todo = !!val;
@@ -883,6 +910,7 @@ export function renderAdminGedanken(container, opts) {
         <span class="gd-neu-wrap"></span>
         <div class="gd-node-tools">
           <button type="button" class="gd-farbe-btn" title="Farbe wählen" hidden></button>
+          <button type="button" class="gd-kat" title="Als Fokus-Session-Kategorie anbieten" aria-pressed="false" hidden>🎯</button>
           <button type="button" class="gd-todo" title="Als To-Do markieren (grün)" aria-pressed="false" hidden>◎</button>
           <button type="button" class="gd-ebene" title="Ebene wechseln: Gedanke → Sub → Bereich">—</button>
           <button type="button" class="gd-archiv-btn" title="Erledigten Gedanken ins Archiv verschieben">→ Archiv</button>
@@ -935,6 +963,11 @@ export function renderAdminGedanken(container, opts) {
     // Farbwahl (feste Palette) — für Gedanken, Subs UND Bereiche;
     // ausgeblendet bei To-Do (grün fix) und Post (rosa fix).
     farbeBtn.addEventListener("click", (e) => { e.stopPropagation(); zeigeFarbPop(el, id); });
+    // 🎯 Fokus-Kategorie an Subs/Bereichen umschalten.
+    el.querySelector(".gd-kat").addEventListener("click", (e) => {
+      e.stopPropagation();
+      setzeFokusKategorie(id, !istFokusKategorie(daten.get(id) || {}));
+    });
 
     // Archiv-Button: im aktiven Modus verschiebt er den (erledigten) Gedanken
     // ins Archiv; im Archiv-Modus holt er ihn zurück auf die Haupt-Leinwand.
@@ -1030,14 +1063,14 @@ export function renderAdminGedanken(container, opts) {
 
     // Doppelklick → Vollseite (nicht auf Buttons / Body).
     el.addEventListener("dblclick", (e) => {
-      if (e.target.closest(".gd-check, .gd-todo, .gd-farbe-btn, .gd-farbe-pop, .gd-neu-wrap, .gd-hinweis, .gd-hinweis-form, .gd-del, .gd-attach, .gd-chevron, .gd-ebene, .gd-archiv-btn, .gd-dock, .gd-node-body")) return;
+      if (e.target.closest(".gd-check, .gd-todo, .gd-kat, .gd-farbe-btn, .gd-farbe-pop, .gd-neu-wrap, .gd-hinweis, .gd-hinweis-form, .gd-del, .gd-attach, .gd-chevron, .gd-ebene, .gd-archiv-btn, .gd-dock, .gd-node-body")) return;
       oeffneSeite(id);
     });
 
     // Knoten-Drag (Pointer Events). Reiner Klick → Überschrift fokussieren.
     el.addEventListener("pointerdown", (e) => {
       if (e.pointerType === "mouse" && e.button !== 0) return;
-      if (e.target.closest(".gd-check, .gd-todo, .gd-farbe-btn, .gd-farbe-pop, .gd-neu-wrap, .gd-hinweis, .gd-hinweis-form, .gd-del, .gd-attach, .gd-chevron, .gd-ebene, .gd-archiv-btn, .gd-dock, .gd-node-body")) return;
+      if (e.target.closest(".gd-check, .gd-todo, .gd-kat, .gd-farbe-btn, .gd-farbe-pop, .gd-neu-wrap, .gd-hinweis, .gd-hinweis-form, .gd-del, .gd-attach, .gd-chevron, .gd-ebene, .gd-archiv-btn, .gd-dock, .gd-node-body")) return;
       if (e.target === ta && document.activeElement === ta) return;
       blurAktiv();
       e.preventDefault();

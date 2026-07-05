@@ -333,6 +333,7 @@ export async function gedankeAnlegen(daten) {
     verantwortlich: (daten.verantwortlich || "").toLowerCase(),// zuständige E-Mail fürs To-Do ("" = niemand)
     neuVon:      daten.neuVon || null,                         // auf geteilten Maps: E-Mail des Erstellers (NEU-Markierung)
     hinweis:     daten.hinweis || null,                        // roter Partner-Kommentar {von, text, am} | null
+    fokusKategorie: typeof daten.fokusKategorie === "boolean" ? daten.fokusKategorie : null, // Sub/Bereich als Fokus-Kategorie? (null = Default: Sub ja, Bereich nein)
     detail:      daten.detail || "",
     x:           Number.isFinite(daten.x) ? daten.x : 0,
     y:           Number.isFinite(daten.y) ? daten.y : 0,
