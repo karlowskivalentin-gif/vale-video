@@ -2,9 +2,9 @@
 // Wird von index.html als Modul-Entry geladen.
 import { beobachteAuth, logout, abgewieseneAdresse,
          istLoginLink, schliesseLoginLinkAb, setzePasswort } from "./auth.js";
-import { loeseEinladungEin } from "./db.js";
+import { loeseEinladungEin, beobachteBenachrichtigungen, markiereBenachrichtigungenGelesen } from "./db.js";
 import { KOLLAB_MAP_ID, EINLADUNG_ID } from "./roles.js";
-import { raeumeViewAuf } from "./view-lifecycle.js";
+import { raeumeViewAuf, beiViewWechsel } from "./view-lifecycle.js";
 import { renderLogin } from "./views/login.js";
 import { renderAufgaben } from "./views/kunde-aufgaben.js";
 import { renderObjektMelden } from "./views/kunde-objekt-melden.js";
@@ -19,6 +19,7 @@ import { renderAdminPlaene } from "./views/admin-plaene.js";
 import { renderAdminPlan } from "./views/admin-plan.js";
 import { renderAdminFokus } from "./views/admin-fokus.js";
 import { renderAdminGedanken } from "./views/admin-gedanken.js";
+import { renderTodos } from "./views/todos.js";
 
 // --- Zustand -----------------------------------------------------------
 let _user = null;
@@ -49,8 +50,10 @@ const ROUTES = {
   "/admin/plan":     { rolle: "admin", titel: "Plan",             render: renderAdminPlan, param: true },
   "/admin/fokus":    { rolle: "admin", titel: "Fokus",            render: renderAdminFokus },
   "/admin/gedanken": { rolle: "admin", titel: "Gedanken",         render: renderAdminGedanken },
-  // Kollaborator (externer Mitarbeiter, nur die geteilte Mindmap)
-  "/gedanken":       { rolle: "kollaborator", titel: "Mindmap",   render: renderAdminGedanken }
+  "/admin/todos":    { rolle: "admin", titel: "To-Dos",           render: renderTodos },
+  // Kollaborator (externer Mitarbeiter: geteilte + eigene Mindmaps)
+  "/gedanken":       { rolle: "kollaborator", titel: "Mindmap",   render: renderAdminGedanken },
+  "/todos":          { rolle: "kollaborator", titel: "To-Dos",    render: renderTodos }
 };
 
 const NAV = {
@@ -66,10 +69,12 @@ const NAV = {
     { href: "#/admin/termine",  label: "Termine" },
     { href: "#/admin/plaene",   label: "Pläne" },
     { href: "#/admin/fokus",    label: "Fokus" },
-    { href: "#/admin/gedanken", label: "Gedanken" }
+    { href: "#/admin/gedanken", label: "Gedanken" },
+    { href: "#/admin/todos",    label: "To-Dos" }
   ],
   kollaborator: [
-    { href: "#/gedanken", label: "Mindmap" }
+    { href: "#/gedanken", label: "Mindmap" },
+    { href: "#/todos",    label: "To-Dos" }
   ]
 };
 
@@ -108,9 +113,12 @@ function renderShell(aktiverPfad) {
           <span class="role-pill">${rollenLabel}</span>
           <span class="user-email">${_user.email}</span>
         </span>
+        ${(_rolle === "admin" || _rolle === "kollaborator") ? `<button class="btn btn--ghost btn--sm glocke-btn" id="glockeBtn" type="button" title="Benachrichtigungen">🔔<span class="glocke-zahl" id="glockeZahl" hidden></span></button>` : ``}
         <button class="btn btn--ghost btn--sm" id="pwBtn" type="button">Passwort</button>
         <button class="btn btn--ghost btn--sm" id="logoutBtn">Abmelden</button>
       </div>
+
+      <div class="glocke-panel" id="glockePanel" hidden></div>
 
       <div class="pw-panel" id="pwPanel" hidden>
         <h2 class="pw-panel-title">Passwort festlegen</h2>
@@ -137,7 +145,51 @@ function renderShell(aktiverPfad) {
 
   document.getElementById("logoutBtn").addEventListener("click", () => logout());
   wirePasswortPanel();
+  wireGlocke();
   return document.getElementById("view");
+}
+
+// --- Benachrichtigungs-Glocke (Admin + Kollaborator) --------------------
+// Zähler = ungelesene Nachrichten; Öffnen zeigt die Liste und markiert alles
+// als gelesen. Abo wird bei jedem Routenwechsel neu aufgebaut (beiViewWechsel).
+function escapeHtmlR(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]));
+}
+function wireGlocke() {
+  const btn   = document.getElementById("glockeBtn");
+  const panel = document.getElementById("glockePanel");
+  const zahl  = document.getElementById("glockeZahl");
+  if (!btn || !panel || !_user) return;
+
+  let alle = [];
+  function renderPanel() {
+    panel.innerHTML = alle.length
+      ? alle.slice(0, 30).map((n) => `<div class="glocke-item${n.gelesen ? "" : " is-neu"}">${escapeHtmlR(n.text || "")}</div>`).join("")
+      : `<div class="glocke-leer">Keine Benachrichtigungen.</div>`;
+  }
+  const unsub = beobachteBenachrichtigungen(_user.email, (liste) => {
+    alle = liste.sort((a, b) => {
+      const ta = (a.erstelltAm && a.erstelltAm.seconds) || 0;
+      const tb = (b.erstelltAm && b.erstelltAm.seconds) || 0;
+      return tb - ta;
+    });
+    const neu = alle.filter((n) => !n.gelesen).length;
+    zahl.hidden = !neu;
+    zahl.textContent = neu > 9 ? "9+" : String(neu);
+    if (!panel.hidden) renderPanel();
+  }, () => {});
+  beiViewWechsel(unsub);
+
+  btn.addEventListener("click", () => {
+    panel.hidden = !panel.hidden;
+    if (!panel.hidden) {
+      renderPanel();
+      const ungelesen = alle.filter((n) => !n.gelesen).map((n) => n.id);
+      if (ungelesen.length) markiereBenachrichtigungenGelesen(ungelesen).catch(() => {});
+    }
+  });
 }
 
 // Topbar-Passwort-Panel: ein-/ausklappen + Passwort setzen (updatePassword).

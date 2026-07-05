@@ -26,7 +26,8 @@
 import {
   beobachteGedanken, gedankeAnlegen, aktualisiereGedanke, loescheGedanke,
   dateiblobAnlegen, ladeDateiblob, loescheDateiblob,
-  beobachteMindmaps, mindmapAnlegen, loescheMindmap
+  beobachteMindmaps, beobachteMeineMindmaps, mindmapAnlegen, loescheMindmap,
+  ladeMindmap, benachrichtigungAnlegen
 } from "../db.js";
 import { beiViewWechsel } from "../view-lifecycle.js";
 import { escapeHtml } from "../util.js";
@@ -38,11 +39,23 @@ const KNOTEN_H = 64;         // grobe Starthöhe als Fallback vor dem ersten Lay
 const DRAG_SCHWELLE = 4;     // px Bewegung, ab der ein Klick als Drag zählt
 const MAX_DATEI = 700 * 1024; // Upload-Cap (Firestore-Doc-Limit ~1 MiB, Base64-Aufschlag)
 const DEFAULT_MAP = "default"; // Map-ID für Altbestände / die Standard-Mindmap
+const lc = (s) => String(s || "").toLowerCase();
+// Feste Farbpalette für manuelle Karten-Farben. Grün und Rosa fehlen bewusst:
+// grün = To-Do, rosa = Post (abgeleitete Farben, nicht überschreibbar).
+const FARBEN = [
+  { id: "gelb",    hex: "#eab308", name: "Gelb" },
+  { id: "blau",    hex: "#3b82f6", name: "Blau" },
+  { id: "lila",    hex: "#8b5cf6", name: "Lila" },
+  { id: "tuerkis", hex: "#14b8a6", name: "Türkis" },
+  { id: "rot",     hex: "#ef4444", name: "Rot" },
+  { id: "grau",    hex: "#9ca3af", name: "Grau" }
+];
 
 export function renderAdminGedanken(container, opts) {
-  // Kollaborator-Modus: fest an EINE geteilte Map gebunden, ohne Map-Auswahl.
+  // Kollaborator-Modus: geteilte Map (per Einladung) + selbst angelegte Maps.
   const kollabMapId = (opts && opts.kollabMapId) || null;
   const istKollab = !!kollabMapId;
+  const meineEmail = lc((opts && opts.user && opts.user.email) || "");
 
   // --- Modul-State -------------------------------------------------------
   let panX = 0, panY = 0;            // Verschiebung des sichtbaren Ausschnitts
@@ -53,7 +66,8 @@ export function renderAdminGedanken(container, opts) {
   let seiteId = null;                // aktuell voll geöffneter Gedanke (Detailseite) | null
   let anhangZielId = null;           // Ziel-Gedanke des Datei-Dialogs
   let ansicht = "aktiv";             // "aktiv" = Haupt-Leinwand | "archiv" = erledigte Gedanken
-  let aktiveMapId = istKollab ? kollabMapId : (localStorage.getItem("vale_gd_map") || DEFAULT_MAP);  // gewählte Mindmap (④)
+  const LS_MAP_KEY = istKollab ? "vale_gd_map_k" : "vale_gd_map";
+  let aktiveMapId = localStorage.getItem(LS_MAP_KEY) || (istKollab ? (kollabMapId || DEFAULT_MAP) : DEFAULT_MAP);  // gewählte Mindmap (④)
   let filterModus = "alle";          // "alle" | "todos" | "system" (① To-Do-Filter)
   let mindmaps = [];                 // ④ zusätzliche benannte Mindmaps (Firestore)
   let mapUnsub = null;               // ④ onSnapshot-Abbestellung für mindmaps
@@ -104,6 +118,7 @@ export function renderAdminGedanken(container, opts) {
           <option value="todos">Nur To-Dos</option>
           <option value="system">Nur beständige</option>
         </select>
+        <button class="btn btn--ghost btn--sm gd-neu-alle" id="gdNeuAlle" type="button" title="Alle neuen Elemente des Partners anerkennen" hidden>✓ Neu</button>
         <button class="btn btn--ghost btn--sm gd-archiv-toggle" id="gdArchivToggle" type="button" title="Archiv erledigter Gedanken ein-/ausblenden" aria-pressed="false">🗄 Archiv</button>
       </div>
     </div>
@@ -716,11 +731,14 @@ export function renderAdminGedanken(container, opts) {
     if (g.todo === true) return "is-todo";
     return null;
   }
-  // Setzt is-todo/is-post am Knoten und spiegelt den To-Do-Umschalter.
+  // Setzt is-todo/is-post bzw. die manuelle Palettenfarbe am Knoten und
+  // spiegelt To-Do-Umschalter + Farb-Button. Priorität: Post > To-Do > Farbe.
   function wendeFarbeAn(el, g) {
     el.classList.remove("is-todo", "is-post");
+    FARBEN.forEach((f) => el.classList.remove("gd-farbe-" + f.id));
     const k = farbKlasse(g);
     if (k) el.classList.add(k);
+    else if (g.farbe && FARBEN.some((f) => f.id === g.farbe)) el.classList.add("gd-farbe-" + g.farbe);
     const tb = el.querySelector(".gd-todo");
     if (tb) {
       const einzel = ebeneOk(g.ebene) === "gedanke" && (g.kind || "gedanke") !== "post";
@@ -728,12 +746,128 @@ export function renderAdminGedanken(container, opts) {
       tb.classList.toggle("is-active", g.todo === true);
       tb.setAttribute("aria-pressed", String(g.todo === true));
     }
+    const fb = el.querySelector(".gd-farbe-btn");
+    if (fb) {
+      fb.hidden = !!k;   // bei To-Do/Post keine manuelle Farbe
+      const f = FARBEN.find((x) => x.id === g.farbe);
+      fb.style.setProperty("--f", f ? f.hex : "transparent");
+      fb.classList.toggle("hat-farbe", !!f);
+    }
   }
   function setzeTodo(id, val) {
     const g = daten.get(id); if (g) g.todo = !!val;
     const el = knoten.get(id); if (el) wendeFarbeAn(el, daten.get(id) || {});
     aktualisiereGedanke(id, { todo: !!val }).catch((err) => console.warn(err));
     renderSidebar();
+  }
+  function setzeFarbe(id, farbe) {
+    const g = daten.get(id); if (g) g.farbe = farbe || null;
+    const el = knoten.get(id); if (el) wendeFarbeAn(el, daten.get(id) || { farbe });
+    aktualisiereGedanke(id, { farbe: farbe || null }).catch((err) => console.warn(err));
+  }
+  // Kleines Paletten-Popover am Knoten (feste Farben + „keine").
+  function zeigeFarbPop(el, id) {
+    let pop = el.querySelector(".gd-farbe-pop");
+    if (pop) { pop.remove(); return; }
+    pop = document.createElement("div");
+    pop.className = "gd-farbe-pop";
+    pop.innerHTML = FARBEN.map((f) =>
+      `<button type="button" class="gd-farbe-dot" data-f="${f.id}" style="--f:${f.hex}" title="${f.name}"></button>`).join("") +
+      `<button type="button" class="gd-farbe-dot gd-farbe-keine" data-f="" title="Keine Farbe">∅</button>`;
+    el.querySelector(".gd-node-kopf").appendChild(pop);
+    pop.querySelectorAll(".gd-farbe-dot").forEach((d) => d.addEventListener("click", (e) => {
+      e.stopPropagation();
+      setzeFarbe(id, d.getAttribute("data-f") || null);
+      pop.remove();
+    }));
+  }
+
+  // --- Neu-Markierung + Anerkennen + Kommentar (geteilte Maps, ④) --------
+  const kurz = (t) => { const s = String(t || "Unbenannt").trim() || "Unbenannt"; return s.length > 40 ? s.slice(0, 40) + "…" : s; };
+
+  function akzeptiere(id) {
+    const g = daten.get(id); if (!g || !g.neuVon) return;
+    const autor = lc(g.neuVon);
+    g.neuVon = null;
+    const el = knoten.get(id); if (el) wendeNeuAn(el, g);
+    aktualisiereGedanke(id, { neuVon: null }).catch((err) => console.warn(err));
+    if (autor && autor !== meineEmail) {
+      benachrichtigungAnlegen({ fuer: autor, von: meineEmail, text: `✓ ${meineEmail} hat „${kurz(g.text)}" anerkannt` }).catch(() => {});
+    }
+    aktualisiereNeuAlle();
+  }
+  function entferneNeu(id) {
+    const g = daten.get(id); if (!g) return;
+    g.neuVon = null;
+    const el = knoten.get(id); if (el) wendeNeuAn(el, g);
+    aktualisiereGedanke(id, { neuVon: null }).catch((err) => console.warn(err));
+    aktualisiereNeuAlle();
+  }
+
+  // Badge/Buttons + roten Partner-Kommentar am Knoten nachziehen.
+  function wendeNeuAn(el, g) {
+    el.classList.toggle("is-neu", !!g.neuVon);
+    const wrap = el.querySelector(".gd-neu-wrap");
+    if (wrap) {
+      if (!g.neuVon) {
+        wrap.innerHTML = "";
+      } else if (lc(g.neuVon) === meineEmail) {
+        // Eigenes neues Element: der Partner sieht es als NEU; ✕ = endmarkieren.
+        wrap.innerHTML = `<span class="gd-neu-badge" title="Der Partner sieht dieses Element als neu">NEU</span><button type="button" class="gd-neu-x" title="Neu-Markierung entfernen (Partner sieht es dann nicht mehr als neu)">✕</button>`;
+        wrap.querySelector(".gd-neu-x").addEventListener("click", (e) => { e.stopPropagation(); entferneNeu(g.id); });
+      } else {
+        // Neues Element des Partners: anerkennen (✓) oder kommentieren (💬).
+        wrap.innerHTML = `<span class="gd-neu-badge">NEU</span><button type="button" class="gd-neu-ok" title="Anerkennen — Markierung verschwindet, der Partner wird benachrichtigt">✓</button><button type="button" class="gd-neu-komm" title="Kommentar für den Partner hinterlassen">💬</button>`;
+        wrap.querySelector(".gd-neu-ok").addEventListener("click", (e) => { e.stopPropagation(); akzeptiere(g.id); });
+        wrap.querySelector(".gd-neu-komm").addEventListener("click", (e) => { e.stopPropagation(); zeigeKommentarBox(g.id); });
+      }
+    }
+    // Roter Partner-Kommentar (hinweis) unter dem Kopf.
+    let h = el.querySelector(".gd-hinweis");
+    if (g.hinweis && g.hinweis.text) {
+      if (!h) {
+        h = document.createElement("div");
+        h.className = "gd-hinweis";
+        const kopf = el.querySelector(".gd-node-kopf");
+        if (kopf) kopf.after(h); else el.appendChild(h);
+      }
+      h.innerHTML = `<span>💬 ${escapeHtml(g.hinweis.text)}</span><button type="button" class="gd-hinweis-x" title="Kommentar entfernen">✕</button>`;
+      h.querySelector(".gd-hinweis-x").addEventListener("click", (e) => {
+        e.stopPropagation();
+        const d = daten.get(g.id); if (d) d.hinweis = null;
+        aktualisiereGedanke(g.id, { hinweis: null }).catch(() => {});
+        h.remove();
+      });
+    } else if (h) { h.remove(); }
+  }
+
+  // Inline-Kommentarfeld (statt prompt) — Enter/Senden speichert + benachrichtigt.
+  function zeigeKommentarBox(id) {
+    const el = knoten.get(id); if (!el) return;
+    let box = el.querySelector(".gd-hinweis-form");
+    if (box) { box.remove(); return; }
+    box = document.createElement("div");
+    box.className = "gd-hinweis-form";
+    box.innerHTML = `<input type="text" maxlength="200" placeholder="Kommentar für den Partner…"><button type="button">Senden</button>`;
+    const kopf = el.querySelector(".gd-node-kopf");
+    if (kopf) kopf.after(box); else el.appendChild(box);
+    const inp = box.querySelector("input");
+    const senden = () => {
+      const t = (inp.value || "").trim(); if (!t) { inp.focus(); return; }
+      const g = daten.get(id);
+      const hinweis = { von: meineEmail, text: t, am: Date.now() };
+      if (g) g.hinweis = hinweis;
+      aktualisiereGedanke(id, { hinweis }).catch((err) => console.warn(err));
+      if (g && g.neuVon && lc(g.neuVon) !== meineEmail) {
+        benachrichtigungAnlegen({ fuer: lc(g.neuVon), von: meineEmail, text: `💬 Kommentar zu „${kurz(g.text)}": ${t}` }).catch(() => {});
+      }
+      box.remove();
+      const elx = knoten.get(id); if (elx) wendeNeuAn(elx, daten.get(id) || {});
+    };
+    box.querySelector("button").addEventListener("click", (e) => { e.stopPropagation(); senden(); });
+    inp.addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Enter") { e.preventDefault(); senden(); } });
+    inp.addEventListener("pointerdown", (e) => e.stopPropagation());
+    inp.focus();
   }
 
   // --- Knoten-Element bauen ---------------------------------------------
@@ -746,7 +880,9 @@ export function renderAdminGedanken(container, opts) {
     el.innerHTML = `
       <div class="gd-node-kopf">
         <input type="checkbox" class="gd-check" title="Erledigt" />
+        <span class="gd-neu-wrap"></span>
         <div class="gd-node-tools">
+          <button type="button" class="gd-farbe-btn" title="Farbe wählen" hidden></button>
           <button type="button" class="gd-todo" title="Als To-Do markieren (grün)" aria-pressed="false" hidden>◎</button>
           <button type="button" class="gd-ebene" title="Ebene wechseln: Gedanke → Sub → Bereich">—</button>
           <button type="button" class="gd-archiv-btn" title="Erledigten Gedanken ins Archiv verschieben">→ Archiv</button>
@@ -770,12 +906,14 @@ export function renderAdminGedanken(container, opts) {
     const chev  = el.querySelector(".gd-chevron");
     const ebeneBtn = el.querySelector(".gd-ebene");
     const todoBtn  = el.querySelector(".gd-todo");
+    const farbeBtn = el.querySelector(".gd-farbe-btn");
     const archivBtn = el.querySelector(".gd-archiv-btn");
     const ta    = el.querySelector(".gd-text");
 
-    // Ebene (Größe/Gewicht) + Farbe (To-Do/Post) initial anwenden.
+    // Ebene (Größe/Gewicht) + Farbe (To-Do/Post/Palette) + NEU initial anwenden.
     wendeEbeneAn(el, g.ebene);
     wendeFarbeAn(el, g);
+    wendeNeuAn(el, g);
     // Post-Card: Medien-Bereich zeigen, Ebenen-Umschalter ausblenden.
     if ((g.kind || "gedanke") === "post") {
       el.classList.add("gd-node--post");
@@ -794,6 +932,9 @@ export function renderAdminGedanken(container, opts) {
       e.stopPropagation();
       setzeTodo(id, !((daten.get(id) || {}).todo === true));
     });
+    // Farbwahl (feste Palette) — für Gedanken, Subs UND Bereiche;
+    // ausgeblendet bei To-Do (grün fix) und Post (rosa fix).
+    farbeBtn.addEventListener("click", (e) => { e.stopPropagation(); zeigeFarbPop(el, id); });
 
     // Archiv-Button: im aktiven Modus verschiebt er den (erledigten) Gedanken
     // ins Archiv; im Archiv-Modus holt er ihn zurück auf die Haupt-Leinwand.
@@ -889,14 +1030,14 @@ export function renderAdminGedanken(container, opts) {
 
     // Doppelklick → Vollseite (nicht auf Buttons / Body).
     el.addEventListener("dblclick", (e) => {
-      if (e.target.closest(".gd-check, .gd-todo, .gd-del, .gd-attach, .gd-chevron, .gd-ebene, .gd-archiv-btn, .gd-dock, .gd-node-body")) return;
+      if (e.target.closest(".gd-check, .gd-todo, .gd-farbe-btn, .gd-farbe-pop, .gd-neu-wrap, .gd-hinweis, .gd-hinweis-form, .gd-del, .gd-attach, .gd-chevron, .gd-ebene, .gd-archiv-btn, .gd-dock, .gd-node-body")) return;
       oeffneSeite(id);
     });
 
     // Knoten-Drag (Pointer Events). Reiner Klick → Überschrift fokussieren.
     el.addEventListener("pointerdown", (e) => {
       if (e.pointerType === "mouse" && e.button !== 0) return;
-      if (e.target.closest(".gd-check, .gd-todo, .gd-del, .gd-attach, .gd-chevron, .gd-ebene, .gd-archiv-btn, .gd-dock, .gd-node-body")) return;
+      if (e.target.closest(".gd-check, .gd-todo, .gd-farbe-btn, .gd-farbe-pop, .gd-neu-wrap, .gd-hinweis, .gd-hinweis-form, .gd-del, .gd-attach, .gd-chevron, .gd-ebene, .gd-archiv-btn, .gd-dock, .gd-node-body")) return;
       if (e.target === ta && document.activeElement === ta) return;
       blurAktiv();
       e.preventDefault();
@@ -947,8 +1088,9 @@ export function renderAdminGedanken(container, opts) {
     el.classList.toggle("is-erledigt", !!g.erledigt);
     // Ebene (Größe/Gewicht) nachziehen, falls anderswo geändert.
     if (!el.classList.contains("gd-node--" + ebeneOk(g.ebene))) wendeEbeneAn(el, g.ebene);
-    // Farbe/To-Do (grün) bzw. Post (rosa) nachziehen.
+    // Farbe/To-Do/Palette + NEU-Markierung/Kommentar nachziehen.
     wendeFarbeAn(el, g);
+    wendeNeuAn(el, g);
     // Post-Card: Medien nachziehen (nur wenn nichts im Post-Bereich fokussiert ist).
     if ((g.kind || "gedanke") === "post") {
       el.classList.add("gd-node--post");
@@ -1087,6 +1229,7 @@ export function renderAdminGedanken(container, opts) {
     leer.hidden = !(geladen && sichtbar === 0);
     zeichneKanten();
     renderSidebar();
+    aktualisiereNeuAlle();
     // Offene Vollseite auffrischen (Verwandt/Dateien), wenn dort nichts fokussiert ist.
     if (seiteId && daten.has(seiteId) && !seite.contains(document.activeElement)) {
       const body = seite.querySelector("#gdSeiteBody");
@@ -1190,7 +1333,7 @@ export function renderAdminGedanken(container, opts) {
     const x = Math.round(worldCX - breite / 2 + versatz);
     const y = Math.round(worldCY - KNOTEN_H / 2 + (neuZaehler % 3) * 22);
     try {
-      const ref = await gedankeAnlegen({ text: "", ebene: e, kind, todo, mapId: aktiveMapId, detail: "", x, y, erledigt: false, farbe: null, verbindungen: [], dateien: [], archiviert: ansicht === "archiv" });
+      const ref = await gedankeAnlegen({ text: "", ebene: e, kind, todo, mapId: aktiveMapId, neuVon: aktiveMapGeteilt() ? meineEmail : null, detail: "", x, y, erledigt: false, farbe: null, verbindungen: [], dateien: [], archiviert: ansicht === "archiv" });
       fokusId = ref.id;
       const el = knoten.get(ref.id);
       if (el) { fokusId = null; el.querySelector(".gd-text").focus(); }
@@ -1220,6 +1363,33 @@ export function renderAdminGedanken(container, opts) {
     neuZeichnenAusDaten();
   });
 
+  // „Alle Neu akzeptieren": sichtbar, sobald fremde neue Elemente in der
+  // aktuellen Ansicht liegen. Ein Klick erkennt alle an + benachrichtigt.
+  const neuAlleBtn = container.querySelector("#gdNeuAlle");
+  function aktualisiereNeuAlle() {
+    if (!neuAlleBtn) return;
+    const neue = [...daten.values()].filter((g) => istSichtbar(g) && g.neuVon && lc(g.neuVon) !== meineEmail);
+    neuAlleBtn.hidden = !neue.length;
+    if (neue.length) neuAlleBtn.textContent = `✓ ${neue.length} Neue akzeptieren`;
+  }
+  neuAlleBtn.addEventListener("click", () => {
+    const neue = [...daten.values()].filter((g) => istSichtbar(g) && g.neuVon && lc(g.neuVon) !== meineEmail);
+    const proAutor = new Map();
+    neue.forEach((g) => {
+      const autor = lc(g.neuVon);
+      proAutor.set(autor, (proAutor.get(autor) || 0) + 1);
+      g.neuVon = null;
+      const el = knoten.get(g.id); if (el) wendeNeuAn(el, g);
+      aktualisiereGedanke(g.id, { neuVon: null }).catch(() => {});
+    });
+    for (const [autor, n] of proAutor) {
+      if (autor && autor !== meineEmail) {
+        benachrichtigungAnlegen({ fuer: autor, von: meineEmail, text: `✓ ${meineEmail} hat ${n} neue Element${n === 1 ? "" : "e"} anerkannt` }).catch(() => {});
+      }
+    }
+    aktualisiereNeuAlle();
+  });
+
   // --- Mehrere Mindmaps (④): Dropdown + „+ Karte" -----------------------
   const mapSelect   = container.querySelector("#gdMapSelect");
   const mapNeuWrap  = container.querySelector("#gdMapNeu");
@@ -1227,20 +1397,43 @@ export function renderAdminGedanken(container, opts) {
   const mapNeuInput = container.querySelector("#gdMapNeuInput");
   const mapDelBtn   = container.querySelector("#gdMapDel");
 
-  if (istKollab) {
-    // Kollaborator: keine Map-Auswahl/-Verwaltung. Controls ausblenden; die Map
-    // ist fest die geteilte (aktiveMapId). Keine mindmaps-Abfrage — die Rules
-    // erlauben dem Kollaborator nur seine eigene Map-Definition, nicht die Liste.
-    [mapSelect, mapNeuBtn, mapDelBtn, mapNeuWrap].forEach((el) => { if (el) el.hidden = true; });
-  } else {
+  // Kollaborator: Name/Mitglieder der geteilten Map nachladen (fürs Dropdown
+  // und die Geteilt-Erkennung des Neu-/Akzeptier-Systems).
+  let kollabMapDoc = null;
+  if (istKollab && kollabMapId) {
+    ladeMindmap(kollabMapId).then((d) => { kollabMapDoc = d; renderMapSelect(); }).catch(() => {});
+  }
+
+  // Maps, die dieser Nutzer sieht: Admin = Standard + Maps, in denen er
+  // Mitglied ist (Altbestände ohne mitglieder-Feld gehören ihm). Kollaborator =
+  // geteilte Map + selbst angelegte. Private Maps des Partners tauchen hier
+  // bewusst NICHT auf.
+  function meineMaps() {
+    if (!istKollab) {
+      const eigene = mindmaps.filter((m) => !Array.isArray(m.mitglieder) || m.mitglieder.map(lc).includes(meineEmail));
+      return [{ id: DEFAULT_MAP, name: "Standard" }, ...eigene];
+    }
+    const arr = [...mindmaps];
+    if (kollabMapId && !arr.some((m) => m.id === kollabMapId)) {
+      arr.unshift({ id: kollabMapId, name: (kollabMapDoc && kollabMapDoc.name) || "Geteilte Map", ...(kollabMapDoc || {}) });
+    }
+    return arr;
+  }
+  function aktuelleMap() { return meineMaps().find((m) => m.id === aktiveMapId) || null; }
+  // Geteilte Map (>1 Mitglied) → Neu-/Akzeptier-System aktiv (④).
+  function aktiveMapGeteilt() {
+    const m = aktuelleMap();
+    return !!(m && Array.isArray(m.mitglieder) && m.mitglieder.length > 1);
+  }
 
   function renderMapSelect() {
-    const optionen = [{ id: DEFAULT_MAP, name: "Standard" }, ...mindmaps];
+    const optionen = meineMaps();
     if (!optionen.some((o) => o.id === aktiveMapId)) optionen.push({ id: aktiveMapId, name: "(lädt …)" });
     mapSelect.innerHTML = optionen.map((o) =>
       `<option value="${escapeHtml(o.id)}"${o.id === aktiveMapId ? " selected" : ""}>${escapeHtml(o.name || "Unbenannt")}</option>`).join("");
-    // Löschen nur für zusätzliche Maps (die Standard-Map bleibt).
-    mapDelBtn.hidden = aktiveMapId === DEFAULT_MAP;
+    // Löschen: Admin alles außer Standard; Kollaborator nur selbst angelegte Maps.
+    const m = aktuelleMap();
+    mapDelBtn.hidden = istKollab ? !(m && lc(m.besitzer) === meineEmail) : aktiveMapId === DEFAULT_MAP;
     mapDelBtn.classList.remove("is-bestaetigen");
     mapDelBtn.textContent = "🗑 Karte";
   }
@@ -1267,9 +1460,11 @@ export function renderAdminGedanken(container, opts) {
   function wechsleMap(mapId) {
     if (mapId === aktiveMapId) return;
     aktiveMapId = mapId;
-    localStorage.setItem("vale_gd_map", mapId);
+    localStorage.setItem(LS_MAP_KEY, mapId);
+    if (istKollab) starteGedankenListener();   // Kollaborator lädt Gedanken pro Map
     neuZeichnenAusDaten();
     zentriereAufSichtbare();
+    renderMapSelect();
   }
   mapSelect.addEventListener("change", () => wechsleMap(mapSelect.value));
 
@@ -1284,10 +1479,11 @@ export function renderAdminGedanken(container, opts) {
     const name = (mapNeuInput.value || "").trim();
     if (!name) { mapNeuInput.focus(); return; }
     try {
-      const ref = await mindmapAnlegen({ name });
+      const ref = await mindmapAnlegen({ name, besitzer: meineEmail, mitglieder: [meineEmail] });
       zeigeMapNeu(false);
       aktiveMapId = ref.id;                                  // zur neuen (leeren) Map wechseln
-      localStorage.setItem("vale_gd_map", ref.id);
+      localStorage.setItem(LS_MAP_KEY, ref.id);
+      if (istKollab) starteGedankenListener();
       renderMapSelect();
       neuZeichnenAusDaten();
       zentriereAufSichtbare();
@@ -1300,34 +1496,40 @@ export function renderAdminGedanken(container, opts) {
   });
 
   renderMapSelect();
-  mapUnsub = beobachteMindmaps(
-    (liste) => {
-      mindmaps = liste;
-      // Gemerkte Map gelöscht? → zurück auf Standard.
-      if (aktiveMapId !== DEFAULT_MAP && !liste.some((m) => m.id === aktiveMapId)) {
-        aktiveMapId = DEFAULT_MAP; localStorage.setItem("vale_gd_map", aktiveMapId);
-        neuZeichnenAusDaten(); zentriereAufSichtbare();
-      }
-      renderMapSelect();
-    },
-    (err) => console.warn("Mindmaps laden fehlgeschlagen:", err)
-  );
+  const mapsCallback = (liste) => {
+    mindmaps = liste;
+    // Gemerkte Map nicht (mehr) verfügbar? → zurück auf die Basis-Map.
+    if (!meineMaps().some((m) => m.id === aktiveMapId)) {
+      aktiveMapId = istKollab ? (kollabMapId || DEFAULT_MAP) : DEFAULT_MAP;
+      localStorage.setItem(LS_MAP_KEY, aktiveMapId);
+      if (istKollab) starteGedankenListener();
+      neuZeichnenAusDaten(); zentriereAufSichtbare();
+    }
+    renderMapSelect();
+  };
+  mapUnsub = istKollab
+    ? beobachteMeineMindmaps(meineEmail, mapsCallback, (err) => console.warn("Mindmaps laden fehlgeschlagen:", err))
+    : beobachteMindmaps(mapsCallback, (err) => console.warn("Mindmaps laden fehlgeschlagen:", err));
   beiViewWechsel(() => { if (mapUnsub) { try { mapUnsub(); } catch (_) { /* egal */ } mapUnsub = null; } });
 
-  } // Ende !istKollab (Map-Verwaltung)
-
   // --- Realtime-Listener -------------------------------------------------
-  // Admin: alle Gedanken. Kollaborator: nur seine Map (where mapId) — sonst
-  // würde Firestore die Query (die alle Maps läse) komplett verweigern.
+  // Admin: alle Gedanken (eine Query, clientseitig gefiltert). Kollaborator:
+  // pro aktiver Map (where mapId) — die Rules verweigern ihm eine Query über
+  // alle Maps; beim Map-Wechsel wird neu abonniert.
   wendePanAn();
-  const unsub = beobachteGedanken(
-    (listeDaten) => { geladen = true; status.hidden = true; status.classList.remove("is-fehler"); reconcile(listeDaten); },
-    (err) => {
-      console.warn("Gedanken konnten nicht geladen werden:", err);
-      status.hidden = false; status.classList.add("is-fehler");
-      status.textContent = `Konnte nicht laden${err && err.message ? ` (${String(err.message)})` : ""}…`;
-    },
-    istKollab ? aktiveMapId : undefined
-  );
-  beiViewWechsel(unsub);
+  let gedankenUnsub = null;
+  function starteGedankenListener() {
+    if (gedankenUnsub) { try { gedankenUnsub(); } catch (_) { /* egal */ } gedankenUnsub = null; }
+    gedankenUnsub = beobachteGedanken(
+      (listeDaten) => { geladen = true; status.hidden = true; status.classList.remove("is-fehler"); reconcile(listeDaten); },
+      (err) => {
+        console.warn("Gedanken konnten nicht geladen werden:", err);
+        status.hidden = false; status.classList.add("is-fehler");
+        status.textContent = `Konnte nicht laden${err && err.message ? ` (${String(err.message)})` : ""}…`;
+      },
+      istKollab ? aktiveMapId : undefined
+    );
+  }
+  starteGedankenListener();
+  beiViewWechsel(() => { if (gedankenUnsub) { try { gedankenUnsub(); } catch (_) { /* egal */ } gedankenUnsub = null; } });
 }

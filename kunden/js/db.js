@@ -10,7 +10,7 @@
 import { db } from "./firebase-init.js";
 import {
   collection, doc, addDoc, setDoc, getDoc, getDocs, updateDoc, deleteDoc,
-  query, where, orderBy, onSnapshot, serverTimestamp, writeBatch
+  query, where, orderBy, onSnapshot, serverTimestamp, writeBatch, arrayUnion
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import {
   STATUS, OBJEKT_STATUS,
@@ -330,6 +330,9 @@ export async function gedankeAnlegen(daten) {
     kind:        daten.kind === "post" ? "post" : "gedanke",  // Format: normaler Gedanke | Post-Card
     todo:        !!daten.todo,                                 // To-Do-Status (grün / im Filter)
     mapId:       daten.mapId || "default",                     // Zugehörigkeit zu einer Mindmap
+    verantwortlich: (daten.verantwortlich || "").toLowerCase(),// zuständige E-Mail fürs To-Do ("" = niemand)
+    neuVon:      daten.neuVon || null,                         // auf geteilten Maps: E-Mail des Erstellers (NEU-Markierung)
+    hinweis:     daten.hinweis || null,                        // roter Partner-Kommentar {von, text, am} | null
     detail:      daten.detail || "",
     x:           Number.isFinite(daten.x) ? daten.x : 0,
     y:           Number.isFinite(daten.y) ? daten.y : 0,
@@ -484,8 +487,15 @@ export async function loescheFokusSession(id) {
 // =====================================================================
 const mindmapsCol = () => collection(db, "mindmaps");
 
-export async function mindmapAnlegen({ name }) {
-  return addDoc(mindmapsCol(), { name: name || "Neue Map", erstelltAm: serverTimestamp() });
+// besitzer + mitglieder steuern, wer die Map sieht/bearbeitet (siehe Rules):
+// der Besitzer darf sie löschen; Mitglieder sehen sie und ihre Gedanken.
+export async function mindmapAnlegen({ name, besitzer, mitglieder }) {
+  return addDoc(mindmapsCol(), {
+    name:       name || "Neue Map",
+    besitzer:   (besitzer || "").toLowerCase(),
+    mitglieder: Array.isArray(mitglieder) ? mitglieder.map((e) => String(e).toLowerCase()) : [],
+    erstelltAm: serverTimestamp()
+  });
 }
 
 export function beobachteMindmaps(callback, onError) {
@@ -496,6 +506,26 @@ export function beobachteMindmaps(callback, onError) {
   );
 }
 
+// Nur die Maps, in denen diese E-Mail Mitglied ist (Kollaborator-Sicht).
+// Kein orderBy → kein Composite-Index nötig; Sortierung macht der Client.
+export function beobachteMeineMindmaps(email, callback, onError) {
+  const e = (email || "").trim().toLowerCase();
+  return onSnapshot(
+    query(mindmapsCol(), where("mitglieder", "array-contains", e)),
+    (snap) => callback(snapToArr(snap)),
+    onError || (() => {})
+  );
+}
+
+export async function ladeMindmap(id) {
+  const d = await getDoc(doc(db, "mindmaps", id));
+  return d.exists() ? { id: d.id, ...d.data() } : null;
+}
+
+export async function aktualisiereMindmap(id, felder) {
+  return updateDoc(doc(db, "mindmaps", id), felder);
+}
+
 export async function loescheMindmap(id) {
   return deleteDoc(doc(db, "mindmaps", id));
 }
@@ -503,6 +533,39 @@ export async function loescheMindmap(id) {
 // Mindmap mit fester Doc-ID anlegen (z. B. "johannvale" für die geteilte Map).
 export async function mindmapAnlegenMitId(id, name) {
   return setDoc(doc(db, "mindmaps", id), { name: name || "Mindmap", erstelltAm: serverTimestamp() }, { merge: true });
+}
+
+// =====================================================================
+// BENACHRICHTIGUNGEN — Glocke in der Topbar (anerkannt/kommentiert)
+// Ein Doc = eine Nachricht an genau eine E-Mail (fuer). gelesen-Flag
+// steuert den Zähler. Rules: lesen/gelesen-setzen nur der Empfänger.
+// =====================================================================
+const benachrichtigungenCol = () => collection(db, "benachrichtigungen");
+
+export async function benachrichtigungAnlegen({ fuer, von, text }) {
+  return addDoc(benachrichtigungenCol(), {
+    fuer:       (fuer || "").toLowerCase(),
+    von:        (von || "").toLowerCase(),
+    text:       text || "",
+    gelesen:    false,
+    erstelltAm: serverTimestamp()
+  });
+}
+
+export function beobachteBenachrichtigungen(email, callback, onError) {
+  const e = (email || "").trim().toLowerCase();
+  return onSnapshot(
+    query(benachrichtigungenCol(), where("fuer", "==", e)),
+    (snap) => callback(snapToArr(snap)),
+    onError || (() => {})
+  );
+}
+
+export async function markiereBenachrichtigungenGelesen(ids) {
+  if (!Array.isArray(ids) || !ids.length) return;
+  const batch = writeBatch(db);
+  ids.forEach((id) => batch.update(doc(db, "benachrichtigungen", id), { gelesen: true }));
+  return batch.commit();
 }
 
 // =====================================================================
@@ -540,5 +603,9 @@ export async function loeseEinladungEin(einladungId, code, email, mapId) {
   const batch = writeBatch(db);
   batch.update(doc(db, "einladung", einladungId), { code: String(code), mapId, eingeloestVon: e });
   batch.set(doc(db, "kollaboratoren", e), { mapId, erstelltAm: serverTimestamp() });
+  // Zusätzlich Mitglied der geteilten Map werden (Rules: nur via dieses Batches
+  // möglich, getAfter-Prüfung). Ab dann kennt die Map ihre Nutzer → Zuweisung,
+  // Geteilt-Erkennung fürs Neu-/Akzeptier-System.
+  batch.update(doc(db, "mindmaps", mapId), { mitglieder: arrayUnion(e) });
   return batch.commit();
 }

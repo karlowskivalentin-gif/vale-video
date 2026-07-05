@@ -51,6 +51,20 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/kollaboratoren/$(email())).data.mapId;
     }
 
+    // ---- Map-Mitgliedschaft (geteilte + selbst angelegte Mindmaps) ----
+    // Eine Map kennt ihre Nutzer über data.mitglieder. Wer Mitglied ist,
+    // darf die Map und ihre Gedanken lesen/bearbeiten.
+    function istMapMitglied(mapId) {
+      return istEingeloggt()
+          && exists(/databases/$(database)/documents/mindmaps/$(mapId))
+          && email() in get(/databases/$(database)/documents/mindmaps/$(mapId)).data.get('mitglieder', []);
+    }
+    function darfAufMap(mapId) {
+      return istAdmin()
+          || (istKollaborator() && mapId == kollaboratorMap())
+          || istMapMitglied(mapId);
+    }
+
     // ---- Kunden-Übergangs-Whitelist (gespiegelt aus status.js) -------
     function erlaubterUebergang(alt, neu) {
       return (alt == '🔍 Freigabe Skript'  && (neu == '🎬 Drehbereit' || neu == '📝 Skript'))
@@ -119,14 +133,14 @@ service cloud.firestore {
     // Rein private Denk-/Ideen-Leinwand. Der Kunde sieht das NIE — weder
     // lesen noch schreiben. Gleiche Vertrauensgrenze wie plaene/shotvorlagen.
     match /gedanken/{gedankeId} {
-      allow read:   if istAdmin() || (istKollaborator() && resource.data.mapId == kollaboratorMap());
-      allow create: if istAdmin() || (istKollaborator() && request.resource.data.mapId == kollaboratorMap());
-      // Kollaborator darf die mapId eines Gedankens nicht ändern (kein Verschieben rein/raus).
+      allow read:   if istAdmin() || darfAufMap(resource.data.get('mapId', 'default'));
+      allow create: if darfAufMap(request.resource.data.get('mapId', 'default'));
+      // Nicht-Admins dürfen die mapId eines Gedankens nicht ändern
+      // (kein Verschieben in fremde/aus geteilten Maps).
       allow update: if istAdmin()
-                    || (istKollaborator()
-                        && resource.data.mapId == kollaboratorMap()
-                        && request.resource.data.mapId == kollaboratorMap());
-      allow delete: if istAdmin() || (istKollaborator() && resource.data.mapId == kollaboratorMap());
+                    || (darfAufMap(resource.data.get('mapId', 'default'))
+                        && request.resource.data.get('mapId', 'default') == resource.data.get('mapId', 'default'));
+      allow delete: if istAdmin() || darfAufMap(resource.data.get('mapId', 'default'));
     }
 
     // ---- dateiblobs (Base64-Anhänge der Gedanken) -------------------
@@ -153,12 +167,45 @@ service cloud.firestore {
     }
 
     // ---- mindmaps (benannte Gedanken-Leinwände) --------------------
-    // Ein Doc = eine zusätzliche Mindmap (Gedanken tragen mapId). Admin
-    // verwaltet alle; Kollaborator darf nur SEINE Map-Definition lesen.
+    // Ein Doc = eine Mindmap { name, besitzer, mitglieder[] }. Admin
+    // verwaltet alle. Kollaboratoren: sehen ihre Mitglieds-Maps + die per
+    // Einladung geteilte; legen NUR eigene Maps an (sie selbst Besitzer und
+    // einziges Mitglied); löschen nur eigene.
     match /mindmaps/{id} {
-      allow get:   if istAdmin() || (istKollaborator() && id == kollaboratorMap());
-      allow list:  if istAdmin();
-      allow write: if istAdmin();
+      allow get:   if istAdmin()
+                   || (istEingeloggt() && email() in resource.data.get('mitglieder', []))
+                   || (istKollaborator() && id == kollaboratorMap());
+      allow list:  if istAdmin()
+                   || (istEingeloggt() && email() in resource.data.get('mitglieder', []));
+      allow create: if istAdmin()
+                    || (istKollaborator()
+                        && request.resource.data.get('besitzer', '') == email()
+                        && request.resource.data.get('mitglieder', []) == [email()]);
+      // Ändern: Admin frei. Außerdem darf sich ein Nutzer beim Einlösen seiner
+      // Einladung selbst als Mitglied ergänzen (atomarer Batch, getAfter prüft
+      // die frisch angelegte Freischaltung; bestehende Mitglieder bleiben).
+      allow update: if istAdmin()
+                    || (istEingeloggt()
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['mitglieder'])
+                        && request.resource.data.get('mitglieder', []).hasAll(resource.data.get('mitglieder', []))
+                        && email() in request.resource.data.get('mitglieder', [])
+                        && getAfter(/databases/$(database)/documents/kollaboratoren/$(email())).data.mapId == id);
+      allow delete: if istAdmin()
+                    || (istEingeloggt() && resource.data.get('besitzer', '') == email());
+    }
+
+    // ---- benachrichtigungen (Glocke: anerkannt/kommentiert) ---------
+    // Ein Doc = eine Nachricht an data.fuer. Lesen/als-gelesen-markieren
+    // darf nur der Empfänger; anlegen jeder legitime Nutzer im eigenen Namen.
+    match /benachrichtigungen/{id} {
+      allow read:   if istAdmin() || (istEingeloggt() && resource.data.fuer == email());
+      allow create: if (istErlaubt() || istKollaborator())
+                    && request.resource.data.von == email()
+                    && request.resource.data.fuer is string;
+      allow update: if istAdmin()
+                    || (istEingeloggt() && resource.data.fuer == email()
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['gelesen']));
+      allow delete: if istAdmin() || (istEingeloggt() && resource.data.fuer == email());
     }
 
     // ---- kollaboratoren (Freischaltung: E-Mail → eine Map) ---------

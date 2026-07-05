@@ -1178,6 +1178,113 @@ a.row-item:hover { background: var(--off-white); }
 .gd-mapneu-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(226,98,44,0.12); }
 .gd-map-del.is-bestaetigen { background: var(--error); color: #fff; border-color: var(--error); }
 
+/* ---- Gedanken: manuelle Farbpalette (③) — Grün/Rosa sind reserviert ---- */
+.gd-node.gd-farbe-gelb    { border-color: #eab308; background: #fefce8; }
+.gd-node.gd-farbe-blau    { border-color: #3b82f6; background: #eff6ff; }
+.gd-node.gd-farbe-lila    { border-color: #8b5cf6; background: #f5f3ff; }
+.gd-node.gd-farbe-tuerkis { border-color: #14b8a6; background: #f0fdfa; }
+.gd-node.gd-farbe-rot     { border-color: #ef4444; background: #fef2f2; }
+.gd-node.gd-farbe-grau    { border-color: #9ca3af; background: #f9fafb; }
+.gd-farbe-btn {
+  border: none; background: transparent; cursor: pointer;
+  padding: 3px 5px; border-radius: var(--radius); line-height: 1;
+}
+.gd-farbe-btn::before {
+  content: ""; display: block; width: 11px; height: 11px; border-radius: 50%;
+  border: 1.5px solid var(--muted); background: var(--f, transparent);
+}
+.gd-farbe-btn:hover::before { border-color: var(--accent); }
+.gd-farbe-btn.hat-farbe::before { border-color: transparent; }
+.gd-farbe-btn[hidden] { display: none; }
+.gd-farbe-pop {
+  position: absolute; top: 28px; right: 6px; z-index: 6;
+  display: flex; gap: 5px; padding: 6px;
+  background: var(--surface); border: 1px solid var(--mid); border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+}
+.gd-farbe-dot {
+  width: 18px; height: 18px; border-radius: 50%; padding: 0; cursor: pointer;
+  border: 1px solid rgba(0,0,0,.15); background: var(--f);
+}
+.gd-farbe-dot:hover { transform: scale(1.15); }
+.gd-farbe-keine { background: var(--surface); color: var(--muted); font-size: 11px; line-height: 1; }
+
+/* ---- Gedanken: NEU-Markierung + Anerkennen + Kommentar (④) ---- */
+.gd-node.is-neu { box-shadow: 0 0 0 2px #3b82f6, var(--shadow-card); }
+.gd-neu-wrap { display: inline-flex; align-items: center; gap: 2px; min-width: 0; }
+.gd-neu-badge {
+  font-size: 9px; font-weight: 800; letter-spacing: .5px; line-height: 1;
+  color: #fff; background: #3b82f6; border-radius: 4px; padding: 2px 4px;
+}
+.gd-neu-ok, .gd-neu-x, .gd-neu-komm {
+  border: none; background: transparent; cursor: pointer;
+  font-size: 11px; line-height: 1; padding: 2px 3px; border-radius: 4px; color: var(--muted);
+}
+.gd-neu-ok:hover { color: #2f9e44; background: var(--dark); }
+.gd-neu-x:hover, .gd-neu-komm:hover { color: var(--accent); background: var(--dark); }
+.gd-hinweis {
+  margin: 4px 0 2px; padding: 5px 7px; border-radius: var(--radius);
+  background: #fef2f2; border: 1px solid #ef4444; color: #b91c1c;
+  font-size: 11.5px; line-height: 1.35; display: flex; gap: 6px; align-items: flex-start;
+  cursor: default; user-select: text;
+}
+.gd-hinweis-x { margin-left: auto; flex: 0 0 auto; border: none; background: transparent; color: #b91c1c; cursor: pointer; font-size: 11px; line-height: 1; }
+.gd-hinweis-form { display: flex; gap: 4px; margin: 4px 0 2px; cursor: default; }
+.gd-hinweis-form input {
+  flex: 1 1 auto; min-width: 0; font: inherit; font-size: 11.5px; padding: 3px 6px;
+  border: 1px solid var(--mid); border-radius: var(--radius); background: var(--surface);
+}
+.gd-hinweis-form input:focus { outline: none; border-color: #ef4444; }
+.gd-hinweis-form button {
+  flex: 0 0 auto; font: inherit; font-size: 11px; padding: 3px 8px; cursor: pointer;
+  border: 1px solid var(--mid); border-radius: var(--radius); background: var(--surface);
+}
+.gd-neu-alle { color: #1d4ed8; }
+.gd-neu-alle:hover { border-color: #3b82f6; color: #1d4ed8; }
+
+/* ---- Benachrichtigungs-Glocke (Topbar) ---- */
+.glocke-btn { position: relative; }
+.glocke-zahl {
+  position: absolute; top: -5px; right: -5px; min-width: 16px; height: 16px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--error); color: #fff; font-size: 10px; font-weight: 700;
+  border-radius: 999px; padding: 0 4px;
+}
+.glocke-panel {
+  position: absolute; top: 100%; right: 1rem; z-index: 60;
+  width: 340px; max-width: calc(100vw - 2rem); max-height: 60vh; overflow: auto;
+  background: var(--surface); border: 1px solid var(--mid); border-radius: var(--radius);
+  box-shadow: var(--shadow-card); padding: .35rem;
+}
+.glocke-item { padding: .5rem .6rem; font-size: .84rem; line-height: 1.4; border-radius: var(--radius); color: var(--black); word-break: break-word; }
+.glocke-item + .glocke-item { border-top: 1px solid var(--dark); }
+.glocke-item.is-neu { background: rgba(226,98,44,.07); font-weight: 600; }
+.glocke-leer { padding: .6rem; font-size: .84rem; color: var(--muted); }
+
+/* ---- To-Do-Liste (①, map-übergreifend) ---- */
+.todo-uebersicht { margin-bottom: 1.5rem; }
+.todo-h2 { font-size: 1.05rem; margin: 0 0 .7rem; }
+.todo-h3 { font-size: .95rem; margin: 0 0 .55rem; }
+.todo-gruppe { margin-bottom: 1.4rem; }
+.todo-liste { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .45rem; }
+.todo-item {
+  display: flex; align-items: center; gap: .7rem;
+  padding: .55rem .7rem; background: var(--surface); border: 1px solid var(--mid); border-radius: var(--radius);
+}
+.todo-check { width: 16px; height: 16px; accent-color: #2f9e44; flex: 0 0 auto; cursor: pointer; }
+.todo-haupt { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: .1rem; }
+.todo-text { font-weight: 600; color: var(--black); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.todo-meta { font-size: .74rem; }
+.todo-wer {
+  flex: 0 0 auto; max-width: 210px; font: inherit; font-size: .78rem; padding: .3rem .4rem;
+  border: 1px solid var(--mid); border-radius: var(--radius); background: var(--surface); color: var(--black); cursor: pointer;
+}
+.todo-wer:focus { outline: none; border-color: var(--accent); }
+@media (max-width: 720px) {
+  .todo-item { flex-wrap: wrap; }
+  .todo-wer { max-width: 100%; flex: 1 1 100%; }
+}
+
 /* ---- Gedanken: Inline-Body (aufgeklappter Knoten) ---- */
 .gd-node-body {
   margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--mid);
