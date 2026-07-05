@@ -450,12 +450,13 @@ export function beobachteFokusvideos(callback, onError) {
 // =====================================================================
 const fokussessionsCol = () => collection(db, "fokussessions");
 
-export async function fokusSessionAnlegen({ name, dauerMin, startAt, endeAt }) {
+export async function fokusSessionAnlegen({ name, dauerMin, startAt, endeAt, kategorie }) {
   return addDoc(fokussessionsCol(), {
     name:       name || "Fokus",
     dauerMin:   Number.isFinite(dauerMin) ? dauerMin : 0,
     startAt:    startAt instanceof Date ? startAt : new Date(),
     endeAt:     endeAt instanceof Date ? endeAt : new Date(),
+    kategorie:  kategorie || "",
     erstelltAm: serverTimestamp()
   });
 }

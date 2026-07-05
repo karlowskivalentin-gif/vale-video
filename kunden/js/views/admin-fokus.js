@@ -13,7 +13,8 @@ import { beiViewWechsel } from "../view-lifecycle.js";
 import { youtubeId } from "../drive.js";
 import { escapeHtml, formatDatum } from "../util.js";
 import { fokusvideoAnlegen, aktualisiereFokusvideo, beobachteFokusvideos, loescheFokusvideo,
-         fokusSessionAnlegen, beobachteFokusSessions, loescheFokusSession } from "../db.js";
+         fokusSessionAnlegen, beobachteFokusSessions, loescheFokusSession,
+         beobachteGedanken, aktualisiereGedanke } from "../db.js";
 
 const LS_SESSION = "vale_fokus_session";   // laufende/pausierte Session
 const LS_STATS   = "vale_fokus_stats";     // Tages-Zähler (Sessions + Minuten)
@@ -86,6 +87,10 @@ export function renderAdminFokus(container) {
   let sessionUnsub = null;  // Verlauf: Firestore-onSnapshot-Abbestellung
   let sessions = [];        // Verlauf: zuletzt bekannte Session-Liste
   let gewaehlterName = "";  // Timer: benannter Session-Titel im Idle-Zustand
+  let gewaehlteKat = "";    // Timer: gewählte Kategorie (Sub-Id) im Idle-Zustand
+
+  let gedankenUnsub = null; // Kategorien/To-Dos: onSnapshot der Gedanken
+  let alleGedanken = [];    // zuletzt bekannte Gedanken (für Sub-Kategorien + To-Dos)
 
   let aktiverTab = TABS.includes(localStorage.getItem(LS_TAB)) ? localStorage.getItem(LS_TAB) : "timer";
 
@@ -206,6 +211,61 @@ export function renderAdminFokus(container) {
     const pl = body.querySelector("#fokusPflanze"); if (pl) pl.textContent = pflanze(f);
   }
 
+  // --- Kategorien (= Subs der Mindmaps) + verbundene To-Dos ------------
+  function subKategorien() {
+    return alleGedanken
+      .filter((g) => g.ebene === "sub" && !g.archiviert)
+      .map((g) => ({ id: g.id, name: g.text || "Unbenannter Sub" }))
+      .sort((a, b) => a.name.localeCompare(b.name, "de"));
+  }
+  // Nicht erledigte einzelne Gedanken, die mit dem Sub verbunden sind.
+  function todosFuerSub(subId) {
+    const sub = alleGedanken.find((g) => g.id === subId);
+    if (!sub) return [];
+    const direkt = new Set(sub.verbindungen || []);
+    return alleGedanken.filter((g) =>
+      g.id !== subId
+      && (g.ebene || "gedanke") === "gedanke"
+      && !g.erledigt && !g.archiviert
+      && (direkt.has(g.id) || (g.verbindungen || []).includes(subId))
+    );
+  }
+  // Idle-Dropdown mit aktuellen Sub-Kategorien nachfüllen (ohne zeichneIdle
+  // komplett neu zu bauen → Name/Dauer-Eingaben bleiben erhalten).
+  function aktualisiereKatDropdown() {
+    const sel = body.querySelector("#fokusKat");
+    if (!sel || document.activeElement === sel) return;
+    const aktuell = sel.value;
+    sel.innerHTML = `<option value="">Ohne Kategorie</option>` +
+      subKategorien().map((s) => `<option value="${escapeHtml(s.id)}"${s.id === aktuell ? " selected" : ""}>${escapeHtml(s.name)}</option>`).join("");
+  }
+
+  // To-Do-Panel im laufenden Timer: offene Gedanken der Session-Kategorie.
+  function aktualisiereTodoPanel() {
+    const el = body.querySelector("#fokusTodos");
+    if (!el) return;
+    const sess = ladeSession();
+    if (!sess || !sess.kategorie) { el.innerHTML = ""; return; }
+    const todos = todosFuerSub(sess.kategorie);
+    el.innerHTML = `
+      <div class="fokus-todos-kopf">🎯 ${escapeHtml(sess.kategorieName || "Kategorie")} · offene To-Dos</div>
+      ${todos.length
+        ? `<ul class="fokus-todos-liste">${todos.map((t) => `
+            <li class="fokus-todo-item">
+              <label><input type="checkbox" data-todo="${escapeHtml(t.id)}"> <span>${escapeHtml(t.text || "Unbenannter Gedanke")}</span></label>
+            </li>`).join("")}</ul>`
+        : `<p class="fokus-todos-leer muted">Keine offenen To-Dos für diese Kategorie. 🎉</p>`}`;
+    el.querySelectorAll("input[data-todo]").forEach((cb) => {
+      cb.addEventListener("change", async () => {
+        const id = cb.getAttribute("data-todo");
+        cb.disabled = true;
+        try { await aktualisiereGedanke(id, { erledigt: true }); }   // wirkt auch in der Mindmap
+        catch (e) { console.warn("To-Do abhaken fehlgeschlagen:", e); cb.checked = false; cb.disabled = false; }
+        // Der Gedanken-Snapshot ruft aktualisiereTodoPanel erneut → Item verschwindet.
+      });
+    });
+  }
+
   function zeichneIdle() {
     if (ticker) { clearInterval(ticker); ticker = null; }
     const stats = ladeStats();
@@ -215,6 +275,10 @@ export function renderAdminFokus(container) {
         <input id="fokusName" class="fokus-name" type="text" maxlength="60"
           placeholder="Woran arbeitest du? (z. B. Deussen-Schnitt)" value="${escapeHtml(gewaehlterName)}"
           aria-label="Name der Fokus-Session" />
+        <select id="fokusKat" class="fokus-kat" aria-label="Kategorie (Sub aus einer Mindmap)">
+          <option value="">Ohne Kategorie</option>
+          ${subKategorien().map((s) => `<option value="${escapeHtml(s.id)}"${s.id === gewaehlteKat ? " selected" : ""}>${escapeHtml(s.name)}</option>`).join("")}
+        </select>
         <div class="fokus-presets">
           ${PRESETS.map((m) => `<button class="btn btn--ghost btn--sm fokus-preset${m === gewaehltMin ? " is-active" : ""}" data-min="${m}" type="button">${m} Min</button>`).join("")}
           <span class="fokus-custom"><input id="fokusCustom" type="number" min="1" max="180" value="${gewaehltMin}" aria-label="Dauer in Minuten" /> Min</span>
@@ -225,6 +289,8 @@ export function renderAdminFokus(container) {
 
     const nameEl = body.querySelector("#fokusName");
     if (nameEl) nameEl.addEventListener("input", () => { gewaehlterName = nameEl.value; });
+    const katEl = body.querySelector("#fokusKat");
+    if (katEl) katEl.addEventListener("change", () => { gewaehlteKat = katEl.value; });
 
     body.querySelectorAll(".fokus-preset").forEach((b) => {
       b.addEventListener("click", () => {
@@ -256,10 +322,12 @@ export function renderAdminFokus(container) {
           <button class="btn btn--accent" id="fokusEnde" type="button">Beenden</button>
           <button class="btn btn--ghost fokus-abbrechen" id="fokusStop" type="button">Abbrechen</button>
         </div>
-      </section>`;
+      </section>
+      ${sess.kategorie ? `<section class="card card--pad fokus-todos-card"><div id="fokusTodos"></div></section>` : ""}`;
     body.querySelector("#fokusToggle").addEventListener("click", toggle);
     body.querySelector("#fokusEnde").addEventListener("click", beende);
     body.querySelector("#fokusStop").addEventListener("click", stoppe);
+    aktualisiereTodoPanel();   // To-Dos der Kategorie (falls gesetzt)
   }
 
   function zeichneDone(min) {
@@ -282,7 +350,7 @@ export function renderAdminFokus(container) {
   function protokolliere(sess, dauerMin) {
     try {
       const start = sess.startAt ? new Date(sess.startAt) : new Date();
-      fokusSessionAnlegen({ name: sess.name || "Fokus", dauerMin, startAt: start, endeAt: new Date() })
+      fokusSessionAnlegen({ name: sess.name || "Fokus", dauerMin, startAt: start, endeAt: new Date(), kategorie: sess.kategorieName || "" })
         .catch((e) => console.warn("Session-Verlauf speichern fehlgeschlagen:", e));
     } catch (e) { console.warn("Session-Verlauf speichern fehlgeschlagen:", e); }
   }
@@ -332,14 +400,16 @@ export function renderAdminFokus(container) {
     }
     const dauerSek = min * 60;
     const name = (gewaehlterName || "").trim() || "Fokus";
-    speichereSession({ status: "running", dauerSek, endeAt: Date.now() + dauerSek * 1000, name, startAt: Date.now() });
+    const kategorie = gewaehlteKat || "";
+    const kategorieName = kategorie ? (subKategorien().find((s) => s.id === kategorie)?.name || "") : "";
+    speichereSession({ status: "running", dauerSek, endeAt: Date.now() + dauerSek * 1000, name, startAt: Date.now(), kategorie, kategorieName });
     zeichne();
   }
 
   function toggle() {
     const sess = ladeSession();
     if (!sess) { zeichne(); return; }
-    const meta = { name: sess.name, startAt: sess.startAt };  // Name/Start über Pause hinweg erhalten
+    const meta = { name: sess.name, startAt: sess.startAt, kategorie: sess.kategorie, kategorieName: sess.kategorieName };  // über Pause hinweg erhalten
     if (sess.status === "running") {
       speichereSession({ status: "paused", dauerSek: sess.dauerSek, restSek: aktuellerRest(sess), ...meta });
     } else {
@@ -672,7 +742,7 @@ export function renderAdminFokus(container) {
         ${sessions.map((s) => `
           <li class="fokus-liste-item" data-id="${escapeHtml(s.id)}">
             <div class="fokus-liste-haupt">
-              <span class="fokus-liste-name">${escapeHtml(s.name || "Fokus")}</span>
+              <span class="fokus-liste-name">${escapeHtml(s.name || "Fokus")}${s.kategorie ? ` <span class="fokus-liste-kat">🎯 ${escapeHtml(s.kategorie)}</span>` : ""}</span>
               <span class="fokus-liste-meta muted">${escapeHtml(formatDatum(s.startAt, true))}</span>
             </div>
             <span class="fokus-liste-dauer">${Number.isFinite(s.dauerMin) ? s.dauerMin : 0} Min</span>
@@ -694,10 +764,21 @@ export function renderAdminFokus(container) {
   // --- Start -----------------------------------------------------------
   markiereTab();
   zeichneAktivenTab();
+
+  // Gedanken beobachten → Sub-Kategorien fürs Dropdown + laufende To-Dos.
+  gedankenUnsub = beobachteGedanken(
+    (liste) => {
+      alleGedanken = liste;
+      if (aktiverTab === "timer") { aktualisiereKatDropdown(); aktualisiereTodoPanel(); }
+    },
+    (err) => console.warn("Gedanken (Fokus-Kategorien) laden fehlgeschlagen:", err)
+  );
+
   // Beim View-Wechsel Listener aufräumen — der Mini-Player (floatEl an body)
   // bleibt aber bewusst bestehen und spielt weiter.
   beiViewWechsel(() => {
     stoppeTimer(); stoppeVideos(); stoppeSessions();
+    if (gedankenUnsub) { try { gedankenUnsub(); } catch (_) { /* egal */ } gedankenUnsub = null; }
     document.removeEventListener("fokusfloat:change", onFloatChange);
   });
 }

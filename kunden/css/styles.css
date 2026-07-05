@@ -847,6 +847,21 @@ a.row-item:hover { background: var(--off-white); }
   background: transparent; color: var(--muted); transition: background .12s, color .12s;
 }
 .fokus-liste-del:hover { background: var(--error); color: #fff; }
+.fokus-liste-kat { font-size: .72rem; color: var(--accent-dim); background: rgba(226,98,44,.1); padding: .05rem .4rem; border-radius: 999px; white-space: nowrap; }
+
+/* --- Fokus: Kategorie-Dropdown + To-Do-Panel im laufenden Timer ------- */
+.fokus-kat {
+  width: 100%; max-width: 320px; padding: 0.5rem 0.6rem; font: inherit;
+  border: 1px solid var(--mid); border-radius: var(--radius); background: var(--surface); color: var(--black); cursor: pointer;
+}
+.fokus-kat:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(226,98,44,0.12); }
+
+.fokus-todos-card { max-width: 420px; margin: 1rem auto 0; }
+.fokus-todos-kopf { font-weight: 700; color: var(--black); margin-bottom: .6rem; }
+.fokus-todos-liste { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .35rem; }
+.fokus-todo-item label { display: flex; align-items: flex-start; gap: .5rem; cursor: pointer; font-size: .92rem; line-height: 1.35; }
+.fokus-todo-item input { margin-top: .2rem; accent-color: #2f9e44; flex: 0 0 auto; }
+.fokus-todos-leer { font-size: .85rem; margin: 0; }
 
 /* --- Mobil ----------------------------------------------------------- */
 @media (max-width: 720px) {
