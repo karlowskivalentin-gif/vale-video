@@ -118,6 +118,7 @@ export function renderLogin(container, opts = {}) {
                    placeholder="name@firma.de" autocomplete="email" />
             <p class="field-hint muted">
               Kein Passwort nötig — wir schicken dir einen Anmelde-Link in dein Postfach.
+              <br>Externe Mitarbeiter: hier mit eigener E-Mail anmelden und danach den Zugangscode eingeben.
             </p>
           </div>
           <button class="btn btn--ghost btn--block" id="linkBtn" type="submit">

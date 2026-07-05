@@ -23,6 +23,55 @@ const PRESETS    = [25, 45, 60, 90];
 const R = 120;                             // Ring-Radius (SVG-Einheiten)
 const C = 2 * Math.PI * R;                 // Umfang für stroke-dasharray
 
+// ===================================================================
+// Persistenter Mini-Player (Modul-Singleton) — läuft über Tab-/View-
+// Wechsel hinweg weiter. Das iframe lebt in einem fixed Container an
+// document.body (außerhalb von #app) und wird NIE re-parentet → nie neu
+// geladen. So spielt das Fokus-Video weiter, egal ob man auf Timer/
+// Verlauf/Gedanken wechselt. Schließen stoppt es (iframe entfernt).
+// ===================================================================
+let floatEl = null;      // Container an document.body
+let floatVid = null;     // aktuell laufende YouTube-ID (null = nichts)
+
+function floatEmbedUrl(vid, loop) {
+  const id = encodeURIComponent(vid);
+  const base = `https://www.youtube-nocookie.com/embed/${id}?rel=0&modestbranding=1&autoplay=1`;
+  return loop ? `${base}&loop=1&playlist=${id}` : base;
+}
+function ensureFloat() {
+  if (floatEl) return floatEl;
+  floatEl = document.createElement("div");
+  floatEl.className = "fokus-float";
+  floatEl.hidden = true;
+  floatEl.innerHTML = `
+    <div class="fokus-float-bar">
+      <span class="fokus-float-titel" id="ffTitel">Fokus-Video</span>
+      <button class="fokus-float-min" id="ffMin" type="button" title="Minimieren" aria-label="Minimieren">–</button>
+      <button class="fokus-float-close" id="ffClose" type="button" title="Schließen" aria-label="Schließen">✕</button>
+    </div>
+    <div class="fokus-float-body" id="ffBody"></div>`;
+  document.body.appendChild(floatEl);
+  floatEl.querySelector("#ffClose").addEventListener("click", schliesseFloat);
+  floatEl.querySelector("#ffMin").addEventListener("click", () => floatEl.classList.toggle("is-min"));
+  return floatEl;
+}
+function spieleImFloat(vid, titel, loop) {
+  const el = ensureFloat();
+  floatVid = vid;
+  el.querySelector("#ffTitel").textContent = titel || "Fokus-Video";
+  el.querySelector("#ffBody").innerHTML = `<iframe src="${escapeHtml(floatEmbedUrl(vid, loop))}"
+    title="Fokus-Video" loading="lazy"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+    allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>`;
+  el.hidden = false; el.classList.remove("is-min");
+  document.dispatchEvent(new CustomEvent("fokusfloat:change"));
+}
+function schliesseFloat() {
+  floatVid = null;
+  if (floatEl) { floatEl.querySelector("#ffBody").innerHTML = ""; floatEl.hidden = true; }
+  document.dispatchEvent(new CustomEvent("fokusfloat:change"));
+}
+
 export function renderAdminFokus(container) {
   // --- gemeinsamer State ----------------------------------------------
   let ticker = null;        // Timer: setInterval-Handle
@@ -334,10 +383,8 @@ export function renderAdminFokus(container) {
 
   function zeichneVideos() {
     body.innerHTML = `
-      <p class="muted view-intro">Deine YouTube-Videos zum Fokussieren — Klick auf eine Karte spielt sie oben ab (läuft in Schleife). Neue über „+ Video" hinzufügen. Nur du siehst das.</p>
-      <div class="fokusvid-player" id="fvPlayer">
-        <div class="fokusvid-player-empty">Wähle unten ein Video aus, um es hier abzuspielen.</div>
-      </div>
+      <p class="muted view-intro">Deine YouTube-Videos zum Fokussieren — Klick auf eine Karte spielt sie in einem Mini-Player, der beim Wechsel auf Timer, Verlauf oder Gedanken weiterläuft. Neue über „+ Video" hinzufügen. Nur du siehst das.</p>
+      <div class="fokusvid-player" id="fvPlayer"></div>
       <div class="fokusvid-head">
         <h2 class="fokusvid-title">Anspiel-Videos</h2>
         <button class="btn btn--accent btn--sm" id="fvAdd" type="button">+ Video</button>
@@ -346,6 +393,10 @@ export function renderAdminFokus(container) {
       <div class="fokusvid-grid" id="fvGrid"><p class="muted">Lädt…</p></div>`;
 
     body.querySelector("#fvAdd").addEventListener("click", toggleForm);
+    aktualisiereFvPlayerStatus();
+    // Auf Mini-Player-Änderungen hören (z. B. Schließen über den Player selbst).
+    document.removeEventListener("fokusfloat:change", onFloatChange);
+    document.addEventListener("fokusfloat:change", onFloatChange);
 
     // Realtime: Grid aktualisiert sich bei jeder Änderung von selbst.
     stoppeVideos();
@@ -359,6 +410,33 @@ export function renderAdminFokus(container) {
     );
   }
 
+  function onFloatChange() { aktualisiereFvPlayerStatus(); markiereAktiveKarte(); }
+
+  function aktualisiereFvPlayerStatus() {
+    const p = body.querySelector("#fvPlayer");
+    if (!p) return;
+    if (floatVid) {
+      const v = videos.find((x) => x.videoId === floatVid);
+      const titel = v ? (v.titel || "YouTube-Video") : "Fokus-Video";
+      p.innerHTML = `
+        <div class="fokusvid-laeuft">
+          <span class="fokusvid-laeuft-badge">▶ Läuft im Mini-Player</span>
+          <span class="fokusvid-laeuft-titel">${escapeHtml(titel)}</span>
+          <p class="muted fokusvid-laeuft-hint">Der Player unten rechts bleibt beim Wechsel auf Timer, Verlauf oder Gedanken an.</p>
+          <button class="btn btn--ghost btn--sm" id="fvStop" type="button">Stoppen</button>
+        </div>`;
+      const stop = p.querySelector("#fvStop");
+      if (stop) stop.addEventListener("click", schliesseFloat);
+    } else {
+      p.innerHTML = `<div class="fokusvid-player-empty">Wähle unten ein Video aus — es spielt in einem Mini-Player, der beim Tab-Wechsel weiterläuft.</div>`;
+    }
+  }
+
+  function markiereAktiveKarte() {
+    body.querySelectorAll(".fokusvid-card").forEach((c) =>
+      c.classList.toggle("is-active", c.getAttribute("data-vid") === floatVid));
+  }
+
   function zeichneGrid() {
     const grid = body.querySelector("#fvGrid");
     if (!grid) return;
@@ -369,7 +447,7 @@ export function renderAdminFokus(container) {
     grid.innerHTML = videos.map((v) => {
       const thumb = v.thumbnail || thumbFallback(v.videoId);
       const titel = v.titel || "YouTube-Video";
-      const aktiv = v.id === aktivesVideoId ? " is-active" : "";
+      const aktiv = v.videoId === floatVid ? " is-active" : "";
       const loopAn = v.loop !== false;
       return `<div class="fokusvid-card${aktiv}" data-id="${escapeHtml(v.id)}" data-vid="${escapeHtml(v.videoId)}"
           role="button" tabindex="0" title="${escapeHtml(titel)}">
@@ -399,7 +477,7 @@ export function renderAdminFokus(container) {
         const neu = !(v && v.loop !== false);
         try {
           await aktualisiereFokusvideo(id, { loop: neu });
-          if (id === aktivesVideoId && v) spieleVideo(id, v.videoId);  // Player mit neuem Loop-Modus neu laden
+          if (v && v.videoId === floatVid) spieleVideo(id, v.videoId);  // Mini-Player mit neuem Loop-Modus neu laden
         } catch (err) { console.warn("Schleife umschalten fehlgeschlagen:", err); }
       });
     });
@@ -411,7 +489,7 @@ export function renderAdminFokus(container) {
         if (!confirm(`Video${v && v.titel ? ` „${v.titel}"` : ""} entfernen?`)) return;
         try {
           await loescheFokusvideo(id);
-          if (id === aktivesVideoId) leerePlayer();   // Grid aktualisiert der Observer.
+          if (v && v.videoId === floatVid) schliesseFloat();   // Grid aktualisiert der Observer.
         } catch (err) {
           console.warn("Löschen fehlgeschlagen:", err);
           alert("Konnte das Video nicht entfernen.");
@@ -421,26 +499,10 @@ export function renderAdminFokus(container) {
   }
 
   function spieleVideo(id, vid) {
-    aktivesVideoId = id;
     const v = videos.find((x) => x.id === id);
     const loop = v ? v.loop !== false : true;
-    const player = body.querySelector("#fvPlayer");
-    if (player) {
-      player.innerHTML = `<div class="embed-wrap"><iframe src="${escapeHtml(embedUrl(vid, loop))}"
-        title="Fokus-Video" loading="lazy"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-        allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>`;
-      player.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    }
-    body.querySelectorAll(".fokusvid-card").forEach((c) =>
-      c.classList.toggle("is-active", c.getAttribute("data-id") === id));
-  }
-
-  function leerePlayer() {
-    aktivesVideoId = null;
-    const player = body.querySelector("#fvPlayer");
-    if (player) player.innerHTML = `<div class="fokusvid-player-empty">Wähle unten ein Video aus, um es hier abzuspielen.</div>`;
-    body.querySelectorAll(".fokusvid-card").forEach((c) => c.classList.remove("is-active"));
+    const titel = v ? (v.titel || "YouTube-Video") : "Fokus-Video";
+    spieleImFloat(vid, titel, loop);   // Mini-Player (fokusfloat:change aktualisiert Status + Karte)
   }
 
   function toggleForm() {
@@ -632,5 +694,10 @@ export function renderAdminFokus(container) {
   // --- Start -----------------------------------------------------------
   markiereTab();
   zeichneAktivenTab();
-  beiViewWechsel(() => { stoppeTimer(); stoppeVideos(); stoppeSessions(); });
+  // Beim View-Wechsel Listener aufräumen — der Mini-Player (floatEl an body)
+  // bleibt aber bewusst bestehen und spielt weiter.
+  beiViewWechsel(() => {
+    stoppeTimer(); stoppeVideos(); stoppeSessions();
+    document.removeEventListener("fokusfloat:change", onFloatChange);
+  });
 }

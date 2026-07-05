@@ -95,15 +95,12 @@ function actionCodeSettings() {
   return { url: location.origin + location.pathname, handleCodeInApp: true };
 }
 
-// Schickt den Login-Link — nur an freigeschaltete Adressen (UI-Vorabprüfung;
-// die echte Grenze bleiben Allowlist-Guard unten + Firestore Rules).
+// Schickt den Login-Link an JEDE Adresse. Freigeschaltete Nutzer (Admin/Kunde)
+// landen direkt in ihrem Bereich; alle anderen im Zugangscode-Screen (externe
+// Mitarbeiter lösen dort ihren Einmal-Code ein). Die echte Grenze bleiben die
+// Firestore Rules — ein Login ohne Rolle gibt keinerlei Datenzugriff.
 export async function sendeLoginLink(email) {
   const e = (email || "").trim().toLowerCase();
-  if (!rolleVon(e)) {
-    const err = new Error("nicht freigeschaltet");
-    err.code = "vv/nicht-freigeschaltet";
-    throw err;
-  }
   await sendSignInLinkToEmail(auth, e, actionCodeSettings());
   try { window.localStorage.setItem(LS_EMAIL, e); } catch (_) {}
   return e;

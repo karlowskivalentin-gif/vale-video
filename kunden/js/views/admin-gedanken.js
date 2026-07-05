@@ -889,14 +889,14 @@ export function renderAdminGedanken(container, opts) {
 
     // Doppelklick → Vollseite (nicht auf Buttons / Body).
     el.addEventListener("dblclick", (e) => {
-      if (e.target.closest(".gd-check, .gd-del, .gd-attach, .gd-chevron, .gd-ebene, .gd-archiv-btn, .gd-dock, .gd-node-body")) return;
+      if (e.target.closest(".gd-check, .gd-todo, .gd-del, .gd-attach, .gd-chevron, .gd-ebene, .gd-archiv-btn, .gd-dock, .gd-node-body")) return;
       oeffneSeite(id);
     });
 
     // Knoten-Drag (Pointer Events). Reiner Klick → Überschrift fokussieren.
     el.addEventListener("pointerdown", (e) => {
       if (e.pointerType === "mouse" && e.button !== 0) return;
-      if (e.target.closest(".gd-check, .gd-del, .gd-attach, .gd-chevron, .gd-ebene, .gd-archiv-btn, .gd-dock, .gd-node-body")) return;
+      if (e.target.closest(".gd-check, .gd-todo, .gd-del, .gd-attach, .gd-chevron, .gd-ebene, .gd-archiv-btn, .gd-dock, .gd-node-body")) return;
       if (e.target === ta && document.activeElement === ta) return;
       blurAktiv();
       e.preventDefault();
