@@ -1219,6 +1219,23 @@ a.row-item:hover { background: var(--off-white); }
 .gd-kat.is-active { filter: none; opacity: 1; }
 .gd-kat[hidden] { display: none; }
 
+/* ❗ Dringlich: roter Leucht-Rahmen um die (grüne) To-Do-Karte */
+.gd-dringend {
+  border: none; background: transparent; cursor: pointer;
+  font-size: 11px; line-height: 1; padding: 3px 4px; border-radius: var(--radius);
+  filter: grayscale(1); opacity: .55;
+}
+.gd-dringend:hover { background: var(--dark); opacity: .85; }
+.gd-dringend.is-active { filter: none; opacity: 1; }
+.gd-dringend[hidden] { display: none; }
+.gd-node.is-dringend {
+  box-shadow: 0 0 0 3px rgba(239,68,68,.95), 0 0 16px 3px rgba(239,68,68,.5), var(--shadow-card);
+}
+/* Dringlich + NEU zusammen: beide Ringe sichtbar */
+.gd-node.is-dringend.is-neu {
+  box-shadow: 0 0 0 2px #3b82f6, 0 0 0 5px rgba(239,68,68,.95), 0 0 16px 3px rgba(239,68,68,.5), var(--shadow-card);
+}
+
 /* ---- Gedanken: NEU-Markierung + Anerkennen + Kommentar (④) ---- */
 .gd-node.is-neu { box-shadow: 0 0 0 2px #3b82f6, var(--shadow-card); }
 .gd-neu-wrap { display: inline-flex; align-items: center; gap: 2px; min-width: 0; }
@@ -1292,6 +1309,11 @@ a.row-item:hover { background: var(--off-white); }
   border: 1px solid var(--mid); border-radius: var(--radius); background: var(--surface); color: var(--black); cursor: pointer;
 }
 .todo-wer:focus { outline: none; border-color: var(--accent); }
+.todo-item.is-dringend {
+  border-color: #ef4444; background: #fff6f6;
+  box-shadow: 0 0 0 1px #ef4444, 0 0 10px rgba(239,68,68,.25);
+}
+.todo-item.is-dringend .todo-text { color: #b91c1c; }
 @media (max-width: 720px) {
   .todo-item { flex-wrap: wrap; }
   .todo-wer { max-width: 100%; flex: 1 1 100%; }

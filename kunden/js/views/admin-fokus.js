@@ -225,6 +225,7 @@ export function renderAdminFokus(container) {
       .sort((a, b) => a.name.localeCompare(b.name, "de"));
   }
   // Nicht erledigte einzelne Gedanken, die mit dem Sub verbunden sind.
+  // ❗ Dringliche stehen ganz oben.
   function todosFuerSub(subId) {
     const sub = alleGedanken.find((g) => g.id === subId);
     if (!sub) return [];
@@ -234,7 +235,7 @@ export function renderAdminFokus(container) {
       && (g.ebene || "gedanke") === "gedanke"
       && !g.erledigt && !g.archiviert
       && (direkt.has(g.id) || (g.verbindungen || []).includes(subId))
-    );
+    ).sort((a, b) => (b.dringend === true ? 1 : 0) - (a.dringend === true ? 1 : 0));
   }
   // Idle-Dropdown mit aktuellen Sub-Kategorien nachfüllen (ohne zeichneIdle
   // komplett neu zu bauen → Name/Dauer-Eingaben bleiben erhalten).
@@ -258,7 +259,7 @@ export function renderAdminFokus(container) {
       ${todos.length
         ? `<ul class="fokus-todos-liste">${todos.map((t) => `
             <li class="fokus-todo-item">
-              <label><input type="checkbox" data-todo="${escapeHtml(t.id)}"> <span>${escapeHtml(t.text || "Unbenannter Gedanke")}</span></label>
+              <label><input type="checkbox" data-todo="${escapeHtml(t.id)}"> <span>${t.dringend === true ? "❗ " : ""}${escapeHtml(t.text || "Unbenannter Gedanke")}</span></label>
             </li>`).join("")}</ul>`
         : `<p class="fokus-todos-leer muted">Keine offenen To-Dos für diese Kategorie. 🎉</p>`}`;
     el.querySelectorAll("input[data-todo]").forEach((cb) => {

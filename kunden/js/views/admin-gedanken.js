@@ -769,6 +769,14 @@ export function renderAdminGedanken(container, opts) {
       kb.setAttribute("aria-pressed", String(an));
       kb.title = an ? "Fokus-Session-Kategorie: AN — erscheint beim Session-Start" : "Als Fokus-Session-Kategorie anbieten";
     }
+    // ❗ Dringlich: nur an To-Do-Karten sichtbar; roter Glow solange offen.
+    const dr = el.querySelector(".gd-dringend");
+    if (dr) {
+      dr.hidden = g.todo !== true;
+      dr.classList.toggle("is-active", g.dringend === true);
+      dr.setAttribute("aria-pressed", String(g.dringend === true));
+    }
+    el.classList.toggle("is-dringend", g.dringend === true && g.todo === true && !g.erledigt);
   }
   // Gilt dieser Sub/Bereich als Fokus-Session-Kategorie?
   // Default (Feld nicht gesetzt): Subs ja, Bereiche nein — explizit umschaltbar.
@@ -782,10 +790,17 @@ export function renderAdminGedanken(container, opts) {
     aktualisiereGedanke(id, { fokusKategorie: !!val }).catch((err) => console.warn(err));
   }
   function setzeTodo(id, val) {
-    const g = daten.get(id); if (g) g.todo = !!val;
+    const g = daten.get(id); if (g) { g.todo = !!val; if (!val) g.dringend = false; }
     const el = knoten.get(id); if (el) wendeFarbeAn(el, daten.get(id) || {});
-    aktualisiereGedanke(id, { todo: !!val }).catch((err) => console.warn(err));
+    const felder = { todo: !!val };
+    if (!val) felder.dringend = false;   // kein To-Do mehr → auch nicht mehr dringlich
+    aktualisiereGedanke(id, felder).catch((err) => console.warn(err));
     renderSidebar();
+  }
+  function setzeDringend(id, val) {
+    const g = daten.get(id); if (g) g.dringend = !!val;
+    const el = knoten.get(id); if (el) wendeFarbeAn(el, daten.get(id) || {});
+    aktualisiereGedanke(id, { dringend: !!val }).catch((err) => console.warn(err));
   }
   function setzeFarbe(id, farbe) {
     const g = daten.get(id); if (g) g.farbe = farbe || null;
@@ -912,6 +927,7 @@ export function renderAdminGedanken(container, opts) {
           <button type="button" class="gd-farbe-btn" title="Farbe wählen" hidden></button>
           <button type="button" class="gd-kat" title="Als Fokus-Session-Kategorie anbieten" aria-pressed="false" hidden>🎯</button>
           <button type="button" class="gd-todo" title="Als To-Do markieren (grün)" aria-pressed="false" hidden>◎</button>
+          <button type="button" class="gd-dringend" title="Als dringlich markieren (rot leuchtend, in der To-Do-Liste oben fixiert)" aria-pressed="false" hidden>❗</button>
           <button type="button" class="gd-ebene" title="Ebene wechseln: Gedanke → Sub → Bereich">—</button>
           <button type="button" class="gd-archiv-btn" title="Erledigten Gedanken ins Archiv verschieben">→ Archiv</button>
           <button type="button" class="gd-chevron" title="Ausführung ein-/ausklappen">▸</button>
@@ -967,6 +983,11 @@ export function renderAdminGedanken(container, opts) {
     el.querySelector(".gd-kat").addEventListener("click", (e) => {
       e.stopPropagation();
       setzeFokusKategorie(id, !istFokusKategorie(daten.get(id) || {}));
+    });
+    // ❗ Dringlich an To-Do-Karten umschalten.
+    el.querySelector(".gd-dringend").addEventListener("click", (e) => {
+      e.stopPropagation();
+      setzeDringend(id, !((daten.get(id) || {}).dringend === true));
     });
 
     // Archiv-Button: im aktiven Modus verschiebt er den (erledigten) Gedanken
@@ -1063,14 +1084,14 @@ export function renderAdminGedanken(container, opts) {
 
     // Doppelklick → Vollseite (nicht auf Buttons / Body).
     el.addEventListener("dblclick", (e) => {
-      if (e.target.closest(".gd-check, .gd-todo, .gd-kat, .gd-farbe-btn, .gd-farbe-pop, .gd-neu-wrap, .gd-hinweis, .gd-hinweis-form, .gd-del, .gd-attach, .gd-chevron, .gd-ebene, .gd-archiv-btn, .gd-dock, .gd-node-body")) return;
+      if (e.target.closest(".gd-check, .gd-todo, .gd-kat, .gd-dringend, .gd-farbe-btn, .gd-farbe-pop, .gd-neu-wrap, .gd-hinweis, .gd-hinweis-form, .gd-del, .gd-attach, .gd-chevron, .gd-ebene, .gd-archiv-btn, .gd-dock, .gd-node-body")) return;
       oeffneSeite(id);
     });
 
     // Knoten-Drag (Pointer Events). Reiner Klick → Überschrift fokussieren.
     el.addEventListener("pointerdown", (e) => {
       if (e.pointerType === "mouse" && e.button !== 0) return;
-      if (e.target.closest(".gd-check, .gd-todo, .gd-kat, .gd-farbe-btn, .gd-farbe-pop, .gd-neu-wrap, .gd-hinweis, .gd-hinweis-form, .gd-del, .gd-attach, .gd-chevron, .gd-ebene, .gd-archiv-btn, .gd-dock, .gd-node-body")) return;
+      if (e.target.closest(".gd-check, .gd-todo, .gd-kat, .gd-dringend, .gd-farbe-btn, .gd-farbe-pop, .gd-neu-wrap, .gd-hinweis, .gd-hinweis-form, .gd-del, .gd-attach, .gd-chevron, .gd-ebene, .gd-archiv-btn, .gd-dock, .gd-node-body")) return;
       if (e.target === ta && document.activeElement === ta) return;
       blurAktiv();
       e.preventDefault();

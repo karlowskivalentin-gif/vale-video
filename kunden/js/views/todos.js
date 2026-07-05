@@ -53,11 +53,18 @@ export function renderTodos(container, opts) {
   container.querySelector("#todoFilter").addEventListener("change", (e) => { filter = e.target.value; render(); });
   katSelect.addEventListener("change", () => { katFilter = katSelect.value; render(); });
 
-  // Kategorien = alle (nicht archivierten) Subs/Bereiche der sichtbaren Maps.
+  // Kategorien = Subs/Bereiche der sichtbaren Maps MIT 🎯-Häkchen — dieselbe
+  // Logik wie im Fokus-Session-Dropdown (Default: Sub an, Bereich aus).
+  // 🎯 an der Karte ausschalten entfernt die Kategorie also auch hier.
+  function istFokusKategorie(g) {
+    if (typeof g.fokusKategorie === "boolean") return g.fokusKategorie;
+    return g.ebene === "sub";
+  }
   function kategorien() {
     const mapIds = new Set(meineMaps().map((m) => m.id));
     return [...daten.values()]
-      .filter((g) => (g.ebene === "sub" || g.ebene === "bereich") && !g.archiviert && mapIds.has(g.mapId || DEFAULT_MAP))
+      .filter((g) => (g.ebene === "sub" || g.ebene === "bereich") && !g.archiviert
+        && mapIds.has(g.mapId || DEFAULT_MAP) && istFokusKategorie(g))
       .map((g) => ({ id: g.id, name: (g.text || "Unbenannt").trim() || "Unbenannt" }))
       .sort((a, b) => a.name.localeCompare(b.name, "de"));
   }
@@ -104,11 +111,12 @@ export function renderTodos(container, opts) {
   function itemHtml(g, map) {
     const nutzer = nutzerFuerMap(map);
     const wer = lc(g.verantwortlich);
+    const dringend = g.dringend === true;
     return `
-      <li class="todo-item">
+      <li class="todo-item${dringend ? " is-dringend" : ""}">
         <input type="checkbox" class="todo-check" data-id="${escapeHtml(g.id)}" title="Erledigen (wirkt auch in der Mindmap)">
         <div class="todo-haupt">
-          <span class="todo-text">${escapeHtml(g.text || "Unbenannter Gedanke")}</span>
+          <span class="todo-text">${dringend ? "❗ " : ""}${escapeHtml(g.text || "Unbenannter Gedanke")}</span>
           <span class="todo-meta muted">🗺 ${escapeHtml(map ? map.name : "")}</span>
         </div>
         <select class="todo-wer" data-id="${escapeHtml(g.id)}" title="Verantwortlich">
@@ -124,7 +132,9 @@ export function renderTodos(container, opts) {
     const mapVon = (g) => maps.find((m) => m.id === (g.mapId || DEFAULT_MAP)) || null;
     const offene = [...daten.values()]
       .filter((g) => istOffen(g) && mapVon(g) && passtFilter(g) && passtKategorie(g))
-      .sort((a, b) => (a.text || "").localeCompare(b.text || "", "de"));
+      // ❗ Dringliche immer ganz oben (fixiert), danach alphabetisch.
+      .sort((a, b) => ((b.dringend === true ? 1 : 0) - (a.dringend === true ? 1 : 0))
+        || (a.text || "").localeCompare(b.text || "", "de"));
 
     if (!offene.length) {
       body.innerHTML = `<p class="muted">Keine anstehenden To-Dos${filter !== "alle" ? " für diesen Filter" : ""}. 🎉</p>`;
