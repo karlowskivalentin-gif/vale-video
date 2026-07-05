@@ -27,7 +27,8 @@ service cloud.firestore {
       return ['karlowskivalentin@gmail.com'];
     }
     function kundeEmails() {
-      return ['n.berghaus@deussen-immobilien.de', 'c.deussen@deussen-immobilien.de'];
+      return ['n.berghaus@deussen-immobilien.de', 'c.deussen@deussen-immobilien.de',
+              'valentinkolja@icloud.com', 'valentinkolja@gmail.com']; // Test-Zugänge (Valentin) zum Gegenprüfen der Kundenansicht
     }
     function istAdmin() {
       return istEingeloggt() && email() in adminEmails();
@@ -79,6 +80,60 @@ service cloud.firestore {
                       );
         allow update, delete: if false;
       }
+    }
+
+    // ---- termine (manuelle Kalender-Einträge) ------------------------
+    // Kunde liest nur (read-only Kalender); Admin legt an/ändert/löscht.
+    match /termine/{terminId} {
+      allow read:               if istErlaubt();
+      allow create, update, delete: if istAdmin();
+    }
+
+    // ---- plaene (private Video-/Konzept-Planung, Admin-only) ---------
+    // Rein interner Planungsbereich („Incognito"). Der Kunde sieht das NIE:
+    // weder lesen noch schreiben. Auch ein „veröffentlichter" Plan bleibt
+    // hier — er wird nur vom Admin am Bildschirm als Referenz präsentiert.
+    match /plaene/{planId} {
+      allow read, write: if istAdmin();
+    }
+
+    // ---- shotvorlagen (wiederverwendbare Shot-Vorlagen, Admin-only) --
+    // Globale Bibliothek einzelner Shot-Textzeilen, die der Admin in die
+    // Shotlist eines Plans kopieren kann. Der Kunde sieht das NIE.
+    match /shotvorlagen/{vorlageId} {
+      allow read, write: if istAdmin();
+    }
+
+    // ---- gedanken (persönliche Mindmap, Admin-only) -----------------
+    // Rein private Denk-/Ideen-Leinwand. Der Kunde sieht das NIE — weder
+    // lesen noch schreiben. Gleiche Vertrauensgrenze wie plaene/shotvorlagen.
+    match /gedanken/{gedankeId} {
+      allow read, write: if istAdmin();
+    }
+
+    // ---- dateiblobs (Base64-Anhänge der Gedanken, Admin-only) --------
+    // Die eigentlichen Datei-Bytes eines Gedanken-Anhangs. On-demand geladen.
+    match /dateiblobs/{blobId} {
+      allow read, write: if istAdmin();
+    }
+
+    // ---- fokusvideos (kuratierte Fokus-YouTube-Liste, Admin-only) ----
+    // Private Anspiel-Liste auf der Fokus-Seite. Nur Metadaten (kein Blob).
+    // Gleiche Vertrauensgrenze wie gedanken/plaene/shotvorlagen.
+    match /fokusvideos/{id} {
+      allow read, write: if istAdmin();
+    }
+
+    // ---- fokussessions (Verlauf der Fokus-Sessions, Admin-only) ------
+    // Ein Doc = eine abgeschlossene Session (Name/Dauer/Start/Ende).
+    match /fokussessions/{id} {
+      allow read, write: if istAdmin();
+    }
+
+    // ---- mindmaps (benannte Gedanken-Leinwände, Admin-only) ---------
+    // Ein Doc = eine zusätzliche Mindmap (Gedanken tragen mapId).
+    match /mindmaps/{id} {
+      allow read, write: if istAdmin();
     }
 
     // ---- Alles andere: zu ------------------------------------------

@@ -71,7 +71,8 @@ export async function videoAnlegen(daten) {
     schnittLink:    daten.schnittLink || "",
     freigabeSkript: null,
     freigabeSchnitt: null,
-    geplantesDatum: daten.geplantesDatum || null,
+    geplantesDatum:     daten.geplantesDatum || null,
+    geplanterDrehtermin: daten.geplanterDrehtermin || null,
     erstelltAm:     serverTimestamp(),
     aktualisiertAm: serverTimestamp()
   });
@@ -166,4 +167,327 @@ export function beobachteKommentare(videoId, callback, onError) {
     (snap) => callback(snapToArr(snap)),
     onError || (() => {})
   );
+}
+
+// =====================================================================
+// TERMINE — manuelle, frei stehende Kalender-Einträge (ohne Pipeline-Video)
+// Felder: kategorie ('besprechung'|'drehtermin'|'veroeffentlichung'),
+//         bezeichnung, datum (Date), uhrzeitVon, uhrzeitBis (opt. "HH:MM"),
+//         ort, notiz (alle optional).
+// Rechte: Admin legt an/ändert/löscht; Kunde liest nur (siehe firestore.rules).
+// =====================================================================
+const termineCol = () => collection(db, "termine");
+
+export async function terminAnlegen(daten) {
+  return addDoc(termineCol(), {
+    kategorie:   daten.kategorie || "besprechung",
+    bezeichnung: daten.bezeichnung || "",
+    datum:       daten.datum || null,
+    uhrzeitVon:  daten.uhrzeitVon || "",
+    uhrzeitBis:  daten.uhrzeitBis || "",
+    ort:         daten.ort || "",
+    notiz:       daten.notiz || "",
+    erstelltAm:     serverTimestamp(),
+    aktualisiertAm: serverTimestamp()
+  });
+}
+
+export async function aktualisiereTermin(id, felder) {
+  return updateDoc(doc(db, "termine", id), { ...felder, aktualisiertAm: serverTimestamp() });
+}
+
+export async function loescheTermin(id) {
+  return deleteDoc(doc(db, "termine", id));
+}
+
+export async function ladeTermine() {
+  return snapToArr(await getDocs(query(termineCol(), orderBy("datum", "asc"))));
+}
+
+export function beobachteTermine(callback, onError) {
+  return onSnapshot(
+    query(termineCol(), orderBy("datum", "asc")),
+    (snap) => callback(snapToArr(snap)),
+    onError || (() => {})
+  );
+}
+
+// =====================================================================
+// PLAENE — private Video-/Konzept-Planung (Admin-only, „Incognito")
+// Felder: titel (Pflicht), typ, objektId, status ('entwurf'|'veroeffentlicht'),
+//         inspirationen [{ url, plattform }], sound { name, link },
+//         shotlist [{ text, erledigt }], notiz,
+//         geplanterDrehtermin (Date|null), geplantesDatum (Date|null).
+// Rechte: ausschließlich Admin (read + write) — der Kunde sieht Pläne NIE
+//         (siehe firestore.rules: match /plaene/{id}).
+// =====================================================================
+const plaeneCol = () => collection(db, "plaene");
+
+export async function planAnlegen(daten) {
+  return addDoc(plaeneCol(), {
+    titel:         daten.titel || "",
+    typ:           daten.typ || "",
+    objektId:      daten.objektId || null,
+    status:        daten.status || "entwurf",
+    inspirationen: Array.isArray(daten.inspirationen) ? daten.inspirationen : [],
+    sound:         daten.sound || { name: "", link: "" },
+    shotlist:      Array.isArray(daten.shotlist) ? daten.shotlist : [],
+    notiz:         daten.notiz || "",
+    geplanterDrehtermin: daten.geplanterDrehtermin || null,
+    geplantesDatum:      daten.geplantesDatum || null,
+    erstelltAm:     serverTimestamp(),
+    aktualisiertAm: serverTimestamp()
+  });
+}
+
+export async function ladePlan(id) {
+  const d = await getDoc(doc(db, "plaene", id));
+  return d.exists() ? { id: d.id, ...d.data() } : null;
+}
+
+export async function aktualisierePlan(id, felder) {
+  return updateDoc(doc(db, "plaene", id), { ...felder, aktualisiertAm: serverTimestamp() });
+}
+
+export async function loeschePlan(id) {
+  return deleteDoc(doc(db, "plaene", id));
+}
+
+export async function ladePlaene() {
+  return snapToArr(await getDocs(query(plaeneCol(), orderBy("erstelltAm", "desc"))));
+}
+
+export function beobachtePlaene(callback, onError) {
+  return onSnapshot(
+    query(plaeneCol(), orderBy("erstelltAm", "desc")),
+    (snap) => callback(snapToArr(snap)),
+    onError || (() => {})
+  );
+}
+
+// =====================================================================
+// SHOTVORLAGEN — globale, wiederverwendbare Shot-Textzeilen (Admin-only)
+// Ein Dokument = eine Shot-Textzeile. Der Admin kopiert sie im Plan-Editor
+// in die Shotlist eines Plans. Felder: text, erstelltAm, aktualisiertAm.
+// Rechte: ausschließlich Admin (read + write) — der Kunde sieht das NIE
+//         (siehe firestore.rules: match /shotvorlagen/{id}).
+// =====================================================================
+const shotvorlagenCol = () => collection(db, "shotvorlagen");
+
+export async function shotvorlageAnlegen({ text }) {
+  return addDoc(shotvorlagenCol(), {
+    text:           text || "",
+    erstelltAm:     serverTimestamp(),
+    aktualisiertAm: serverTimestamp()
+  });
+}
+
+export async function aktualisiereShotvorlage(id, felder) {
+  return updateDoc(doc(db, "shotvorlagen", id), { ...felder, aktualisiertAm: serverTimestamp() });
+}
+
+export async function loescheShotvorlage(id) {
+  return deleteDoc(doc(db, "shotvorlagen", id));
+}
+
+export async function ladeShotvorlagen() {
+  return snapToArr(await getDocs(query(shotvorlagenCol(), orderBy("erstelltAm", "asc"))));
+}
+
+// =====================================================================
+// GEDANKEN — persönliche Mindmap-Plattform (Admin-only, „Incognito")
+// Jeder Gedanke ist ein frei platzierbarer Knoten auf der Leinwand.
+// Felder:
+//   text        (string)          — die Überschrift/der Gedanke selbst
+//   ebene       (string)          — Hierarchie-/Größenstufe:
+//                                    'bereich' (groß/fett), 'sub' (mittel),
+//                                    'gedanke' (normal, Standard)
+//   detail      (string)          — ausführlicher Markdown-Body („Ausführung")
+//   x, y        (number)          — Position auf der Leinwand (Weltkoordinaten)
+//   erledigt    (bool)            — Checkbox → durchgestrichen/abgehakt
+//   archiviert  (bool)            — true → aus der Haupt-Leinwand ins Archiv
+//                                    verschoben (eigene Leinwand erledigter
+//                                    Gedanken; Verbindungen bleiben erhalten)
+//   farbe       (string|null)     — optionaler Akzent (Hex), sonst Standard
+//   verbindungen(array<string>)   — IDs anderer Gedanken (ungerichtete Kanten;
+//                                    beim Zeichnen werden A-B/B-A dedupliziert,
+//                                    tote IDs werden übersprungen)
+//   dateien     (array<obj>)      — Anhänge (Metadaten, KEIN Blob):
+//                                    { art:'datei', blobId, name, typ } oder
+//                                    { art:'link',  url,   name, typ:'link' }
+//                                    Die eigentlichen Datei-Bytes liegen als
+//                                    Base64 in der Collection dateiblobs (on-demand).
+//   erstelltAm, aktualisiertAm    (serverTimestamp)
+// Rechte: ausschließlich Admin (read + write) — der Kunde sieht das NIE
+//         (siehe firestore.rules: match /gedanken/{id}).
+// =====================================================================
+const gedankenCol = () => collection(db, "gedanken");
+
+export async function gedankeAnlegen(daten) {
+  return addDoc(gedankenCol(), {
+    text:        daten.text || "",
+    ebene:       (daten.ebene === "bereich" || daten.ebene === "sub") ? daten.ebene : "gedanke",
+    kind:        daten.kind === "post" ? "post" : "gedanke",  // Format: normaler Gedanke | Post-Card
+    todo:        !!daten.todo,                                 // To-Do-Status (grün / im Filter)
+    mapId:       daten.mapId || "default",                     // Zugehörigkeit zu einer Mindmap
+    detail:      daten.detail || "",
+    x:           Number.isFinite(daten.x) ? daten.x : 0,
+    y:           Number.isFinite(daten.y) ? daten.y : 0,
+    erledigt:    !!daten.erledigt,
+    archiviert:  !!daten.archiviert,
+    farbe:       daten.farbe || null,
+    verbindungen: Array.isArray(daten.verbindungen) ? daten.verbindungen : [],
+    dateien:     Array.isArray(daten.dateien) ? daten.dateien : [],
+    erstelltAm:     serverTimestamp(),
+    aktualisiertAm: serverTimestamp()
+  });
+}
+
+export async function aktualisiereGedanke(id, felder) {
+  return updateDoc(doc(db, "gedanken", id), { ...felder, aktualisiertAm: serverTimestamp() });
+}
+
+export async function loescheGedanke(id) {
+  return deleteDoc(doc(db, "gedanken", id));
+}
+
+export async function ladeGedanken() {
+  return snapToArr(await getDocs(query(gedankenCol(), orderBy("erstelltAm", "asc"))));
+}
+
+export function beobachteGedanken(callback, onError) {
+  return onSnapshot(
+    query(gedankenCol(), orderBy("erstelltAm", "asc")),
+    (snap) => callback(snapToArr(snap)),
+    onError || (() => {})
+  );
+}
+
+// =====================================================================
+// DATEIBLOBS — die eigentlichen Datei-Bytes eines Gedanken-Anhangs.
+// Ein Dokument = eine Datei, Base64-kodiert. Getrennt von gedanken, damit
+// die Realtime-Leinwand NICHT megabyteweise Base64 mitlädt — Blobs werden
+// erst bei Bedarf (Abspielen/Öffnen) geladen.
+// Spark-Plan-Kompromiss (kein Firebase Storage): Firestore-Doc-Limit ist
+// 1 MiB, daher Upload-Cap ~700 KB Rohdatei in der View.
+// Felder: { base64 (ohne data:-Präfix), name, typ (MIME) }.
+// Rechte: ausschließlich Admin (read + write) — siehe firestore.rules.
+// =====================================================================
+const dateiblobsCol = () => collection(db, "dateiblobs");
+
+export async function dateiblobAnlegen({ base64, name, typ }) {
+  return addDoc(dateiblobsCol(), {
+    base64:     base64 || "",
+    name:       name || "",
+    typ:        typ || "application/octet-stream",
+    erstelltAm: serverTimestamp()
+  });
+}
+
+export async function ladeDateiblob(id) {
+  const d = await getDoc(doc(db, "dateiblobs", id));
+  return d.exists() ? { id: d.id, ...d.data() } : null;
+}
+
+export async function loescheDateiblob(id) {
+  return deleteDoc(doc(db, "dateiblobs", id));
+}
+
+// =====================================================================
+// FOKUSVIDEOS — private Fokus-/Ambient-YouTube-Videos (Admin-only)
+// Kuratierte Anspiel-Liste auf der Fokus-Seite: Karten-Grid + Inline-Player.
+// Ein Dokument = ein Video. Es werden NUR Metadaten gespeichert (kein Blob):
+//   url        (string)  — der eingefügte YouTube-Link (Original)
+//   videoId    (string)  — 11-stellige YouTube-ID (fürs Embed + Thumbnail)
+//   titel      (string)  — via noembed.com automatisch geholt (Fallback: "")
+//   thumbnail  (string)  — Vorschaubild-URL (i.ytimg.com/img.youtube.com)
+//   erstelltAm (serverTimestamp)
+// Rechte: ausschließlich Admin (read + write) — der Kunde sieht das NIE
+//         (siehe firestore.rules: match /fokusvideos/{id}).
+// =====================================================================
+const fokusvideosCol = () => collection(db, "fokusvideos");
+
+export async function fokusvideoAnlegen({ url, videoId, titel, thumbnail }) {
+  return addDoc(fokusvideosCol(), {
+    url:        url || "",
+    videoId:    videoId || "",
+    titel:      titel || "",
+    thumbnail:  thumbnail || "",
+    erstelltAm: serverTimestamp()
+  });
+}
+
+export async function loescheFokusvideo(id) {
+  return deleteDoc(doc(db, "fokusvideos", id));
+}
+
+export function beobachteFokusvideos(callback, onError) {
+  return onSnapshot(
+    query(fokusvideosCol(), orderBy("erstelltAm", "desc")),
+    (snap) => callback(snapToArr(snap)),
+    onError || (() => {})
+  );
+}
+
+// =====================================================================
+// FOKUSSESSIONS — Verlauf abgeschlossener Fokus-Sessions (Admin-only)
+// Ein Dokument = eine abgeschlossene Session (Timer voll durchgelaufen ODER
+// per „Beenden" vorzeitig abgeschlossen; „Abbrechen" schreibt NICHTS).
+//   name       (string)  — frei benannt vor dem Start (Fallback: "Fokus")
+//   dauerMin   (number)  — tatsächlich fokussierte Minuten
+//   startAt    (Date)    — Beginn der Session
+//   endeAt     (Date)    — Abschluss der Session
+//   erstelltAm (serverTimestamp)
+// Rechte: ausschließlich Admin — der Kunde sieht das NIE
+//         (siehe firestore.rules: match /fokussessions/{id}).
+// =====================================================================
+const fokussessionsCol = () => collection(db, "fokussessions");
+
+export async function fokusSessionAnlegen({ name, dauerMin, startAt, endeAt }) {
+  return addDoc(fokussessionsCol(), {
+    name:       name || "Fokus",
+    dauerMin:   Number.isFinite(dauerMin) ? dauerMin : 0,
+    startAt:    startAt instanceof Date ? startAt : new Date(),
+    endeAt:     endeAt instanceof Date ? endeAt : new Date(),
+    erstelltAm: serverTimestamp()
+  });
+}
+
+export function beobachteFokusSessions(callback, onError) {
+  return onSnapshot(
+    query(fokussessionsCol(), orderBy("startAt", "desc")),
+    (snap) => callback(snapToArr(snap)),
+    onError || (() => {})
+  );
+}
+
+export async function loescheFokusSession(id) {
+  return deleteDoc(doc(db, "fokussessions", id));
+}
+
+// =====================================================================
+// MINDMAPS — benannte Gedanken-Leinwände (Admin-only)
+// Jeder Gedanke trägt ein Feld `mapId`; fehlt es (Altbestand), gehört er
+// zur virtuellen Standard-Map "default" (kein eigenes Dokument). Ein
+// Dokument hier = eine zusätzliche, benannte Mindmap.
+//   name       (string)
+//   erstelltAm (serverTimestamp)
+// Rechte: ausschließlich Admin (siehe firestore.rules: match /mindmaps/{id}).
+// =====================================================================
+const mindmapsCol = () => collection(db, "mindmaps");
+
+export async function mindmapAnlegen({ name }) {
+  return addDoc(mindmapsCol(), { name: name || "Neue Map", erstelltAm: serverTimestamp() });
+}
+
+export function beobachteMindmaps(callback, onError) {
+  return onSnapshot(
+    query(mindmapsCol(), orderBy("erstelltAm", "asc")),
+    (snap) => callback(snapToArr(snap)),
+    onError || (() => {})
+  );
+}
+
+export async function loescheMindmap(id) {
+  return deleteDoc(doc(db, "mindmaps", id));
 }

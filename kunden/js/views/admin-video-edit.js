@@ -115,9 +115,15 @@ function formHtml(v, objekte, istNeu) {
           <input id="f-schnitt" type="url" value="${escapeHtml(val("schnittLink"))}" placeholder="https://youtu.be/…  oder  https://www.youtube.com/watch?v=…" />
         </div>
 
-        <div class="field">
-          <label for="f-datum">Geplantes Veröffentlichungsdatum</label>
-          <input id="f-datum" type="date" value="${escapeHtml(tsZuDateInput(val("geplantesDatum", null)))}" />
+        <div class="grid-2">
+          <div class="field">
+            <label for="f-datum">Geplantes Veröffentlichungsdatum</label>
+            <input id="f-datum" type="date" value="${escapeHtml(tsZuDateInput(val("geplantesDatum", null)))}" />
+          </div>
+          <div class="field">
+            <label for="f-drehdatum">Geplanter Drehtermin</label>
+            <input id="f-drehdatum" type="date" value="${escapeHtml(tsZuDateInput(val("geplanterDrehtermin", null)))}" />
+          </div>
         </div>
 
         ${freigabeInfo}
@@ -167,7 +173,8 @@ function wire(v, istNeu, body, id, user) {
       objektId:    body.querySelector("#f-objekt").value || null,
       skriptLink:  body.querySelector("#f-skript").value.trim(),
       schnittLink: body.querySelector("#f-schnitt").value.trim(),
-      geplantesDatum: dateInputZuDate(body.querySelector("#f-datum").value)
+      geplantesDatum:     dateInputZuDate(body.querySelector("#f-datum").value),
+      geplanterDrehtermin: dateInputZuDate(body.querySelector("#f-drehdatum").value)
     };
 
     if (!daten.titel) { errBox.textContent = "Bitte einen Titel eingeben."; errBox.hidden = false; return; }

@@ -17,6 +17,10 @@ const EMAILJS_SERVICE_ID          = "service_yure4pa";
 const TEMPLATE_ADMIN_NEUES_OBJEKT = "admin_neues_objekt";
 const TEMPLATE_KUNDE_FREIGABE     = "kunde_freigabe";
 
+// Kill-Switch: solange false, KEINE Auto-Mails (Testphase — Deussen soll
+// keine echten Mails bekommen). Vor Live-Gang auf true setzen.
+const EMAIL_VERSAND_AKTIV = false;
+
 const ADMIN_EMAIL  = ADMIN_EMAILS[0] || "karlowskivalentin@gmail.com";
 const PORTAL_URL   = "https://vale-video.de/kunden/";
 const EMAILJS_CDN  = "https://esm.run/@emailjs/browser@4";
@@ -25,10 +29,11 @@ let _emailjs = null;
 let _initDone = false;
 
 export function emailKonfiguriert() {
-  return Boolean(EMAILJS_PUBLIC_KEY && EMAILJS_SERVICE_ID);
+  return EMAIL_VERSAND_AKTIV && Boolean(EMAILJS_PUBLIC_KEY && EMAILJS_SERVICE_ID);
 }
 
 async function ladeEmailjs() {
+  if (!EMAIL_VERSAND_AKTIV) return null;          // Kill-Switch (Testphase) → still aus
   if (!EMAILJS_PUBLIC_KEY) return null;          // nicht konfiguriert → still aus
   if (_emailjs) return _emailjs;
   const mod = await import(/* @vite-ignore */ EMAILJS_CDN);

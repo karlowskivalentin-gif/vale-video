@@ -210,6 +210,45 @@ a { color: inherit; text-decoration: none; }
 .login-card .btn--block { margin-top: 0.25rem; }
 .login-foot { font-size: 0.72rem; margin: 1.5rem 0 0; letter-spacing: 0.04em; }
 
+/* "oder"-Trenner zwischen Google- und E-Mail-Link-Anmeldung */
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 1.25rem 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.login-divider::before,
+.login-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--mid);
+}
+
+/* Text-Link-Button (z. B. „Passwort vergessen?") */
+.btn-link {
+  background: none; border: none; padding: 0; cursor: pointer;
+  color: var(--muted); font: inherit; font-size: 0.8rem; text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.btn-link:hover { color: var(--accent); }
+
+/* Topbar-Passwort-Panel (Admin + Kunde) */
+.pw-panel {
+  position: absolute; top: 100%; right: 1.25rem; z-index: 30;
+  width: min(340px, calc(100vw - 2rem));
+  margin-top: 0.4rem; padding: 1.1rem 1.2rem;
+  background: var(--surface); border: 1px solid var(--mid); border-radius: var(--radius);
+  box-shadow: 0 10px 30px rgba(20,17,13,0.16); text-align: left;
+}
+.pw-panel-title { font-size: 1rem; font-weight: 700; margin: 0 0 0.25rem; }
+.pw-panel-sub { font-size: 0.78rem; margin: 0 0 0.9rem; }
+.pw-panel .field { margin-bottom: 0.8rem; }
+
 /* --- Formfelder (für spätere Phasen vorbereitet) --------------------- */
 .field { margin-bottom: 1.1rem; text-align: left; }
 .field label {
@@ -394,19 +433,40 @@ a.row-item:hover { background: var(--off-white); }
   flex: 0 0 auto; align-items: stretch;
 }
 
+/* --- Termine-Zeile --------------------------------------------------- */
+.tm-row {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 1rem; padding: 1rem 1.25rem; border-bottom: 1px solid var(--mid);
+}
+.tm-row:last-child { border-bottom: none; }
+.tm-main { display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; }
+.tm-main .row-name { white-space: normal; display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap; }
+.tm-kat {
+  font-size: 0.68rem; font-weight: 700; border-radius: 999px;
+  padding: 0.1rem 0.5rem; border: 1px solid transparent; white-space: nowrap;
+}
+.tm-kat--veroeffentlichung { background: rgba(226,98,44,0.10); color: var(--accent-dim); border-color: rgba(226,98,44,0.25); }
+.tm-kat--dreh              { background: rgba(47,111,159,0.12); color: #1f5478; border-color: rgba(47,111,159,0.30); }
+.tm-kat--besprechung       { background: rgba(107,78,158,0.12); color: #574089; border-color: rgba(107,78,158,0.30); }
+
 /* --- Kalender -------------------------------------------------------- */
 .kal-bar { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; }
 .kal-titel { font-weight: 700; font-size: 1.05rem; min-width: 11rem; }
 .kal-titel + button { margin-left: 0; }
 .kal-bar #kalHeute { margin-left: auto; }
-.kal-card { padding: 0.75rem; }
-.kal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.kal-card { padding: 0.75rem; overflow: hidden; }
+/* minmax(0, 1fr) statt 1fr: 1fr = minmax(AUTO,1fr); das auto-Minimum ist die
+   min-content-Breite der Zelle, und weil die Chips white-space:nowrap sind, ist
+   das die volle (ungekürzte) Textbreite -> Spalten sprengen den Container
+   (gemessen: scrollWidth 1396 in 810px-Viewport). minmax(0,...) erlaubt das
+   Schrumpfen auf 0, damit greifen die 7 gleichen Spalten + die Chip-Ellipsis. */
+.kal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; width: 100%; }
 .kal-wt {
   text-align: center; font-size: 0.72rem; font-weight: 700; color: var(--muted);
   padding: 0.3rem 0; letter-spacing: 0.04em;
 }
 .kal-tag {
-  min-height: 84px; border: 1px solid var(--mid); border-radius: var(--radius);
+  min-height: 84px; min-width: 0; border: 1px solid var(--mid); border-radius: var(--radius);
   padding: 0.3rem; display: flex; flex-direction: column; gap: 0.25rem;
   background: var(--surface);
 }
@@ -421,6 +481,331 @@ a.row-item:hover { background: var(--off-white); }
 }
 .kal-chip:hover { background: rgba(226,98,44,0.18); }
 
+/* Kalender-Kategorien (Farbcodierung) ------------------------------- */
+/* Veröffentlichung = Orange (Standard/Akzent) */
+.kal-chip--veroeffentlichung {
+  background: rgba(226,98,44,0.10); color: var(--accent-dim);
+  border-color: rgba(226,98,44,0.25);
+}
+.kal-chip--veroeffentlichung:hover { background: rgba(226,98,44,0.18); }
+/* Drehtermin = Blau */
+.kal-chip--dreh {
+  background: rgba(47,111,159,0.12); color: #1f5478;
+  border-color: rgba(47,111,159,0.30);
+}
+.kal-chip--dreh:hover { background: rgba(47,111,159,0.20); }
+/* Besprechung = Violett */
+.kal-chip--besprechung {
+  background: rgba(107,78,158,0.12); color: #574089;
+  border-color: rgba(107,78,158,0.30);
+}
+.kal-chip--besprechung:hover { background: rgba(107,78,158,0.20); }
+
+/* Eintrag = Chip + .ics-Export-Button nebeneinander -------------------- */
+.kal-eintrag { display: flex; align-items: stretch; gap: 2px; }
+.kal-eintrag .kal-chip { flex: 1 1 auto; min-width: 0; }
+.kal-ics {
+  flex: 0 0 auto; width: 1.15rem; border: 1px solid var(--mid); border-radius: 4px;
+  background: var(--surface); color: var(--muted); cursor: pointer;
+  font-size: 0.78rem; line-height: 1; padding: 0; font-weight: 700;
+}
+.kal-ics:hover { color: var(--accent-dim); border-color: var(--accent); background: rgba(226,98,44,0.08); }
+
+/* Legende ------------------------------------------------------------- */
+.kal-legende { display: flex; flex-wrap: wrap; gap: 0.4rem 0.6rem; margin: -0.4rem 0 1rem; }
+.kal-leg {
+  font-size: 0.72rem; font-weight: 600; border-radius: 999px;
+  padding: 0.15rem 0.55rem; border: 1px solid transparent;
+}
+.kal-leg--veroeffentlichung { background: rgba(226,98,44,0.10); color: var(--accent-dim); border-color: rgba(226,98,44,0.25); }
+.kal-leg--dreh              { background: rgba(47,111,159,0.12); color: #1f5478; border-color: rgba(47,111,159,0.30); }
+.kal-leg--besprechung       { background: rgba(107,78,158,0.12); color: #574089; border-color: rgba(107,78,158,0.30); }
+.kal-leg--plan              { background: rgba(107,98,88,0.08); color: var(--muted); border: 1px dashed rgba(107,98,88,0.45); }
+
+/* Plan = Grau, gestrichelt (nur Admin-Kalender, privat) */
+.kal-chip--plan {
+  background: rgba(107,98,88,0.08); color: var(--muted);
+  border: 1px dashed rgba(107,98,88,0.55);
+}
+.kal-chip--plan:hover { background: rgba(107,98,88,0.16); }
+
+/* --- Pläne (Admin-only): Editor, Inspirationen, Shotlist ------------- */
+.plan-head-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 0.9rem; }
+
+.plan-badge {
+  font-size: 0.72rem; font-weight: 600; border-radius: 999px;
+  padding: 0.15rem 0.6rem; border: 1px solid transparent; white-space: nowrap;
+}
+.plan-badge--entwurf        { background: rgba(107,98,88,0.10); color: var(--muted); border-color: rgba(107,98,88,0.30); }
+.plan-badge--veroeffentlicht{ background: #eaf5ee; color: var(--ok); border-color: #bfe0cb; }
+
+/* Zeile aus Eingabefeld (wächst) + Button daneben */
+.field-inline-form { display: flex; gap: 0.5rem; align-items: stretch; margin-bottom: 1rem; flex-wrap: wrap; }
+.field-inline-form input {
+  flex: 1 1 240px; min-width: 0;
+  border: 1px solid var(--mid); border-radius: var(--radius);
+  padding: 0.6rem 0.7rem; font: inherit; font-size: 0.9rem; color: var(--black);
+  background: var(--surface);
+}
+.field-inline-form input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(226,98,44,0.12); }
+.field-inline-form .btn { flex: 0 0 auto; }
+
+/* Inspirations-Karten */
+.plan-insp-liste { display: flex; flex-direction: column; gap: 1.25rem; }
+.plan-insp {
+  border: 1px solid var(--mid); border-radius: var(--radius);
+  padding: 0.85rem; background: var(--off-white);
+}
+.plan-insp-head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.6rem; }
+.plan-insp-plattform { font-size: 0.78rem; font-weight: 600; color: var(--muted); }
+.plan-insp-del { flex: 0 0 auto; }
+.plan-insp-link {
+  display: inline-block; margin-top: 0.6rem; font-size: 0.78rem; color: var(--muted);
+  word-break: break-all;
+}
+.plan-insp-link:hover { color: var(--accent); }
+
+/* Shotlist */
+.plan-shot-liste { display: flex; flex-direction: column; gap: 0.4rem; }
+.plan-shot {
+  display: flex; flex-direction: column; gap: 0.5rem; overflow: hidden;
+  padding: 0.5rem 0.65rem; border: 1px solid var(--mid); border-radius: var(--radius);
+  background: var(--surface);
+}
+.plan-shot-main { display: flex; align-items: center; gap: 0.6rem; min-width: 0; }
+.plan-shot-label { display: flex; align-items: center; gap: 0.55rem; flex: 1 1 auto; min-width: 0; cursor: pointer; }
+.plan-shot-check { flex: 0 0 auto; width: 1.05rem; height: 1.05rem; accent-color: var(--accent); cursor: pointer; }
+.plan-shot-text { font-size: 0.9rem; color: var(--black); min-width: 0; overflow-wrap: anywhere; }
+.plan-shot-actions { flex: 0 0 auto; display: flex; gap: 0.25rem; align-items: center; }
+/* Icon-Buttons (📝✏️✕ / +✏️🗑) gleich groß, unabhängig von der Emoji-Breite (#15) */
+.plan-shot-actions .btn, .shotbib-actions .btn, .shotbib-add {
+  width: 2rem; min-width: 2rem; padding-left: 0; padding-right: 0; justify-content: center;
+}
+.plan-shot-del { flex: 0 0 auto; }
+.plan-shot.is-done { background: var(--off-white); }
+.plan-shot.is-done .plan-shot-text { text-decoration: line-through; color: var(--muted); }
+
+/* Shotlist-Zeile: Bearbeiten-Modus (Stift) */
+.plan-shot-editrow { display: flex; gap: 0.4rem; align-items: stretch; flex: 1 1 auto; flex-wrap: wrap; }
+.plan-shot-editinput {
+  flex: 1 1 180px; min-width: 0;
+  border: 1px solid var(--accent); border-radius: var(--radius);
+  padding: 0.45rem 0.6rem; font: inherit; font-size: 0.9rem; color: var(--black); background: var(--surface);
+}
+.plan-shot-editinput:focus { outline: none; box-shadow: 0 0 0 3px rgba(226,98,44,0.12); }
+
+/* Shotlist-Zeile: ausklappbare Notiz */
+.plan-shot-notiz-btn { position: relative; }
+.plan-shot-notiz-btn.is-active { background: var(--accent); color: #fff; border-color: var(--accent); }
+/* Persistenter Marker: Shot hat eine gespeicherte Notiz (auch zugeklappt sichtbar) (#10) */
+.plan-shot-notiz-btn.has-notiz:not(.is-active) { border-color: var(--accent); }
+.plan-shot-notiz-btn.has-notiz::after {
+  content: ""; position: absolute; top: 2px; right: 2px;
+  width: 7px; height: 7px; border-radius: 50%; background: var(--accent);
+  border: 1px solid var(--surface);
+}
+.plan-shot-notiz {
+  width: 100%; min-height: 3.2rem; resize: vertical;
+  border: 1px solid var(--mid); border-radius: var(--radius);
+  padding: 0.5rem 0.6rem; font: inherit; font-size: 0.85rem; color: var(--black); background: var(--off-white);
+}
+.plan-shot-notiz:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(226,98,44,0.12); }
+
+/* Shotlist + Bibliothek nebeneinander */
+.shotlist-grid { gap: 0 1.5rem; align-items: start; }
+.shotlist-col { min-width: 0; }
+.shotbib-col { border-left: 1px solid var(--mid); padding-left: 1.25rem; min-width: 0; }
+/* In den (halbbreiten) Spalten: Input + Button bleiben auf einer Zeile (#8).
+   nowrap zwingt den Button (auch das breitere "+ Vorlage") neben das Input;
+   das Input schrumpft dank min-width:0 mit, statt den Button umzubrechen. */
+.shotlist-col .field-inline-form,
+.shotbib-col  .field-inline-form { flex-wrap: nowrap; }
+.shotlist-col .field-inline-form input,
+.shotbib-col  .field-inline-form input { flex: 1 1 60px; }
+.shotbib-title { font-size: 0.95rem; margin: 0 0 0.2rem; color: var(--black); }
+.shotbib-liste { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 1rem; }
+.shotbib-row {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.4rem 0.5rem; border: 1px solid var(--mid); border-radius: var(--radius);
+  background: var(--off-white);
+}
+.shotbib-text { font-size: 0.85rem; color: var(--black); flex: 1 1 auto; min-width: 0; overflow-wrap: break-word; }
+.shotbib-actions { flex: 0 0 auto; display: flex; gap: 0.25rem; align-items: center; }
+.shotbib-add { flex: 0 0 auto; }
+.shotbib-editinput {
+  flex: 1 1 120px; min-width: 0;
+  border: 1px solid var(--accent); border-radius: var(--radius);
+  padding: 0.4rem 0.55rem; font: inherit; font-size: 0.85rem; color: var(--black); background: var(--surface);
+}
+.shotbib-editinput:focus { outline: none; box-shadow: 0 0 0 3px rgba(226,98,44,0.12); }
+
+/* Panel-Kopf: Titel + ↑↓-Sortierbuttons */
+.plan-head-left { display: flex; align-items: center; gap: 0.6rem; min-width: 0; }
+.panel-move-wrap { display: inline-flex; gap: 0.2rem; flex: 0 0 auto; }
+.panel-move {
+  border: 1px solid var(--mid); background: var(--surface); color: var(--black);
+  border-radius: var(--radius); width: 1.95rem; height: 1.95rem; line-height: 1;
+  font-size: 0.95rem; cursor: pointer; padding: 0; display: inline-flex; align-items: center; justify-content: center;
+}
+.panel-move:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); background: var(--off-white); }
+.panel-move:disabled { opacity: 0.3; cursor: default; }
+
+/* Hochformat-Embed (Shorts/Reels/TikTok) + Fallback + Plattform-Blockquotes */
+.embed-wrap--hoch { aspect-ratio: 9 / 16; max-width: 340px; margin: 0 auto; }
+.embed-blockquote { margin: 0 auto; }
+.embed-fallback {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 0.6rem;
+  padding: 1rem; border: 1px dashed var(--mid); border-radius: var(--radius);
+  background: var(--surface);
+}
+.embed-fallback-label { font-size: 0.85rem; color: var(--muted); }
+
+/* --- Fokus-Timer (Admin-only) --------------------------------------- */
+.fokus-card {
+  max-width: 420px; margin: 0 auto; text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: 1.1rem;
+}
+.fokus-ring-wrap { position: relative; width: 280px; max-width: 100%; aspect-ratio: 1; }
+.fokus-ring { width: 100%; height: 100%; transform: rotate(-90deg); }
+.fokus-ring-track { fill: none; stroke: var(--mid); stroke-width: 14; }
+.fokus-ring-fill {
+  fill: none; stroke: var(--accent); stroke-width: 14; stroke-linecap: round;
+  transition: stroke-dashoffset 0.3s linear;
+}
+.fokus-ring-wrap.is-paused .fokus-ring-fill { stroke: var(--muted); }
+.fokus-center {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.25rem;
+}
+.fokus-pflanze { font-size: 2.6rem; line-height: 1; }
+.fokus-zeit {
+  font-family: 'SF Mono', 'Fira Code', ui-monospace, Menlo, monospace;
+  font-size: 2.2rem; font-weight: 700; color: var(--black); letter-spacing: 1px;
+}
+.fokus-presets { display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center; align-items: center; }
+.fokus-preset.is-active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.fokus-custom { font-size: 0.85rem; color: var(--muted); display: inline-flex; align-items: center; gap: 0.3rem; }
+.fokus-custom input {
+  width: 4rem; border: 1px solid var(--mid); border-radius: var(--radius);
+  padding: 0.4rem 0.5rem; font: inherit; text-align: center; color: var(--black);
+}
+.fokus-custom input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(226,98,44,0.12); }
+.fokus-actions { justify-content: center; }
+.fokus-laufzeit { font-size: 0.85rem; }
+.fokus-stats { font-size: 0.8rem; margin: 0; }
+.fokus-done-emoji { font-size: 3.5rem; line-height: 1; }
+.fokus-done-title { margin: 0; }
+
+/* --- Fokus: Tabs (Timer | Videos) ------------------------------------ */
+.fokus-tabs { display: flex; gap: 0.4rem; margin: 0 0 1.25rem; border-bottom: 1px solid var(--mid); }
+.fokus-tab {
+  appearance: none; background: none; border: 0; cursor: pointer; font: inherit;
+  font-size: 0.9rem; color: var(--muted); padding: 0.55rem 0.9rem;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.fokus-tab:hover { color: var(--black); }
+.fokus-tab.is-active { color: var(--black); border-bottom-color: var(--accent); font-weight: 600; }
+
+/* --- Fokus: Video-Anspielliste (Player + Grid) ----------------------- */
+.fokusvid-player { margin: 0 0 1.25rem; border-radius: var(--radius-lg); overflow: hidden; }
+.fokusvid-player-empty {
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  aspect-ratio: 16 / 9; background: var(--surface-2);
+  border: 1px dashed var(--mid); border-radius: var(--radius-lg);
+  color: var(--muted); font-size: 0.9rem; padding: 1rem;
+}
+.fokusvid-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 0 0 0.85rem; }
+.fokusvid-title { font-size: 1rem; margin: 0; }
+
+.fokusvid-form { margin: 0 0 1rem; }
+.fokusvid-form-row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.fokusvid-form-row input {
+  flex: 1 1 260px; min-width: 0; padding: 0.55rem 0.7rem; font: inherit;
+  border: 1px solid var(--mid); border-radius: var(--radius); background: var(--surface);
+}
+.fokusvid-form-row input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(226,98,44,0.12); }
+.fokusvid-form-msg { margin-top: 0.5rem; font-size: 0.82rem; }
+
+.fokusvid-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 0.9rem; }
+.fokusvid-leer { grid-column: 1 / -1; }
+.fokusvid-card {
+  cursor: pointer; border-radius: var(--radius); overflow: hidden;
+  background: var(--surface); border: 1px solid var(--mid);
+  transition: border-color .12s, box-shadow .12s, transform .12s;
+}
+.fokusvid-card:hover { border-color: var(--accent); box-shadow: var(--shadow-card); transform: translateY(-2px); }
+.fokusvid-card:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(226,98,44,0.18); }
+.fokusvid-card.is-active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.fokusvid-thumb { position: relative; aspect-ratio: 16 / 9; background: #000 center/cover no-repeat; }
+.fokusvid-play {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 1.6rem; opacity: 0; transition: opacity .12s;
+  text-shadow: 0 2px 8px rgba(0,0,0,.6);
+}
+.fokusvid-card:hover .fokusvid-play, .fokusvid-card.is-active .fokusvid-play { opacity: 1; }
+.fokusvid-del {
+  position: absolute; top: 6px; right: 6px; width: 26px; height: 26px; padding: 0;
+  display: flex; align-items: center; justify-content: center; line-height: 1;
+  border: 0; border-radius: 50%; cursor: pointer; font-size: 0.9rem;
+  background: rgba(20,17,13,.6); color: #fff; opacity: 0; transition: opacity .12s, background .12s;
+}
+.fokusvid-card:hover .fokusvid-del, .fokusvid-card:focus-within .fokusvid-del { opacity: 1; }
+.fokusvid-del:hover { background: var(--error); }
+.fokusvid-label {
+  padding: 0.5rem 0.6rem; font-size: 0.82rem; line-height: 1.3; color: var(--black);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+
+/* --- Fokus: Session benennen + Beenden -------------------------------- */
+.fokus-name {
+  width: 100%; max-width: 320px; padding: 0.55rem 0.75rem; font: inherit; text-align: center;
+  border: 1px solid var(--mid); border-radius: var(--radius); background: var(--surface); color: var(--black);
+}
+.fokus-name:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(226,98,44,0.12); }
+.fokus-laufname { font-size: 1.05rem; font-weight: 600; color: var(--black); }
+.fokus-abbrechen { color: var(--muted); }
+
+/* --- Fokus: Verlauf/Analytics (Stat-Cards, Balken, Liste) ------------- */
+.fokus-stat-cards {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; margin: 0 0 1.75rem;
+}
+.fokus-stat-card {
+  display: flex; flex-direction: column; align-items: center; gap: 0.15rem;
+  padding: 0.9rem 0.5rem; background: var(--surface); border: 1px solid var(--mid); border-radius: var(--radius);
+}
+.fokus-stat-zahl { font-size: 1.5rem; font-weight: 700; color: var(--black); line-height: 1.1; }
+.fokus-stat-lbl { font-size: 0.72rem; color: var(--muted); text-align: center; }
+
+.fokus-chart {
+  display: flex; align-items: flex-end; gap: 0.35rem; height: 160px;
+  margin: 0 0 1.75rem; padding: 0.5rem 0.25rem 0;
+}
+.fokus-bar-col { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; gap: 0.35rem; min-width: 0; height: 100%; }
+.fokus-bar-wrap { flex: 1 1 auto; width: 100%; display: flex; align-items: flex-end; }
+.fokus-bar {
+  width: 100%; min-height: 2px; background: var(--mid); border-radius: 4px 4px 0 0;
+  transition: height 0.3s ease;
+}
+.fokus-bar.has-val { background: var(--accent); }
+.fokus-bar-lbl { font-size: 0.62rem; color: var(--muted); white-space: nowrap; }
+
+.fokus-liste { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+.fokus-liste-item {
+  display: flex; align-items: center; gap: 0.85rem;
+  padding: 0.7rem 0.85rem; background: var(--surface); border: 1px solid var(--mid); border-radius: var(--radius);
+}
+.fokus-liste-haupt { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 0.15rem; }
+.fokus-liste-name { font-weight: 600; color: var(--black); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fokus-liste-meta { font-size: 0.78rem; }
+.fokus-liste-dauer { flex: 0 0 auto; font-weight: 600; color: var(--accent-dim); font-size: 0.9rem; }
+.fokus-liste-del {
+  flex: 0 0 auto; width: 26px; height: 26px; padding: 0; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  border: 0; border-radius: 50%; cursor: pointer; font-size: 0.85rem;
+  background: transparent; color: var(--muted); transition: background .12s, color .12s;
+}
+.fokus-liste-del:hover { background: var(--error); color: #fff; }
+
 /* --- Mobil ----------------------------------------------------------- */
 @media (max-width: 720px) {
   .topbar { flex-wrap: wrap; gap: 0.75rem 1rem; padding: 0.85rem 1.1rem; }
@@ -434,12 +819,484 @@ a.row-item:hover { background: var(--off-white); }
   .action-btns .btn { flex: 1 1 auto; }
 
   .grid-2 { grid-template-columns: 1fr; gap: 0; }
+  .shotbib-col { border-left: none; border-top: 1px solid var(--mid); padding-left: 0; padding-top: 1.25rem; margin-top: 0.5rem; }
+  .pw-panel { right: 0.5rem; left: 0.5rem; width: auto; }
   .pl-row { flex-direction: column; align-items: stretch; gap: 0.6rem; }
   .pl-status { width: 100%; }
   .ob-row { flex-direction: column; }
+  .tm-row { flex-direction: column; }
   .ob-aktionen { flex-direction: row; flex-wrap: wrap; }
   .ob-aktionen .field-inline { flex: 1 1 100%; }
   .kal-tag { min-height: 60px; }
   .kal-chip { font-size: 0.62rem; }
   .kal-titel { min-width: 0; flex: 1; font-size: 0.95rem; }
+  .fokusvid-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 0.7rem; }
+  .fokus-stat-cards { grid-template-columns: repeat(2, 1fr); }
+  .fokus-chart { height: 130px; gap: 0.2rem; }
+  .fokus-bar-lbl { font-size: 0.55rem; }
 }
+
+/* ===== Gedanken (Admin-Mindmap) — alle Klassen mit gd- geprefixt ===== */
+
+/* Leinwand: sichtbarer Ausschnitt mit Punktraster, Pan per Ziehen */
+.gd-canvas {
+  position: relative;
+  height: calc(100vh - 240px);
+  min-height: 420px;
+  overflow: hidden;
+  border: 1px solid var(--mid);
+  border-radius: var(--radius-lg);
+  background-color: var(--surface-2);
+  background-image: radial-gradient(var(--mid) 1px, transparent 1.5px);
+  background-size: 24px 24px;
+  cursor: grab;
+  touch-action: none;           /* Pointer Events auch bei Touch */
+  user-select: none;
+}
+.gd-canvas.is-pan { cursor: grabbing; }
+
+/* Welt-Ebene: 0x0-Anker, wird per translate(panX, panY) verschoben */
+.gd-welt {
+  position: absolute;
+  left: 0; top: 0;
+  width: 0; height: 0;
+  will-change: transform;
+}
+
+/* Kanten-SVG: liegt in der Welt UNTER den Knoten, zeichnet über die Ränder hinaus */
+.gd-edges {
+  position: absolute;
+  left: 0; top: 0;
+  width: 1px; height: 1px;
+  overflow: visible;
+  pointer-events: none;         /* nur die Hit-Linien selbst sind klickbar */
+}
+.gd-edge {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 2;
+  pointer-events: none;
+}
+.gd-edge-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 16;             /* unsichtbare, dickere Klickfläche */
+  pointer-events: stroke;
+  cursor: pointer;
+}
+.gd-edge-grp:hover .gd-edge {
+  stroke: var(--error);
+  stroke-width: 2.5;
+}
+.gd-edge--temp {
+  stroke: var(--accent);
+  stroke-dasharray: 5 4;
+  pointer-events: none;
+}
+.gd-edges-temp { pointer-events: none; }
+
+/* Knoten: frei platzierbare Box, Position via transform (Weltkoordinaten) */
+.gd-node {
+  position: absolute;
+  left: 0; top: 0;
+  width: 200px;
+  padding: 8px 10px 10px;
+  background: var(--surface);
+  border: 1px solid var(--mid);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+.gd-node.is-gezogen {
+  cursor: grabbing;
+  z-index: 5;
+  border-color: var(--accent);
+}
+.gd-node.is-erledigt { opacity: 0.55; }
+.gd-node.is-erledigt .gd-text { text-decoration: line-through; color: var(--muted); }
+
+.gd-node-kopf {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.gd-check {
+  width: 15px; height: 15px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+/* Löschen: klein und dezent; nach erstem Klick rote Inline-Bestätigung */
+.gd-del {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  padding: 3px 6px;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.gd-del:hover { color: var(--error); background: var(--dark); }
+.gd-del.is-bestaetigen {
+  background: var(--error);
+  color: var(--white);
+  font-weight: 600;
+}
+.gd-del:disabled { opacity: 0.5; cursor: default; }
+
+/* Text: mehrzeilig, Auto-Höhe per JS, Speichern onBlur */
+.gd-text {
+  display: block;
+  width: 100%;
+  min-height: 22px;
+  border: none;
+  resize: none;
+  overflow: hidden;
+  background: transparent;
+  color: var(--black);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.4;
+  padding: 0;
+  cursor: text;
+  user-select: text;
+}
+.gd-text:focus { outline: none; }
+.gd-node:has(.gd-text:focus) { border-color: var(--accent); cursor: default; }
+
+/* Docking-Punkte: an 4 Seiten, sichtbar bei Hover, Startpunkt fürs Linien-Ziehen */
+.gd-dock {
+  position: absolute;
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: var(--white);
+  border: 2px solid var(--accent);
+  opacity: 0;
+  transition: opacity 0.12s ease, transform 0.12s ease;
+  cursor: crosshair;
+  touch-action: none;
+  z-index: 3;
+}
+.gd-node:hover .gd-dock, .gd-dock:active { opacity: 1; }
+.gd-dock:hover { transform: scale(1.25); background: var(--accent); }
+.gd-dock[data-seite="oben"]   { top: -7px;    left: 50%; margin-left: -6px; }
+.gd-dock[data-seite="unten"]  { bottom: -7px; left: 50%; margin-left: -6px; }
+.gd-dock[data-seite="links"]  { left: -7px;   top: 50%;  margin-top: -6px; }
+.gd-dock[data-seite="rechts"] { right: -7px;  top: 50%;  margin-top: -6px; }
+/* Touch-Geräte (kein Hover): Docks immer leicht sichtbar */
+@media (hover: none) {
+  .gd-dock { opacity: 0.45; }
+}
+
+/* Lade-/Fehler-Status und Leerzustand: mittig, nicht klickbar */
+.gd-status, .gd-leer {
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--muted);
+  font-size: 14px;
+  text-align: center;
+  pointer-events: none;
+  max-width: 80%;
+}
+.gd-status.is-fehler { color: var(--error); }
+
+/* ---- Gedanken: Kopf-Tools (Chevron / Anhang / Löschen) ---- */
+.gd-node-tools { display: flex; align-items: center; gap: 2px; }
+.gd-chevron, .gd-attach {
+  border: none; background: transparent; color: var(--muted);
+  font: inherit; font-size: 12px; line-height: 1;
+  padding: 3px 5px; border-radius: var(--radius); cursor: pointer;
+}
+.gd-chevron { font-size: 13px; }
+.gd-chevron:hover, .gd-attach:hover { color: var(--accent); background: var(--dark); }
+.gd-chevron.is-offen { color: var(--accent); }
+.gd-node.has-anhang .gd-attach { color: var(--accent-dim); }
+.gd-node.is-highlight { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(226,98,44,.28), var(--shadow-card); }
+
+/* ---- Gedanken: To-Do-Umschalter + abgeleitete Kartenfarben ---- */
+.gd-todo {
+  border: none; background: transparent; color: var(--muted);
+  font: inherit; font-size: 13px; line-height: 1;
+  padding: 3px 5px; border-radius: var(--radius); cursor: pointer;
+}
+.gd-todo:hover { color: #2f9e44; background: var(--dark); }
+.gd-todo.is-active { color: #2f9e44; }
+.gd-todo[hidden] { display: none; }
+/* To-Do = grün, Post = rosa. Post gewinnt (in wendeFarbeAn zuerst geprüft). */
+.gd-node.is-todo { border-color: #40a860; background: #f2fbf5; }
+.gd-node.is-todo.is-erledigt { opacity: 0.55; }
+.gd-node.is-post { border-color: #e255a1; background: #fdf2f9; }
+
+/* ---- Gedanken: Post-Card (rosa) — Bilder-Carousel + Social-Embeds ---- */
+.gd-node--post { width: 264px; }
+.gd-neu-post { color: #c026a0; }
+.gd-neu-post:hover { border-color: #e255a1; color: #c026a0; }
+
+.gd-post { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; cursor: default; }
+.gd-post[hidden] { display: none; }
+
+.gd-post-carousel {
+  position: relative; border-radius: var(--radius); overflow: hidden;
+  background: #000; aspect-ratio: 1 / 1;
+}
+.gd-post-stage { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+.gd-post-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.gd-post-nav {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  width: 28px; height: 28px; padding: 0; border: none; border-radius: 50%;
+  background: rgba(20,17,13,.55); color: #fff; font-size: 18px; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.gd-post-prev { left: 6px; }
+.gd-post-next { right: 6px; }
+.gd-post-nav:hover { background: rgba(20,17,13,.8); }
+.gd-post-delimg {
+  position: absolute; top: 6px; right: 6px; width: 26px; height: 26px; padding: 0;
+  border: none; border-radius: 50%; cursor: pointer; font-size: .85rem; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(20,17,13,.55); color: #fff;
+}
+.gd-post-delimg:hover { background: var(--error); }
+.gd-post-dots {
+  position: absolute; left: 0; right: 0; bottom: 6px;
+  display: flex; gap: 5px; justify-content: center;
+}
+.gd-post-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,.5); }
+.gd-post-dot.is-active { background: #fff; }
+
+.gd-post-embed { position: relative; border-radius: var(--radius); overflow: hidden; }
+.gd-post-embed-media { border-radius: var(--radius); overflow: hidden; }
+.gd-post-embed-media iframe,
+.gd-post-embed-media img,
+.gd-post-embed-media video { width: 100%; display: block; border: 0; }
+.gd-post-embed-del {
+  position: absolute; top: 6px; right: 6px; width: 24px; height: 24px; padding: 0; z-index: 2;
+  border: none; border-radius: 50%; cursor: pointer; font-size: .8rem; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(20,17,13,.55); color: #fff;
+}
+.gd-post-embed-del:hover { background: var(--error); }
+
+.gd-post-add { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.gd-post-addbtn {
+  font: inherit; font-size: .78rem; padding: .3rem .55rem; cursor: pointer;
+  border: 1px solid var(--mid); border-radius: var(--radius); background: var(--surface); color: var(--black);
+}
+.gd-post-addbtn:hover { border-color: #e255a1; color: #c026a0; }
+.gd-post-linkinput {
+  flex: 1 1 120px; min-width: 0; font: inherit; font-size: .78rem;
+  padding: .3rem .5rem; border: 1px solid var(--mid); border-radius: var(--radius); background: var(--surface);
+}
+.gd-post-linkinput:focus { outline: none; border-color: #e255a1; }
+
+/* Filter-Dropdown in der Kopfzeile (Alle | Nur To-Dos | Nur beständige) */
+.gd-filter {
+  font: inherit; font-size: 0.8rem; padding: 0.34rem 0.5rem;
+  border: 1px solid var(--mid); border-radius: var(--radius);
+  background: var(--surface); color: var(--black); cursor: pointer;
+}
+.gd-filter:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(226,98,44,0.12); }
+
+/* Mindmap-Auswahl (④): Dropdown + „+ Karte" + Inline-Neu-Formular */
+.gd-mapselect {
+  font: inherit; font-size: 0.8rem; font-weight: 600; padding: 0.34rem 0.5rem;
+  max-width: 170px; border: 1px solid var(--mid); border-radius: var(--radius);
+  background: var(--surface); color: var(--black); cursor: pointer;
+}
+.gd-mapselect:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(226,98,44,0.12); }
+.gd-mapneu { display: inline-flex; align-items: center; gap: 0.4rem; }
+.gd-mapneu[hidden] { display: none; }
+.gd-mapneu-input {
+  font: inherit; font-size: 0.8rem; padding: 0.34rem 0.5rem; min-width: 160px;
+  border: 1px solid var(--mid); border-radius: var(--radius); background: var(--surface); color: var(--black);
+}
+.gd-mapneu-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(226,98,44,0.12); }
+
+/* ---- Gedanken: Inline-Body (aufgeklappter Knoten) ---- */
+.gd-node-body {
+  margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--mid);
+  cursor: default; user-select: text;
+}
+.gd-koerper { display: flex; flex-direction: column; gap: 10px; }
+.gd-md { font-size: 13px; }
+.gd-md-preview { line-height: 1.5; color: var(--black); word-break: break-word; cursor: text; }
+.gd-md-preview:hover { background: var(--surface-2); border-radius: var(--radius); }
+.gd-md-preview h1 { font-size: 1.15rem; margin: .2em 0 .3em; }
+.gd-md-preview h2 { font-size: 1.05rem; margin: .2em 0 .3em; }
+.gd-md-preview h3 { font-size: .98rem; margin: .2em 0 .3em; }
+.gd-md-preview ul { margin: .2em 0; padding-left: 1.2em; }
+.gd-md-preview code { background: var(--dark); padding: 1px 4px; border-radius: 4px; font-size: .9em; }
+.gd-md-preview a { color: var(--accent-dim); }
+.gd-md-leer { font-style: italic; }
+.gd-detail {
+  display: block; width: 100%; min-height: 60px; border: 1px solid var(--mid);
+  border-radius: var(--radius); background: var(--surface-2); color: var(--black);
+  font: inherit; font-size: 13px; line-height: 1.5; padding: 6px 8px; resize: none;
+}
+.gd-detail:focus { outline: none; border-color: var(--accent); }
+
+.gd-abschnitt-titel { font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; color: var(--light); font-weight: 600; }
+
+/* ---- Gedanken: Anhänge ---- */
+.gd-anhaenge { display: flex; flex-direction: column; gap: 8px; }
+.gd-anh { border: 1px solid var(--mid); border-radius: var(--radius); padding: 6px 8px; background: var(--surface); }
+.gd-anh-kopf { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 4px; }
+.gd-anh-name { font-size: 12px; color: var(--black); overflow-wrap: anywhere; }
+.gd-anh-del { border: none; background: transparent; color: var(--muted); cursor: pointer; font-size: 11px; padding: 2px 5px; border-radius: var(--radius); }
+.gd-anh-del:hover { color: var(--error); background: var(--dark); }
+.gd-anh-leer { font-size: 12px; }
+.gd-anh-fehler { color: var(--error); font-size: 12px; }
+.gd-anh-media { display: flex; }
+.gd-media-img, .gd-media-video { max-width: 100%; max-height: 220px; border-radius: var(--radius); }
+.gd-media-audio { width: 100%; }
+.gd-koerper--gross .gd-media-img, .gd-koerper--gross .gd-media-video { max-height: 420px; }
+
+.gd-add-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.gd-link-input { flex: 1 1 140px; min-width: 0; font-size: 12px; padding: 5px 7px; border: 1px solid var(--mid); border-radius: var(--radius); }
+.gd-link-input:focus { outline: none; border-color: var(--accent); }
+
+/* ---- Gedanken: Verwandt-mit ---- */
+.gd-verwandt-titel { font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; color: var(--light); font-weight: 600; margin-bottom: 5px; }
+.gd-verwandt-liste { display: flex; flex-wrap: wrap; gap: 6px; }
+.gd-verwandt-item {
+  border: 1px solid var(--mid); background: var(--surface-2); color: var(--black);
+  border-radius: 999px; padding: 3px 10px; font-size: 12px; cursor: pointer; max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.gd-verwandt-item:hover { border-color: var(--accent); color: var(--accent-dim); }
+.gd-verwandt-item.is-erledigt { text-decoration: line-through; color: var(--muted); }
+.gd-verwandt-leer { font-size: 12px; }
+
+/* ---- Gedanken: Seitenleiste (Liste aller Gedanken) ---- */
+.gd-sidebar-btn {
+  position: absolute; top: 10px; right: 10px; z-index: 6;
+  border: 1px solid var(--mid); background: var(--surface); color: var(--black);
+  border-radius: var(--radius); padding: 5px 10px; font: inherit; font-size: 12px;
+  cursor: pointer; box-shadow: var(--shadow-card);
+}
+.gd-sidebar-btn:hover { border-color: var(--accent); color: var(--accent-dim); }
+.gd-sidebar {
+  position: absolute; top: 0; right: 0; bottom: 0; width: 270px; max-width: 82%;
+  background: var(--surface); border-left: 1px solid var(--mid); box-shadow: -8px 0 24px rgba(20,17,13,.08);
+  transform: translateX(100%); transition: transform .22s ease; z-index: 7;
+  display: flex; flex-direction: column;
+}
+.gd-sidebar.is-open { transform: translateX(0); }
+.gd-sidebar-kopf { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid var(--mid); font-weight: 600; font-size: 14px; }
+.gd-sidebar-zu { border: none; background: transparent; color: var(--muted); cursor: pointer; font-size: 13px; padding: 2px 6px; border-radius: var(--radius); }
+.gd-sidebar-zu:hover { color: var(--error); background: var(--dark); }
+.gd-liste { overflow-y: auto; padding: 6px; flex: 1; }
+.gd-liste-item { display: flex; align-items: center; gap: 6px; padding: 5px 6px; border-radius: var(--radius); }
+.gd-liste-item:hover { background: var(--surface-2); }
+.gd-liste-item.is-erledigt .gd-liste-titel { text-decoration: line-through; color: var(--muted); }
+.gd-liste-titel { flex: 1; min-width: 0; text-align: left; border: none; background: transparent; color: var(--black); font: inherit; font-size: 13px; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px 0; }
+.gd-liste-titel:hover { color: var(--accent-dim); }
+.gd-liste-meta { font-size: 11px; flex: 0 0 auto; }
+.gd-liste-oeffnen { border: none; background: transparent; color: var(--muted); cursor: pointer; font-size: 13px; padding: 2px 5px; border-radius: var(--radius); flex: 0 0 auto; }
+.gd-liste-oeffnen:hover { color: var(--accent); background: var(--dark); }
+.gd-liste-leer, .gd-liste-item + .gd-liste-leer { padding: 12px; font-size: 13px; }
+
+/* ---- Gedanken: Toast ---- */
+.gd-toast {
+  position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%);
+  z-index: 8; background: var(--black); color: var(--white);
+  padding: 8px 14px; border-radius: 999px; font-size: 12.5px; max-width: 90%;
+  box-shadow: var(--shadow-card);
+}
+
+/* ---- Gedanken: Vollseite (Detailansicht) ---- */
+.gd-seite {
+  position: fixed; inset: 0; z-index: 1200; background: var(--white);
+  overflow: hidden;
+}
+.gd-seite:not([hidden]) { display: flex; flex-direction: column; }
+.gd-seite-bar {
+  display: flex; align-items: center; gap: 12px; padding: 12px 18px;
+  border-bottom: 1px solid var(--mid); flex: 0 0 auto;
+}
+.gd-seite-crumb { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+.gd-seite-inner { flex: 1; overflow-y: auto; padding: 22px clamp(16px, 6vw, 90px) 80px; }
+.gd-seite-inner .gd-koerper { max-width: 760px; margin: 0 auto; }
+.gd-seite-titel {
+  display: block; width: 100%; max-width: 760px; margin: 0 auto 18px; border: none;
+  background: transparent; color: var(--black); font: inherit; font-weight: 700;
+  font-size: clamp(1.5rem, 3.4vw, 2.1rem); line-height: 1.2;
+}
+.gd-seite-titel:focus { outline: none; }
+.gd-seite-body { }
+
+@media (max-width: 760px) {
+  .gd-node { width: 190px; }
+}
+
+/* ---- Gedanken: Ebenen (Bereich / Sub / Gedanke) ---- */
+.gd-neu-group { display: flex; gap: 6px; flex-wrap: wrap; }
+.gd-ebene {
+  border: none; background: transparent; color: var(--light);
+  font: inherit; font-size: 10px; font-weight: 700; letter-spacing: .02em;
+  line-height: 1; padding: 3px 5px; border-radius: var(--radius); cursor: pointer; min-width: 20px;
+}
+.gd-ebene:hover { color: var(--accent); background: var(--dark); }
+
+/* Bereich = groß & fett, übergeordnet (accent-Rahmen + Kopfleiste). */
+.gd-node--bereich {
+  width: 300px;
+  border: 2px solid var(--accent);
+  box-shadow: inset 0 4px 0 var(--accent), var(--shadow-card);
+  background: var(--surface-2);
+}
+.gd-node--bereich .gd-text { font-size: 1.4rem; font-weight: 800; line-height: 1.15; letter-spacing: -.01em; }
+.gd-node--bereich .gd-ebene { color: var(--accent); }
+
+/* Subbereich = mittelgroß, halbfett. */
+.gd-node--sub {
+  width: 254px;
+  border-color: var(--accent-dim);
+  box-shadow: inset 0 3px 0 var(--accent-dim), var(--shadow-card);
+}
+.gd-node--sub .gd-text { font-size: 1.08rem; font-weight: 700; line-height: 1.25; }
+.gd-node--sub .gd-ebene { color: var(--accent-dim); }
+
+/* Seitenleiste: Hierarchie durch Gewicht + Einrückung andeuten. */
+.gd-liste-item.ebene-bereich .gd-liste-titel { font-weight: 800; font-size: 13.5px; }
+.gd-liste-item.ebene-sub .gd-liste-titel { font-weight: 700; padding-left: 12px; }
+.gd-liste-item.ebene-gedanke .gd-liste-titel { padding-left: 24px; }
+
+/* ---- Gedanken: Zoom ----
+   Gezoomt wird per Mausrad / Pinch (zwei Finger); der frühere Zoom-Regler
+   entfällt. Die Welt skaliert per CSS-transform → Knoten/Text bleiben scharf. */
+
+/* ---- Gedanken: Archiv ---- */
+/* Umschalter in der Kopfzeile */
+.gd-archiv-toggle.is-active {
+  background: var(--accent); color: var(--white); border-color: var(--accent);
+}
+/* Mini-Button am Knoten: „→ Archiv" bzw. „↩ Zurück".
+   Im aktiven Modus nur bei erledigten Gedanken sichtbar, im Archiv-Modus immer. */
+.gd-archiv-btn {
+  border: none; background: transparent; color: var(--accent-dim);
+  font: inherit; font-size: 10.5px; font-weight: 600; line-height: 1;
+  padding: 3px 6px; border-radius: var(--radius); cursor: pointer;
+  white-space: nowrap; display: none;
+}
+.gd-archiv-btn:hover { color: var(--accent); background: var(--dark); }
+.gd-archiv-btn:disabled { opacity: 0.5; cursor: default; }
+.gd-node.is-erledigt .gd-archiv-btn { display: inline-flex; }
+.gd-archiv-modus .gd-archiv-btn { display: inline-flex; }
+/* Banner oben rechts im Archiv-Modus */
+.gd-modus-banner {
+  position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 6;
+  background: var(--surface); border: 1px solid var(--accent); color: var(--black);
+  border-radius: 999px; padding: 6px 14px; font-size: 12px; box-shadow: var(--shadow-card);
+  pointer-events: none; max-width: 90%; text-align: center;
+}
+/* Archiv-Leinwand dezent anders einfärben, damit der Modus sofort erkennbar ist. */
+.gd-canvas.gd-archiv-modus { background-color: var(--dark); }

@@ -1,20 +1,29 @@
 // SPA-Bootstrap + Hash-Router mit Rollen-Guard.
 // Wird von index.html als Modul-Entry geladen.
-import { beobachteAuth, logout, abgewieseneAdresse } from "./auth.js";
+import { beobachteAuth, logout, abgewieseneAdresse,
+         istLoginLink, schliesseLoginLinkAb, setzePasswort } from "./auth.js";
 import { raeumeViewAuf } from "./view-lifecycle.js";
 import { renderLogin } from "./views/login.js";
 import { renderAufgaben } from "./views/kunde-aufgaben.js";
 import { renderObjektMelden } from "./views/kunde-objekt-melden.js";
 import { renderVideoDetail } from "./views/kunde-video-detail.js";
+import { renderKundeKalender } from "./views/kunde-kalender.js";
 import { renderAdminPipeline } from "./views/admin-pipeline.js";
 import { renderAdminVideoEdit } from "./views/admin-video-edit.js";
 import { renderAdminObjekte } from "./views/admin-objekte.js";
 import { renderAdminKalender } from "./views/admin-kalender.js";
+import { renderAdminTermine } from "./views/admin-termine.js";
+import { renderAdminPlaene } from "./views/admin-plaene.js";
+import { renderAdminPlan } from "./views/admin-plan.js";
+import { renderAdminFokus } from "./views/admin-fokus.js";
+import { renderAdminGedanken } from "./views/admin-gedanken.js";
 
 // --- Zustand -----------------------------------------------------------
 let _user = null;
 let _rolle = null;
 let _authBereit = false;
+let _linkEmailNoetig = false;   // E-Mail-Link auf anderem Gerät -> Eingabe nötig
+let _linkFehler = null;         // Login-Link ungültig/abgelaufen
 
 function appEl() {
   return document.getElementById("app");
@@ -25,23 +34,34 @@ const ROUTES = {
   // Kunde
   "/aufgaben":       { rolle: "kunde", titel: "Aufgaben",        render: renderAufgaben },
   "/objekt-melden":  { rolle: "kunde", titel: "Objekt melden",   render: renderObjektMelden },
+  "/kalender":       { rolle: "kunde", titel: "Kalender",        render: renderKundeKalender },
   "/video":          { rolle: "kunde", titel: "Video",           render: renderVideoDetail, param: true },
   // Admin
   "/admin/pipeline": { rolle: "admin", titel: "Pipeline",         render: renderAdminPipeline },
   "/admin/video":    { rolle: "admin", titel: "Video bearbeiten", render: renderAdminVideoEdit, param: true },
   "/admin/objekte":  { rolle: "admin", titel: "Objekte",          render: renderAdminObjekte },
-  "/admin/kalender": { rolle: "admin", titel: "Kalender",         render: renderAdminKalender }
+  "/admin/kalender": { rolle: "admin", titel: "Kalender",         render: renderAdminKalender },
+  "/admin/termine":  { rolle: "admin", titel: "Termine",          render: renderAdminTermine },
+  "/admin/plaene":   { rolle: "admin", titel: "Pläne",            render: renderAdminPlaene },
+  "/admin/plan":     { rolle: "admin", titel: "Plan",             render: renderAdminPlan, param: true },
+  "/admin/fokus":    { rolle: "admin", titel: "Fokus",            render: renderAdminFokus },
+  "/admin/gedanken": { rolle: "admin", titel: "Gedanken",         render: renderAdminGedanken }
 };
 
 const NAV = {
   kunde: [
     { href: "#/aufgaben",      label: "Aufgaben" },
-    { href: "#/objekt-melden", label: "Objekt melden" }
+    { href: "#/objekt-melden", label: "Objekt melden" },
+    { href: "#/kalender",      label: "Kalender" }
   ],
   admin: [
     { href: "#/admin/pipeline", label: "Pipeline" },
     { href: "#/admin/objekte",  label: "Objekte" },
-    { href: "#/admin/kalender", label: "Kalender" }
+    { href: "#/admin/kalender", label: "Kalender" },
+    { href: "#/admin/termine",  label: "Termine" },
+    { href: "#/admin/plaene",   label: "Pläne" },
+    { href: "#/admin/fokus",    label: "Fokus" },
+    { href: "#/admin/gedanken", label: "Gedanken" }
   ]
 };
 
@@ -54,6 +74,7 @@ function resolve(hash) {
   const path = (hash || "").replace(/^#/, "");
   if (path.startsWith("/video/"))       return { route: ROUTES["/video"],       id: decodeURIComponent(path.slice("/video/".length)) };
   if (path.startsWith("/admin/video/")) return { route: ROUTES["/admin/video"], id: decodeURIComponent(path.slice("/admin/video/".length)) };
+  if (path.startsWith("/admin/plan/"))  return { route: ROUTES["/admin/plan"],  id: decodeURIComponent(path.slice("/admin/plan/".length)) };
   return { route: ROUTES[path] || null, id: null };
 }
 
@@ -77,13 +98,82 @@ function renderShell(aktiverPfad) {
           <span class="role-pill">${rollenLabel}</span>
           <span class="user-email">${_user.email}</span>
         </span>
+        <button class="btn btn--ghost btn--sm" id="pwBtn" type="button">Passwort</button>
         <button class="btn btn--ghost btn--sm" id="logoutBtn">Abmelden</button>
+      </div>
+
+      <div class="pw-panel" id="pwPanel" hidden>
+        <h2 class="pw-panel-title">Passwort festlegen</h2>
+        <p class="muted pw-panel-sub">Danach kannst du dich mit E-Mail + Passwort anmelden — kein Link mehr nötig.</p>
+        <div class="notice notice--error" id="pwPanelErr" hidden role="alert"></div>
+        <div class="notice notice--ok"    id="pwPanelOk"  hidden role="status"></div>
+        <form id="pwPanelForm" novalidate>
+          <div class="field">
+            <label for="pwNew">Neues Passwort</label>
+            <input id="pwNew" type="password" autocomplete="new-password" placeholder="mind. 6 Zeichen" />
+          </div>
+          <div class="field">
+            <label for="pwNew2">Passwort bestätigen</label>
+            <input id="pwNew2" type="password" autocomplete="new-password" placeholder="nochmal eingeben" />
+          </div>
+          <div class="action-btns">
+            <button class="btn btn--accent btn--sm" id="pwSave" type="submit">Speichern</button>
+            <button class="btn btn--ghost btn--sm" id="pwCancel" type="button">Abbrechen</button>
+          </div>
+        </form>
       </div>
     </header>
     <main class="view" id="view"></main>`;
 
   document.getElementById("logoutBtn").addEventListener("click", () => logout());
+  wirePasswortPanel();
   return document.getElementById("view");
+}
+
+// Topbar-Passwort-Panel: ein-/ausklappen + Passwort setzen (updatePassword).
+function wirePasswortPanel() {
+  const btn    = document.getElementById("pwBtn");
+  const panel  = document.getElementById("pwPanel");
+  const form   = document.getElementById("pwPanelForm");
+  const cancel = document.getElementById("pwCancel");
+  const save   = document.getElementById("pwSave");
+  const errBox = document.getElementById("pwPanelErr");
+  const okBox  = document.getElementById("pwPanelOk");
+  if (!btn || !panel || !form) return;
+
+  function schliesse() { panel.hidden = true; errBox.hidden = true; okBox.hidden = true; form.reset(); }
+
+  btn.addEventListener("click", () => {
+    if (panel.hidden) { panel.hidden = false; document.getElementById("pwNew").focus(); }
+    else { schliesse(); }
+  });
+  cancel.addEventListener("click", schliesse);
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    errBox.hidden = true; okBox.hidden = true;
+    const pw  = document.getElementById("pwNew").value;
+    const pw2 = document.getElementById("pwNew2").value;
+    if (pw.length < 6)  { errBox.textContent = "Bitte mindestens 6 Zeichen."; errBox.hidden = false; return; }
+    if (pw !== pw2)     { errBox.textContent = "Die Passwörter stimmen nicht überein."; errBox.hidden = false; return; }
+    save.disabled = true;
+    const r = await setzePasswort(pw);
+    save.disabled = false;
+    if (r.status === "ok") {
+      form.reset();
+      okBox.textContent = "Passwort gespeichert. Beim nächsten Mal kannst du dich damit anmelden.";
+      okBox.hidden = false;
+    } else if (r.status === "neu-anmelden") {
+      errBox.textContent = "Aus Sicherheitsgründen bitte einmal abmelden und neu anmelden, dann das Passwort setzen.";
+      errBox.hidden = false;
+    } else if (r.status === "schwach") {
+      errBox.textContent = "Passwort zu schwach. Bitte ein längeres/komplexeres wählen.";
+      errBox.hidden = false;
+    } else {
+      errBox.textContent = "Passwort konnte nicht gesetzt werden. Bitte erneut versuchen.";
+      errBox.hidden = false;
+    }
+  });
 }
 
 // --- Haupt-Render ------------------------------------------------------
@@ -98,7 +188,11 @@ function render() {
 
   // Nicht eingeloggt -> Login-Screen
   if (!_user) {
-    renderLogin(appEl(), { abgewiesen: abgewieseneAdresse() });
+    renderLogin(appEl(), {
+      abgewiesen: abgewieseneAdresse(),
+      linkEmailNoetig: _linkEmailNoetig,
+      linkFehler: _linkFehler
+    });
     return;
   }
 
@@ -121,11 +215,29 @@ function render() {
 }
 
 // --- Bootstrap ---------------------------------------------------------
-beobachteAuth((user, rolle) => {
-  _user = user;
-  _rolle = rolle;
-  _authBereit = true;
-  render();
-});
+async function bootstrap() {
+  // Wurde das Portal über einen E-Mail-Login-Link geöffnet? Dann zuerst
+  // abschließen — signInWithEmailLink löst danach onAuthStateChanged aus.
+  if (istLoginLink()) {
+    appEl().innerHTML = `<div class="boot">Anmeldung wird abgeschlossen…</div>`;
+    const r = await schliesseLoginLinkAb();
+    if (r.status === "email-benoetigt") {
+      _linkEmailNoetig = true;
+    } else if (r.status === "fehler") {
+      _linkFehler = "Der Login-Link ist ungültig oder abgelaufen. Bitte fordere einen neuen an.";
+    }
+    // bei "angemeldet" übernimmt der Auth-Beobachter unten.
+  }
+
+  beobachteAuth((user, rolle) => {
+    if (user) { _linkEmailNoetig = false; _linkFehler = null; } // erledigt
+    _user = user;
+    _rolle = rolle;
+    _authBereit = true;
+    render();
+  });
+}
+
+bootstrap();
 
 window.addEventListener("hashchange", render);

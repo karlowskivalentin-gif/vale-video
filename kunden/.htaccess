@@ -1,0 +1,20 @@
+# vale-video Kundenportal — Cache-Verhalten
+#
+# Zweck: Die SPA lädt JS/CSS als ES-Module OHNE Build-Step und OHNE Versions-
+# Query (?v=). Ohne diese Regel cached der Browser z. B. roles.js unbegrenzt
+# und führt nach einem Deploy alten Code aus (Symptom: neu freigeschaltete
+# Login-Adresse wird "kurz eingeloggt, dann sofort wieder ausgeloggt").
+#
+# Lösung: JS/CSS müssen vor Gebrauch beim Server revalidieren. Der Server
+# liefert bereits ETag + Last-Modified, daher ist die Revalidierung billig
+# (304 Not Modified, solange unverändert; frische Datei nach einem Deploy).
+#
+# HTML wird ebenfalls revalidiert (Entry-Point index.html darf nie veralten).
+# Der <IfModule>-Guard sorgt dafür, dass ohne mod_headers NICHTS passiert
+# (kein 500) — die Direktiven werden dann schlicht ignoriert.
+
+<IfModule mod_headers.c>
+  <FilesMatch "\.(js|css|html)$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+</IfModule>

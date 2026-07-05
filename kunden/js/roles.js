@@ -9,7 +9,9 @@ export const ADMIN_EMAILS = [
 
 export const KUNDE_EMAILS = [
   "n.berghaus@deussen-immobilien.de",
-  "c.deussen@deussen-immobilien.de"
+  "c.deussen@deussen-immobilien.de",
+  "valentinkolja@icloud.com",  // Test-Zugang (Valentin) – iCloud (Firebase-Mails kommen dort oft nicht an)
+  "valentinkolja@gmail.com"    // Test-Zugang (Valentin) – Gmail, zuverlässige Zustellung
 ];
 
 function norm(email) {
