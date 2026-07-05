@@ -18,6 +18,7 @@ import {
   sendPasswordResetEmail
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { rolleVon } from "./roles.js";
+import { ladeKollaborator } from "./db.js";
 
 const provider = new GoogleAuthProvider();
 provider.setCustomParameters({ prompt: "select_account" });
@@ -143,24 +144,37 @@ async function _signInMitLink(e) {
   }
 }
 
-// Beobachtet den Auth-Status. callback(user, rolle):
-//   nicht eingeloggt        -> callback(null, null)
-//   eingeloggt + erlaubt    -> callback(user, 'admin'|'kunde')
-//   eingeloggt + NICHT erlaubt -> sofortiger Logout, danach callback(null, null)
-//                                 (abgewieseneAdresse() liefert dann die E-Mail)
+// Beobachtet den Auth-Status. callback(user, rolle, info):
+//   nicht eingeloggt          -> callback(null, null, null)
+//   eingeloggt + admin/kunde  -> callback(user, 'admin'|'kunde', null)
+//   eingeloggt + Kollaborator -> callback(user, 'kollaborator', { mapId })
+//   eingeloggt + keine Rolle  -> callback(user, null, { codeNoetig: true })
+//                                (NICHT ausloggen — der Code-Screen bietet Eingabe/Logout)
 export function beobachteAuth(callback) {
   onAuthStateChanged(auth, async (user) => {
     if (!user) {
-      callback(null, null);
+      callback(null, null, null);
       return;
     }
     const rolle = rolleVon(user.email);
-    if (!rolle) {
-      _abgewiesen = user.email || "unbekannt";
-      await signOut(auth); // löst erneutes onAuthStateChanged(null) aus
+    if (rolle) {
+      _abgewiesen = null;
+      callback(user, rolle, null);
       return;
     }
+    // Kein Admin/Kunde → evtl. freigeschalteter Kollaborator (Firestore)?
+    try {
+      const k = await ladeKollaborator(user.email);
+      if (k && k.mapId) {
+        _abgewiesen = null;
+        callback(user, "kollaborator", { mapId: k.mapId });
+        return;
+      }
+    } catch (e) {
+      console.warn("Kollaborator-Prüfung fehlgeschlagen:", e);
+    }
+    // Eingeloggt, aber (noch) keine Rolle → Zugangscode anbieten.
     _abgewiesen = null;
-    callback(user, rolle);
+    callback(user, null, { codeNoetig: true });
   });
 }

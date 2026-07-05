@@ -26,7 +26,7 @@
 import {
   beobachteGedanken, gedankeAnlegen, aktualisiereGedanke, loescheGedanke,
   dateiblobAnlegen, ladeDateiblob, loescheDateiblob,
-  beobachteMindmaps, mindmapAnlegen
+  beobachteMindmaps, mindmapAnlegen, loescheMindmap
 } from "../db.js";
 import { beiViewWechsel } from "../view-lifecycle.js";
 import { escapeHtml } from "../util.js";
@@ -39,7 +39,11 @@ const DRAG_SCHWELLE = 4;     // px Bewegung, ab der ein Klick als Drag zählt
 const MAX_DATEI = 700 * 1024; // Upload-Cap (Firestore-Doc-Limit ~1 MiB, Base64-Aufschlag)
 const DEFAULT_MAP = "default"; // Map-ID für Altbestände / die Standard-Mindmap
 
-export function renderAdminGedanken(container) {
+export function renderAdminGedanken(container, opts) {
+  // Kollaborator-Modus: fest an EINE geteilte Map gebunden, ohne Map-Auswahl.
+  const kollabMapId = (opts && opts.kollabMapId) || null;
+  const istKollab = !!kollabMapId;
+
   // --- Modul-State -------------------------------------------------------
   let panX = 0, panY = 0;            // Verschiebung des sichtbaren Ausschnitts
   let zoom = 1;                      // Zoom-Faktor der Leinwand (0.4–2.2)
@@ -49,7 +53,7 @@ export function renderAdminGedanken(container) {
   let seiteId = null;                // aktuell voll geöffneter Gedanke (Detailseite) | null
   let anhangZielId = null;           // Ziel-Gedanke des Datei-Dialogs
   let ansicht = "aktiv";             // "aktiv" = Haupt-Leinwand | "archiv" = erledigte Gedanken
-  let aktiveMapId = localStorage.getItem("vale_gd_map") || DEFAULT_MAP;  // aktuell gewählte Mindmap (④)
+  let aktiveMapId = istKollab ? kollabMapId : (localStorage.getItem("vale_gd_map") || DEFAULT_MAP);  // gewählte Mindmap (④)
   let filterModus = "alle";          // "alle" | "todos" | "system" (① To-Do-Filter)
   let mindmaps = [];                 // ④ zusätzliche benannte Mindmaps (Firestore)
   let mapUnsub = null;               // ④ onSnapshot-Abbestellung für mindmaps
@@ -85,6 +89,7 @@ export function renderAdminGedanken(container) {
       <div class="gd-neu-group">
         <select class="gd-mapselect" id="gdMapSelect" title="Mindmap wählen" aria-label="Mindmap wählen"></select>
         <button class="btn btn--ghost btn--sm gd-map-neu" id="gdNeuMap" type="button" title="Neue Mindmap anlegen">+ Karte</button>
+        <button class="btn btn--ghost btn--sm gd-map-del" id="gdMapDel" type="button" title="Aktuelle Mindmap löschen" hidden>🗑 Karte</button>
         <span class="gd-mapneu" id="gdMapNeu" hidden>
           <input type="text" id="gdMapNeuInput" class="gd-mapneu-input" maxlength="40" placeholder="Name der neuen Mindmap" aria-label="Name der neuen Mindmap" />
           <button class="btn btn--accent btn--sm" id="gdMapNeuOk" type="button">Anlegen</button>
@@ -1220,13 +1225,45 @@ export function renderAdminGedanken(container) {
   const mapNeuWrap  = container.querySelector("#gdMapNeu");
   const mapNeuBtn   = container.querySelector("#gdNeuMap");
   const mapNeuInput = container.querySelector("#gdMapNeuInput");
+  const mapDelBtn   = container.querySelector("#gdMapDel");
+
+  if (istKollab) {
+    // Kollaborator: keine Map-Auswahl/-Verwaltung. Controls ausblenden; die Map
+    // ist fest die geteilte (aktiveMapId). Keine mindmaps-Abfrage — die Rules
+    // erlauben dem Kollaborator nur seine eigene Map-Definition, nicht die Liste.
+    [mapSelect, mapNeuBtn, mapDelBtn, mapNeuWrap].forEach((el) => { if (el) el.hidden = true; });
+  } else {
 
   function renderMapSelect() {
     const optionen = [{ id: DEFAULT_MAP, name: "Standard" }, ...mindmaps];
     if (!optionen.some((o) => o.id === aktiveMapId)) optionen.push({ id: aktiveMapId, name: "(lädt …)" });
     mapSelect.innerHTML = optionen.map((o) =>
       `<option value="${escapeHtml(o.id)}"${o.id === aktiveMapId ? " selected" : ""}>${escapeHtml(o.name || "Unbenannt")}</option>`).join("");
+    // Löschen nur für zusätzliche Maps (die Standard-Map bleibt).
+    mapDelBtn.hidden = aktiveMapId === DEFAULT_MAP;
+    mapDelBtn.classList.remove("is-bestaetigen");
+    mapDelBtn.textContent = "🗑 Karte";
   }
+
+  // Aktuelle Map + alle ihre Gedanken löschen (2-Klick-Bestätigung am Button).
+  mapDelBtn.addEventListener("click", async () => {
+    if (aktiveMapId === DEFAULT_MAP) return;
+    const inMap = [...daten.values()].filter((g) => (g.mapId || DEFAULT_MAP) === aktiveMapId);
+    if (!mapDelBtn.classList.contains("is-bestaetigen")) {
+      mapDelBtn.classList.add("is-bestaetigen");
+      mapDelBtn.textContent = inMap.length ? `Karte + ${inMap.length} löschen?` : "Karte löschen?";
+      return;
+    }
+    mapDelBtn.disabled = true;
+    try {
+      for (const g of inMap) {
+        (g.dateien || []).forEach((a) => { if (a.art === "datei" && a.blobId) loescheDateiblob(a.blobId).catch(() => {}); });
+        await loescheGedanke(g.id).catch(() => {});
+      }
+      await loescheMindmap(aktiveMapId);   // beobachteMindmaps-Callback wechselt zurück auf Standard
+    } catch (err) { console.warn("Mindmap löschen fehlgeschlagen:", err); toast("Mindmap konnte nicht gelöscht werden."); }
+    mapDelBtn.disabled = false;
+  });
   function wechsleMap(mapId) {
     if (mapId === aktiveMapId) return;
     aktiveMapId = mapId;
@@ -1277,7 +1314,11 @@ export function renderAdminGedanken(container) {
   );
   beiViewWechsel(() => { if (mapUnsub) { try { mapUnsub(); } catch (_) { /* egal */ } mapUnsub = null; } });
 
+  } // Ende !istKollab (Map-Verwaltung)
+
   // --- Realtime-Listener -------------------------------------------------
+  // Admin: alle Gedanken. Kollaborator: nur seine Map (where mapId) — sonst
+  // würde Firestore die Query (die alle Maps läse) komplett verweigern.
   wendePanAn();
   const unsub = beobachteGedanken(
     (listeDaten) => { geladen = true; status.hidden = true; status.classList.remove("is-fehler"); reconcile(listeDaten); },
@@ -1285,7 +1326,8 @@ export function renderAdminGedanken(container) {
       console.warn("Gedanken konnten nicht geladen werden:", err);
       status.hidden = false; status.classList.add("is-fehler");
       status.textContent = `Konnte nicht laden${err && err.message ? ` (${String(err.message)})` : ""}…`;
-    }
+    },
+    istKollab ? aktiveMapId : undefined
   );
   beiViewWechsel(unsub);
 }

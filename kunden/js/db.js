@@ -9,8 +9,8 @@
 // =====================================================================
 import { db } from "./firebase-init.js";
 import {
-  collection, doc, addDoc, getDoc, getDocs, updateDoc, deleteDoc,
-  query, orderBy, onSnapshot, serverTimestamp
+  collection, doc, addDoc, setDoc, getDoc, getDocs, updateDoc, deleteDoc,
+  query, where, orderBy, onSnapshot, serverTimestamp, writeBatch
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import {
   STATUS, OBJEKT_STATUS,
@@ -355,12 +355,14 @@ export async function ladeGedanken() {
   return snapToArr(await getDocs(query(gedankenCol(), orderBy("erstelltAm", "asc"))));
 }
 
-export function beobachteGedanken(callback, onError) {
-  return onSnapshot(
-    query(gedankenCol(), orderBy("erstelltAm", "asc")),
-    (snap) => callback(snapToArr(snap)),
-    onError || (() => {})
-  );
+// Admin: ohne nurMapId → alle Gedanken (orderBy erstelltAm).
+// Kollaborator: mit nurMapId → nur diese Map (where mapId; KEIN orderBy, damit
+// kein Composite-Index nötig ist — die Mindmap ordnet ohnehin über x/y).
+export function beobachteGedanken(callback, onError, nurMapId) {
+  const q = nurMapId
+    ? query(gedankenCol(), where("mapId", "==", nurMapId))
+    : query(gedankenCol(), orderBy("erstelltAm", "asc"));
+  return onSnapshot(q, (snap) => callback(snapToArr(snap)), onError || (() => {}));
 }
 
 // =====================================================================
@@ -407,14 +409,19 @@ export async function loescheDateiblob(id) {
 // =====================================================================
 const fokusvideosCol = () => collection(db, "fokusvideos");
 
-export async function fokusvideoAnlegen({ url, videoId, titel, thumbnail }) {
+export async function fokusvideoAnlegen({ url, videoId, titel, thumbnail, loop }) {
   return addDoc(fokusvideosCol(), {
     url:        url || "",
     videoId:    videoId || "",
     titel:      titel || "",
     thumbnail:  thumbnail || "",
+    loop:       loop !== false,   // Default: Schleife an; für Livestreams ausschaltbar
     erstelltAm: serverTimestamp()
   });
+}
+
+export async function aktualisiereFokusvideo(id, felder) {
+  return updateDoc(doc(db, "fokusvideos", id), felder);
 }
 
 export async function loescheFokusvideo(id) {
@@ -490,4 +497,47 @@ export function beobachteMindmaps(callback, onError) {
 
 export async function loescheMindmap(id) {
   return deleteDoc(doc(db, "mindmaps", id));
+}
+
+// Mindmap mit fester Doc-ID anlegen (z. B. "johannvale" für die geteilte Map).
+export async function mindmapAnlegenMitId(id, name) {
+  return setDoc(doc(db, "mindmaps", id), { name: name || "Mindmap", erstelltAm: serverTimestamp() }, { merge: true });
+}
+
+// =====================================================================
+// KOLLABORATOREN + EINLADUNG — geteilte Map-Bearbeitung per Einmal-Code
+// Ein externer Nutzer meldet sich mit seiner E-Mail an und löst einen
+// Einladungscode ein → wird Kollaborator mit Zugriff auf GENAU EINE Map.
+//   einladung/{id}      : { code, mapId, eingeloestVon: null|email }  (Einmal-Code)
+//   kollaboratoren/{email}: { mapId, erstelltAm }                     (Freischaltung)
+// Sicherheit steckt in firestore.rules (Code wird dort gegengeprüft,
+// eingeloestVon verhindert Mehrfach-Einlösung). Siehe roles.js/auth.js.
+// =====================================================================
+export async function ladeKollaborator(email) {
+  const e = (email || "").trim().toLowerCase();
+  if (!e) return null;
+  const d = await getDoc(doc(db, "kollaboratoren", e));
+  return d.exists() ? { id: d.id, ...d.data() } : null;
+}
+
+export async function ladeEinladung(id) {
+  const d = await getDoc(doc(db, "einladung", id));
+  return d.exists() ? { id: d.id, ...d.data() } : null;
+}
+
+// Admin-seitige Erstanlage eines Einladungscodes (einmalig aufrufen).
+export async function einladungAnlegen(id, code, mapId) {
+  return setDoc(doc(db, "einladung", id), { code: String(code), mapId, eingeloestVon: null });
+}
+
+// Code einlösen: atomar (writeBatch) den Code als verbraucht markieren UND
+// den Kollaborator freischalten. Wirft, wenn die Rules ablehnen (Code falsch,
+// bereits verbraucht, oder E-Mail passt nicht). Der eingegebene `code` wird
+// beim einladung-Update mitgesendet; die Rule prüft ihn gegen den gespeicherten.
+export async function loeseEinladungEin(einladungId, code, email, mapId) {
+  const e = (email || "").trim().toLowerCase();
+  const batch = writeBatch(db);
+  batch.update(doc(db, "einladung", einladungId), { code: String(code), mapId, eingeloestVon: e });
+  batch.set(doc(db, "kollaboratoren", e), { mapId, erstelltAm: serverTimestamp() });
+  return batch.commit();
 }

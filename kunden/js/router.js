@@ -2,6 +2,8 @@
 // Wird von index.html als Modul-Entry geladen.
 import { beobachteAuth, logout, abgewieseneAdresse,
          istLoginLink, schliesseLoginLinkAb, setzePasswort } from "./auth.js";
+import { loeseEinladungEin } from "./db.js";
+import { KOLLAB_MAP_ID, EINLADUNG_ID } from "./roles.js";
 import { raeumeViewAuf } from "./view-lifecycle.js";
 import { renderLogin } from "./views/login.js";
 import { renderAufgaben } from "./views/kunde-aufgaben.js";
@@ -21,6 +23,7 @@ import { renderAdminGedanken } from "./views/admin-gedanken.js";
 // --- Zustand -----------------------------------------------------------
 let _user = null;
 let _rolle = null;
+let _info = null;               // Zusatz: { mapId } (Kollaborator) | { codeNoetig }
 let _authBereit = false;
 let _linkEmailNoetig = false;   // E-Mail-Link auf anderem Gerät -> Eingabe nötig
 let _linkFehler = null;         // Login-Link ungültig/abgelaufen
@@ -45,7 +48,9 @@ const ROUTES = {
   "/admin/plaene":   { rolle: "admin", titel: "Pläne",            render: renderAdminPlaene },
   "/admin/plan":     { rolle: "admin", titel: "Plan",             render: renderAdminPlan, param: true },
   "/admin/fokus":    { rolle: "admin", titel: "Fokus",            render: renderAdminFokus },
-  "/admin/gedanken": { rolle: "admin", titel: "Gedanken",         render: renderAdminGedanken }
+  "/admin/gedanken": { rolle: "admin", titel: "Gedanken",         render: renderAdminGedanken },
+  // Kollaborator (externer Mitarbeiter, nur die geteilte Mindmap)
+  "/gedanken":       { rolle: "kollaborator", titel: "Mindmap",   render: renderAdminGedanken }
 };
 
 const NAV = {
@@ -62,11 +67,16 @@ const NAV = {
     { href: "#/admin/plaene",   label: "Pläne" },
     { href: "#/admin/fokus",    label: "Fokus" },
     { href: "#/admin/gedanken", label: "Gedanken" }
+  ],
+  kollaborator: [
+    { href: "#/gedanken", label: "Mindmap" }
   ]
 };
 
 function startRoute(rolle) {
-  return rolle === "admin" ? "/admin/pipeline" : "/aufgaben";
+  if (rolle === "admin") return "/admin/pipeline";
+  if (rolle === "kollaborator") return "/gedanken";
+  return "/aufgaben";
 }
 
 // --- Hash auflösen (inkl. Param-Routen) -------------------------------
@@ -87,7 +97,7 @@ function renderShell(aktiverPfad) {
     })
     .join("");
 
-  const rollenLabel = _rolle === "admin" ? "Admin" : "Kunde";
+  const rollenLabel = _rolle === "admin" ? "Admin" : _rolle === "kollaborator" ? "Mitarbeiter" : "Kunde";
 
   appEl().innerHTML = `
     <header class="topbar">
@@ -196,6 +206,12 @@ function render() {
     return;
   }
 
+  // Eingeloggt, aber (noch) keine Rolle -> Zugangscode eingeben
+  if (!_rolle) {
+    renderCodeScreen(appEl());
+    return;
+  }
+
   // Eingeloggt -> Routing
   let { route, id } = resolve(location.hash);
 
@@ -211,7 +227,56 @@ function render() {
   }
 
   const viewContainer = renderShell(location.hash.replace(/^#/, "").replace(/^(\/video|\/admin\/video).*/, "$1"));
-  route.render(viewContainer, { id, user: _user, rolle: _rolle });
+  route.render(viewContainer, { id, user: _user, rolle: _rolle, kollabMapId: (_info && _info.mapId) || null });
+}
+
+// Eingeloggt, aber keine Rolle: Zugangscode einlösen (Kollaborator freischalten)
+// oder abmelden. Die Sicherheit steckt in den Firestore-Rules.
+function renderCodeScreen(root) {
+  root.innerHTML = `
+    <div class="login-wrap">
+      <div class="login-card">
+        <div class="brand login-brand">vale<span>—</span>video</div>
+        <h1 class="login-title">Zugangscode</h1>
+        <p class="muted">Angemeldet als <strong>${_user.email}</strong>. Gib deinen Zugangscode ein, um freigeschaltet zu werden.</p>
+        <div class="notice notice--error" id="codeErr" hidden role="alert"></div>
+        <form id="codeForm" novalidate>
+          <div class="field">
+            <label for="codeInput">Zugangscode</label>
+            <input id="codeInput" type="text" inputmode="numeric" autocomplete="off" placeholder="Code" />
+          </div>
+          <div class="action-btns">
+            <button class="btn btn--accent" id="codeSubmit" type="submit">Freischalten</button>
+            <button class="btn btn--ghost" id="codeLogout" type="button">Abmelden</button>
+          </div>
+        </form>
+      </div>
+    </div>`;
+
+  const form = document.getElementById("codeForm");
+  const inp  = document.getElementById("codeInput");
+  const err  = document.getElementById("codeErr");
+  const btn  = document.getElementById("codeSubmit");
+  document.getElementById("codeLogout").addEventListener("click", () => logout());
+  inp.focus();
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    err.hidden = true;
+    const code = (inp.value || "").trim();
+    if (!code) { inp.focus(); return; }
+    btn.disabled = true; btn.textContent = "Prüfe…";
+    try {
+      await loeseEinladungEin(EINLADUNG_ID, code, _user.email, KOLLAB_MAP_ID);
+      // Erfolg → neu laden: beobachteAuth erkennt jetzt den Kollaborator.
+      location.reload();
+    } catch (ex) {
+      console.warn("Code-Einlösung fehlgeschlagen:", ex);
+      btn.disabled = false; btn.textContent = "Freischalten";
+      err.textContent = "Code ungültig oder bereits verwendet.";
+      err.hidden = false;
+    }
+  });
 }
 
 // --- Bootstrap ---------------------------------------------------------
@@ -229,10 +294,11 @@ async function bootstrap() {
     // bei "angemeldet" übernimmt der Auth-Beobachter unten.
   }
 
-  beobachteAuth((user, rolle) => {
+  beobachteAuth((user, rolle, info) => {
     if (user) { _linkEmailNoetig = false; _linkFehler = null; } // erledigt
     _user = user;
     _rolle = rolle;
+    _info = info || null;
     _authBereit = true;
     render();
   });

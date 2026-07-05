@@ -14,6 +14,13 @@ export const KUNDE_EMAILS = [
   "valentinkolja@gmail.com"    // Test-Zugang (Valentin) – Gmail, zuverlässige Zustellung
 ];
 
+// Kollaborator-Rolle: externer Mitarbeiter mit Zugriff auf GENAU EINE geteilte
+// Mindmap (via Einmal-Code freigeschaltet). Die Zuordnung E-Mail→Map liegt in
+// Firestore (kollaboratoren/<email>), nicht hier — diese Konstanten definieren
+// nur die geteilte Map + den zugehörigen Einladungscode-Datensatz.
+export const KOLLAB_MAP_ID = "johannvale";   // Doc-ID der geteilten Mindmap „Johannvale"
+export const EINLADUNG_ID  = "johannvale";   // einladung/<EINLADUNG_ID> (= mapId, so referenziert die Rule)
+
 function norm(email) {
   return (email || "").trim().toLowerCase();
 }

@@ -751,6 +751,15 @@ a.row-item:hover { background: var(--off-white); }
 }
 .fokusvid-card:hover .fokusvid-del, .fokusvid-card:focus-within .fokusvid-del { opacity: 1; }
 .fokusvid-del:hover { background: var(--error); }
+.fokusvid-loop {
+  position: absolute; top: 6px; left: 6px; width: 26px; height: 26px; padding: 0;
+  display: flex; align-items: center; justify-content: center; line-height: 1;
+  border: 0; border-radius: 50%; cursor: pointer; font-size: 0.8rem;
+  background: rgba(20,17,13,.6); color: #fff; opacity: 0; transition: opacity .12s, background .12s;
+}
+.fokusvid-card:hover .fokusvid-loop, .fokusvid-card:focus-within .fokusvid-loop { opacity: 1; }
+.fokusvid-loop:not(.is-an) { opacity: 1; background: rgba(226,98,44,.9); }  /* „Schleife aus" bleibt sichtbar markiert */
+.fokusvid-loop:hover { background: rgba(20,17,13,.85); }
 .fokusvid-label {
   padding: 0.5rem 0.6rem; font-size: 0.82rem; line-height: 1.3; color: var(--black);
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
@@ -1119,6 +1128,7 @@ a.row-item:hover { background: var(--off-white); }
   border: 1px solid var(--mid); border-radius: var(--radius); background: var(--surface); color: var(--black);
 }
 .gd-mapneu-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(226,98,44,0.12); }
+.gd-map-del.is-bestaetigen { background: var(--error); color: #fff; border-color: var(--error); }
 
 /* ---- Gedanken: Inline-Body (aufgeklappter Knoten) ---- */
 .gd-node-body {

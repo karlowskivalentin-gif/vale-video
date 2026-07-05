@@ -40,6 +40,17 @@ service cloud.firestore {
       return istAdmin() || istKunde();
     }
 
+    // ---- Kollaborator (geteilte Map-Bearbeitung per Einmal-Code) ------
+    // Wer ein Freischaltungs-Dokument kollaboratoren/<email> hat, darf GENAU
+    // die dort hinterlegte Mindmap lesen/bearbeiten — sonst nichts.
+    function istKollaborator() {
+      return istEingeloggt()
+          && exists(/databases/$(database)/documents/kollaboratoren/$(email()));
+    }
+    function kollaboratorMap() {
+      return get(/databases/$(database)/documents/kollaboratoren/$(email())).data.mapId;
+    }
+
     // ---- Kunden-Übergangs-Whitelist (gespiegelt aus status.js) -------
     function erlaubterUebergang(alt, neu) {
       return (alt == '🔍 Freigabe Skript'  && (neu == '🎬 Drehbereit' || neu == '📝 Skript'))
@@ -108,13 +119,24 @@ service cloud.firestore {
     // Rein private Denk-/Ideen-Leinwand. Der Kunde sieht das NIE — weder
     // lesen noch schreiben. Gleiche Vertrauensgrenze wie plaene/shotvorlagen.
     match /gedanken/{gedankeId} {
-      allow read, write: if istAdmin();
+      allow read:   if istAdmin() || (istKollaborator() && resource.data.mapId == kollaboratorMap());
+      allow create: if istAdmin() || (istKollaborator() && request.resource.data.mapId == kollaboratorMap());
+      // Kollaborator darf die mapId eines Gedankens nicht ändern (kein Verschieben rein/raus).
+      allow update: if istAdmin()
+                    || (istKollaborator()
+                        && resource.data.mapId == kollaboratorMap()
+                        && request.resource.data.mapId == kollaboratorMap());
+      allow delete: if istAdmin() || (istKollaborator() && resource.data.mapId == kollaboratorMap());
     }
 
-    // ---- dateiblobs (Base64-Anhänge der Gedanken, Admin-only) --------
-    // Die eigentlichen Datei-Bytes eines Gedanken-Anhangs. On-demand geladen.
+    // ---- dateiblobs (Base64-Anhänge der Gedanken) -------------------
+    // Admin: alles. Kollaborator: einzelne Blobs lesen (get) + neue anlegen —
+    // aber NICHT auflisten (list) und keine fremden ändern/löschen.
     match /dateiblobs/{blobId} {
-      allow read, write: if istAdmin();
+      allow get:    if istAdmin() || istKollaborator();
+      allow list:   if istAdmin();
+      allow create: if istAdmin() || istKollaborator();
+      allow update, delete: if istAdmin();
     }
 
     // ---- fokusvideos (kuratierte Fokus-YouTube-Liste, Admin-only) ----
@@ -130,10 +152,44 @@ service cloud.firestore {
       allow read, write: if istAdmin();
     }
 
-    // ---- mindmaps (benannte Gedanken-Leinwände, Admin-only) ---------
-    // Ein Doc = eine zusätzliche Mindmap (Gedanken tragen mapId).
+    // ---- mindmaps (benannte Gedanken-Leinwände) --------------------
+    // Ein Doc = eine zusätzliche Mindmap (Gedanken tragen mapId). Admin
+    // verwaltet alle; Kollaborator darf nur SEINE Map-Definition lesen.
     match /mindmaps/{id} {
-      allow read, write: if istAdmin();
+      allow get:   if istAdmin() || (istKollaborator() && id == kollaboratorMap());
+      allow list:  if istAdmin();
+      allow write: if istAdmin();
+    }
+
+    // ---- kollaboratoren (Freischaltung: E-Mail → eine Map) ---------
+    // Ein Doc kollaboratoren/<email> = Zugriff auf data.mapId. Anlegen darf
+    // sich ein Nutzer NUR SELBST, und nur wenn im selben Batch der zugehörige
+    // Einladungscode (einladung/<mapId>) auf ihn eingelöst wird (getAfter).
+    match /kollaboratoren/{kEmail} {
+      allow get:    if istAdmin() || (istEingeloggt() && kEmail == email());
+      allow list:   if istAdmin();
+      allow create: if istEingeloggt()
+                    && kEmail == email()
+                    && request.resource.data.mapId is string
+                    && getAfter(/databases/$(database)/documents/einladung/$(request.resource.data.mapId)).data.eingeloestVon == email();
+      allow update, delete: if istAdmin();
+    }
+
+    // ---- einladung (Einmal-Codes) ----------------------------------
+    // { code, mapId, eingeloestVon }. Der Code ist NICHT lesbar (nur Admin),
+    // damit er nicht ausgespäht werden kann. Einlösen = eingeloestVon von null
+    // auf die eigene E-Mail setzen UND den korrekten Code mitsenden (die Rule
+    // prüft ihn gegen den gespeicherten). Danach ist der Code verbraucht.
+    match /einladung/{id} {
+      allow get, list: if istAdmin();
+      allow create, delete: if istAdmin();
+      allow update: if istAdmin()
+                    || (istEingeloggt()
+                        && resource.data.eingeloestVon == null
+                        && request.resource.data.eingeloestVon == email()
+                        && request.resource.data.code == resource.data.code
+                        && request.resource.data.mapId == resource.data.mapId
+                        && request.resource.data.keys().hasOnly(['code', 'mapId', 'eingeloestVon']));
     }
 
     // ---- Alles andere: zu ------------------------------------------

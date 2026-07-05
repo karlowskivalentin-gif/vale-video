@@ -12,7 +12,7 @@
 import { beiViewWechsel } from "../view-lifecycle.js";
 import { youtubeId } from "../drive.js";
 import { escapeHtml, formatDatum } from "../util.js";
-import { fokusvideoAnlegen, beobachteFokusvideos, loescheFokusvideo,
+import { fokusvideoAnlegen, aktualisiereFokusvideo, beobachteFokusvideos, loescheFokusvideo,
          fokusSessionAnlegen, beobachteFokusSessions, loescheFokusSession } from "../db.js";
 
 const LS_SESSION = "vale_fokus_session";   // laufende/pausierte Session
@@ -319,10 +319,13 @@ export function renderAdminFokus(container) {
   // VIDEOS  (Firestore „fokusvideos" — Grid + Inline-Player, Loop)
   // ===================================================================
 
-  // youtube-nocookie-Embed in Endlosschleife (loop braucht playlist=<id>).
-  function embedUrlLoop(vid) {
+  // youtube-nocookie-Embed. Bei loop=true Endlosschleife (braucht playlist=<id>);
+  // bei loop=false normales Abspielen — nötig für Livestreams (lofi-Radio o. Ä.),
+  // die im playlist-Loop-Modus „nicht verfügbar" melden.
+  function embedUrl(vid, loop) {
     const id = encodeURIComponent(vid);
-    return `https://www.youtube-nocookie.com/embed/${id}?rel=0&modestbranding=1&loop=1&playlist=${id}`;
+    const base = `https://www.youtube-nocookie.com/embed/${id}?rel=0&modestbranding=1`;
+    return loop ? `${base}&loop=1&playlist=${id}` : base;
   }
   // Immer verfügbares Thumbnail direkt von YouTube (kein API-Key/CORS nötig).
   function thumbFallback(vid) {
@@ -367,10 +370,13 @@ export function renderAdminFokus(container) {
       const thumb = v.thumbnail || thumbFallback(v.videoId);
       const titel = v.titel || "YouTube-Video";
       const aktiv = v.id === aktivesVideoId ? " is-active" : "";
+      const loopAn = v.loop !== false;
       return `<div class="fokusvid-card${aktiv}" data-id="${escapeHtml(v.id)}" data-vid="${escapeHtml(v.videoId)}"
           role="button" tabindex="0" title="${escapeHtml(titel)}">
         <div class="fokusvid-thumb" style="background-image:url('${escapeHtml(thumb)}')">
           <span class="fokusvid-play" aria-hidden="true">▶</span>
+          <button class="fokusvid-loop${loopAn ? " is-an" : ""}" data-loop="${escapeHtml(v.id)}" type="button"
+            title="${loopAn ? "Schleife an — für Livestreams ausschalten" : "Schleife aus — spielt einmal / Livestream"}" aria-label="Schleife umschalten">${loopAn ? "🔁" : "➡"}</button>
           <button class="fokusvid-del" data-del="${escapeHtml(v.id)}" type="button"
             title="Video entfernen" aria-label="Video entfernen">✕</button>
         </div>
@@ -380,9 +386,21 @@ export function renderAdminFokus(container) {
 
     grid.querySelectorAll(".fokusvid-card").forEach((card) => {
       const spiele = () => spieleVideo(card.getAttribute("data-id"), card.getAttribute("data-vid"));
-      card.addEventListener("click", (e) => { if (e.target.closest(".fokusvid-del")) return; spiele(); });
+      card.addEventListener("click", (e) => { if (e.target.closest(".fokusvid-del") || e.target.closest(".fokusvid-loop")) return; spiele(); });
       card.addEventListener("keydown", (e) => {
         if (e.key === "Enter" || e.key === " ") { e.preventDefault(); spiele(); }
+      });
+    });
+    grid.querySelectorAll(".fokusvid-loop").forEach((btn) => {
+      btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const id = btn.getAttribute("data-loop");
+        const v = videos.find((x) => x.id === id);
+        const neu = !(v && v.loop !== false);
+        try {
+          await aktualisiereFokusvideo(id, { loop: neu });
+          if (id === aktivesVideoId && v) spieleVideo(id, v.videoId);  // Player mit neuem Loop-Modus neu laden
+        } catch (err) { console.warn("Schleife umschalten fehlgeschlagen:", err); }
       });
     });
     grid.querySelectorAll(".fokusvid-del").forEach((btn) => {
@@ -404,9 +422,11 @@ export function renderAdminFokus(container) {
 
   function spieleVideo(id, vid) {
     aktivesVideoId = id;
+    const v = videos.find((x) => x.id === id);
+    const loop = v ? v.loop !== false : true;
     const player = body.querySelector("#fvPlayer");
     if (player) {
-      player.innerHTML = `<div class="embed-wrap"><iframe src="${escapeHtml(embedUrlLoop(vid))}"
+      player.innerHTML = `<div class="embed-wrap"><iframe src="${escapeHtml(embedUrl(vid, loop))}"
         title="Fokus-Video" loading="lazy"
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
         allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>`;
