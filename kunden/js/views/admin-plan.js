@@ -5,7 +5,7 @@
 import {
   ladePlan, planAnlegen, aktualisierePlan, loeschePlan, ladeObjekte,
   ladeShotvorlagen, shotvorlageAnlegen, aktualisiereShotvorlage, loescheShotvorlage,
-  ladeDateiblob, videoAnlegen
+  ladeDateiblob, videoAnlegen, ladeVideo
 } from "../db.js";
 import { beiViewWechsel } from "../view-lifecycle.js";
 import { escapeHtml, tsZuDateInput, dateInputZuDate } from "../util.js";
@@ -80,6 +80,19 @@ export function renderAdminPlan(container, ctx) {
       drehInput: plan ? tsZuDateInput(plan.geplanterDrehtermin) : "",
       pubInput:  plan ? tsZuDateInput(plan.geplantesDatum) : ""
     };
+
+    // Selbstheilung: Wurde das verknüpfte Video in der Pipeline gelöscht,
+    // die tote videoId entfernen — der Button wird wieder „🚀 In Video-Pipeline"
+    // (statt „öffnen" → „Video nicht gefunden").
+    if (!istNeu && state.videoId) {
+      try {
+        const v = await ladeVideo(state.videoId);
+        if (!v) {
+          state.videoId = null;
+          aktualisierePlan(id, { videoId: null }).catch(() => {});
+        }
+      } catch (_) { /* egal — im Zweifel Button so lassen */ }
+    }
 
     // Transiente UI-Zustände (nicht persistiert).
     let editShotIndex    = null;        // Index der aktuell bearbeiteten Shotlist-Zeile

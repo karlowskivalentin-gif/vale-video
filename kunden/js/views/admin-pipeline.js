@@ -1,6 +1,6 @@
 // Admin-View: Pipeline. Alle Videos mit Status-Dropdown (alle 10 Stufen).
 // Beim Setzen auf eine Freigabe-Stufe → EmailJS-Benachrichtigung an die Kunden.
-import { beobachteVideos, adminSetzeStatus, loescheVideo } from "../db.js";
+import { beobachteVideos, adminSetzeStatus, loescheVideo, aktualisierePlan } from "../db.js";
 import { beiViewWechsel } from "../view-lifecycle.js";
 import { STATUS, STATUS_REIHENFOLGE, istFreigabeStufe, kundenStatus } from "../status.js";
 import { sendKundeFreigabe } from "../email.js";
@@ -74,7 +74,12 @@ function zeichne(el, videos) {
         return;
       }
       del.disabled = true;
-      try { await loescheVideo(id); }   // Liste aktualisiert der Observer
+      try {
+        await loescheVideo(id);   // Liste aktualisiert der Observer
+        // Stammt das Video aus einem Plan → dessen Verknüpfung lösen, damit
+        // der Plan wieder "🚀 In Video-Pipeline" anbietet (kein toter Link).
+        if (video && video.planId) aktualisierePlan(video.planId, { videoId: null }).catch(() => {});
+      }
       catch (e) { console.error(e); del.disabled = false; del.classList.remove("is-bestaetigen"); del.textContent = "✕"; }
     });
     sel.addEventListener("change", async () => {

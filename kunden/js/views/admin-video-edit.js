@@ -2,7 +2,8 @@
 // Route #/admin/video/neu = Anlegen, #/admin/video/{id} = Bearbeiten.
 import {
   ladeVideo, videoAnlegen, aktualisiereVideo, loescheVideo, ladeObjekte,
-  beobachteKommentare, kommentarHinzufuegen, ladePlan, ladeDateiblob
+  beobachteKommentare, kommentarHinzufuegen, ladePlan, ladeDateiblob,
+  aktualisierePlan
 } from "../db.js";
 import { beiViewWechsel } from "../view-lifecycle.js";
 import {
@@ -214,6 +215,8 @@ function wire(v, istNeu, body, id, user) {
       del.disabled = true;
       try {
         await loescheVideo(id);
+        // Plan-Verknüpfung lösen, damit der Plan nicht auf ein totes Video zeigt.
+        if (v && v.planId) aktualisierePlan(v.planId, { videoId: null }).catch(() => {});
         location.hash = "/admin/pipeline";
       } catch (err) {
         console.error(err);
