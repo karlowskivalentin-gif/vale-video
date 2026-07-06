@@ -1615,15 +1615,39 @@ a.row-item:hover { background: var(--off-white); }
   word-break: break-word;
 }
 
-/* ---- To-Dos: manuelle Reihenfolge (↑↓) ---- */
-.todo-move { display: inline-flex; flex-direction: column; gap: 2px; flex: 0 0 auto; }
-.todo-move-btn {
-  border: 1px solid var(--mid); background: var(--surface); color: var(--muted);
-  border-radius: 4px; width: 1.4rem; height: 1.05rem; line-height: 1;
-  font-size: 0.68rem; cursor: pointer; padding: 0;
-  display: inline-flex; align-items: center; justify-content: center;
+/* ---- To-Dos: Drag & Drop (Griff ⠿ + Dringlichkeits-Zonen) ---- */
+.todo-drag {
+  flex: 0 0 auto; cursor: grab; color: var(--light);
+  font-size: 1rem; line-height: 1; padding: 0 2px; user-select: none;
+  touch-action: none;   /* Pointer-Drag auch auf Touch, kein Scroll-Konflikt */
 }
-.todo-move-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--off-white); }
+.todo-drag:hover { color: var(--accent); }
+.todo-drag:active { cursor: grabbing; }
+.todo-item.is-dragging {
+  opacity: 0.9; cursor: grabbing;
+  box-shadow: 0 8px 22px rgba(20,17,13,.18); border-color: var(--accent);
+  position: relative; z-index: 5;
+}
+.todo-drag-hint { font-size: 0.78rem; margin: -0.3rem 0 0.9rem; }
+.todo-zone { margin-bottom: 1rem; }
+.todo-zone:last-child { margin-bottom: 0; }
+.todo-zone-kopf {
+  font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--muted); margin: 0 0 0.4rem; padding-left: 0.1rem;
+}
+.todo-zone--dringend .todo-zone-kopf { color: #b91c1c; }
+.todo-zone--dringend .todo-liste {
+  border: 1px dashed rgba(239,68,68,.4); border-radius: var(--radius);
+  padding: 0.4rem; min-height: 2.6rem; background: rgba(239,68,68,.03);
+}
+.todo-zone--normal .todo-liste {
+  border: 1px dashed transparent; border-radius: var(--radius);
+  padding: 0.4rem 0.1rem; min-height: 2.6rem;
+}
+.todo-zone-leer {
+  list-style: none; text-align: center; color: var(--light); font-size: 0.8rem;
+  padding: 0.6rem; border-radius: var(--radius);
+}
 
 /* ---- To-Dos: Split-View (Doppelklick → Detail neben der Liste) ---- */
 .todo-split { display: grid; grid-template-columns: minmax(0, 1fr); }
@@ -1658,8 +1682,7 @@ a.row-item:hover { background: var(--off-white); }
   .admin-head--todos .gd-filter { flex: 1 1 calc(50% - 0.5rem); min-width: 0; max-width: 100%; }
 
   /* To-Do-Zeile: Verschieben-Buttons touch-tauglich, Zeile umbrechen */
-  .todo-move { flex-direction: row; gap: 4px; }
-  .todo-move-btn { width: 1.9rem; height: 1.5rem; font-size: 0.8rem; }
+  .todo-drag { font-size: 1.25rem; padding: 0 6px; }   /* groesserer Touch-Griff */
 
   /* Split-View: Panel liegt mobil als Vollbild-Overlay über der Liste */
   .todo-split.has-detail { grid-template-columns: minmax(0, 1fr); }

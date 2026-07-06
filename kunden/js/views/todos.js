@@ -53,8 +53,8 @@ export function renderTodos(container, opts) {
       </select>
     </div>
     <p class="muted view-intro">${istSticky
-      ? "Deine 📌 Sticky Notes aus allen Mindmaps — spontane Fragestellungen, die noch beantwortet, definiert oder ausgeführt werden müssen. Abhaken erledigt sie auch in der Mindmap; mit ↑↓ legst du deine Reihenfolge fest; Doppelklick öffnet die Note in voller Länge neben der Liste."
-      : "Alle anstehenden To-Dos aus deinen Mindmaps an einem Ort. Abhaken erledigt sie auch in der Mindmap; mit ↑↓ legst du deine Reihenfolge fest; Doppelklick öffnet das To-Do in voller Länge neben der Liste."}
+      ? "Deine 📌 Sticky Notes aus allen Mindmaps — spontane Fragestellungen, die noch beantwortet, definiert oder ausgeführt werden müssen. Abhaken erledigt sie auch in der Mindmap; am Griff ⠿ ziehen sortiert und ändert die Dringlichkeit; Doppelklick öffnet die Note in voller Länge neben der Liste."
+      : "Alle anstehenden To-Dos aus deinen Mindmaps an einem Ort. Abhaken erledigt sie auch in der Mindmap; am Griff ⠿ ziehen sortiert und ändert die Dringlichkeit; Doppelklick öffnet das To-Do in voller Länge neben der Liste."}
       Die Kategorien sind deine Subs/Bereiche — ein Eintrag gehört dazu, wenn er damit verbunden ist.</p>
     <div class="todo-split" id="todoSplit">
       <div id="todoBody"><p class="muted">Lädt…</p></div>
@@ -135,43 +135,82 @@ export function renderTodos(container, opts) {
       .sort(vergleich);
   }
 
-  // ↑/↓: Nachbar-Tausch in der Liste, in der geklickt wurde (Übersicht oder
-  // pro Map). Beim ersten Verschieben bekommen alle offenen To-Dos eine feste
-  // Nummer (aktuelle Übersichts-Reihenfolge), danach werden nur noch die
-  // beiden Getauschten geschrieben.
-  async function verschiebe(id, richtung, scopeMapId) {
-    const alle = offeneListe();
-    const liste = scopeMapId ? alle.filter((g) => (g.mapId || DEFAULT_MAP) === scopeMapId) : alle;
-    const i = liste.findIndex((g) => g.id === id);
-    const j = i + (richtung === "up" ? -1 : 1);
-    if (i < 0 || j < 0 || j >= liste.length) return;
-    if ((liste[i].dringend === true) !== (liste[j].dringend === true)) return; // ❗-Block bleibt oben
-    const updates = new Map();
-    alle.forEach((g, idx) => { if (!Number.isFinite(g[FELD])) updates.set(g.id, idx); });
-    const ra = updates.has(liste[i].id) ? updates.get(liste[i].id) : liste[i][FELD];
-    const rb = updates.has(liste[j].id) ? updates.get(liste[j].id) : liste[j][FELD];
-    updates.set(liste[i].id, rb);
-    updates.set(liste[j].id, ra);
-    const schreiben = [];
-    for (const [gid, wert] of updates) {
-      const g = daten.get(gid);
-      if (g && g[FELD] !== wert) { g[FELD] = wert; schreiben.push(aktualisiereGedanke(gid, { [FELD]: wert })); }
-    }
-    render();   // optimistisch — Snapshots bestätigen später
-    try { await Promise.all(schreiben); }
-    catch (e) { console.warn("Reihenfolge speichern fehlgeschlagen:", e); }
+  // --- Drag & Drop: freies Sortieren + Dringlichkeit per Ziehen (②) --------
+  // Am Griff (⠿) mit der Maus/dem Finger ziehen → das Element folgt live an
+  // die gewünschte Position; zwischen den beiden Zonen „Dringlich" / „Anstehend"
+  // ziehen setzt/entfernt das Dringlich-Flag. Beim Loslassen wird die neue
+  // Reihenfolge (FELD) + dringend geschrieben — wirkt überall (Mindmap, Fokus).
+  let istDragging = false;
+  function starteDrag(handle, ev) {
+    const li = handle.closest(".todo-item");
+    if (!li) return;
+    ev.preventDefault();
+    istDragging = true;
+    li.classList.add("is-dragging");
+    try { handle.setPointerCapture(ev.pointerId); } catch (_) { /* egal */ }
+
+    const zonen = () => [...body.querySelectorAll(".todo-uebersicht .todo-liste[data-zone]")];
+
+    const move = (e) => {
+      const y = e.clientY, x = e.clientX;
+      // Ziel-Zone bestimmen (Element unter dem Cursor, sonst per Y der Zonen-Box).
+      let zoneUl = null;
+      const unter = document.elementFromPoint(x, y);
+      if (unter && unter.closest) zoneUl = unter.closest(".todo-liste[data-zone]");
+      if (!zoneUl) {
+        const zs = zonen();
+        zoneUl = zs.find((z) => { const r = z.closest(".todo-zone").getBoundingClientRect(); return y < r.bottom; }) || zs[zs.length - 1];
+      }
+      if (!zoneUl) return;
+      const items = [...zoneUl.querySelectorAll(".todo-item")].filter((it) => it !== li);
+      const nach = items.find((it) => { const r = it.getBoundingClientRect(); return y < r.top + r.height / 2; });
+      const leer = zoneUl.querySelector(".todo-zone-leer");
+      if (leer) leer.remove();
+      if (nach) zoneUl.insertBefore(li, nach);
+      else zoneUl.appendChild(li);
+    };
+
+    const up = () => {
+      handle.removeEventListener("pointermove", move);
+      handle.removeEventListener("pointerup", up);
+      handle.removeEventListener("pointercancel", up);
+      li.classList.remove("is-dragging");
+      istDragging = false;
+      // Neue Reihenfolge + Dringlichkeit aus dem finalen DOM ableiten.
+      const schreiben = [];
+      let idx = 0;
+      for (const zoneUl of zonen()) {
+        const dringend = zoneUl.getAttribute("data-zone") === "dringend";
+        for (const it of zoneUl.querySelectorAll(".todo-item")) {
+          const gid = it.getAttribute("data-id");
+          const g = daten.get(gid);
+          if (!g) continue;
+          const felder = {};
+          if (g[FELD] !== idx) { g[FELD] = idx; felder[FELD] = idx; }
+          if ((g.dringend === true) !== dringend) { g.dringend = dringend; felder.dringend = dringend; }
+          if (Object.keys(felder).length) schreiben.push(aktualisiereGedanke(gid, felder).catch((e) => console.warn("Sortieren speichern fehlgeschlagen:", e)));
+          idx++;
+        }
+      }
+      render();               // sauber neu aufbauen (Reihenfolge + ❗-Markierung)
+      Promise.all(schreiben); // im Hintergrund; Snapshots bestätigen
+    };
+
+    handle.addEventListener("pointermove", move);
+    handle.addEventListener("pointerup", up);
+    handle.addEventListener("pointercancel", up);
   }
 
-  function itemHtml(g, map, scopeMapId) {
+  function itemHtml(g, map, mitDrag) {
     const nutzer = nutzerFuerMap(map);
     const wer = lc(g.verantwortlich);
     const dringend = g.dringend === true;
+    const griff = mitDrag
+      ? `<span class="todo-drag" title="Ziehen: sortieren oder Dringlichkeit ändern" aria-label="Verschieben">⠿</span>`
+      : "";
     return `
       <li class="todo-item${istSticky ? " is-sticky" : ""}${dringend ? " is-dringend" : ""}${g.id === detailId ? " is-detail" : ""}" data-id="${escapeHtml(g.id)}" title="Doppelklick: voll öffnen">
-        <span class="todo-move">
-          <button type="button" class="todo-move-btn" data-move="up" data-id="${escapeHtml(g.id)}" data-scope="${escapeHtml(scopeMapId || "")}" title="Nach oben">↑</button>
-          <button type="button" class="todo-move-btn" data-move="down" data-id="${escapeHtml(g.id)}" data-scope="${escapeHtml(scopeMapId || "")}" title="Nach unten">↓</button>
-        </span>
+        ${griff}
         <input type="checkbox" class="todo-check" data-id="${escapeHtml(g.id)}" title="Erledigen (wirkt auch in der Mindmap)">
         <div class="todo-haupt">
           <span class="todo-text">${dringend ? "❗ " : ""}${escapeHtml(g.text || "Unbenannter Gedanke")}</span>
@@ -185,6 +224,7 @@ export function renderTodos(container, opts) {
   }
 
   function render() {
+    if (istDragging) return;   // laufendes Drag nicht durch Re-Render zerstören
     renderKatSelect();
     const maps = meineMaps();
     const mapVon = (g) => maps.find((m) => m.id === (g.mapId || DEFAULT_MAP)) || null;
@@ -198,6 +238,9 @@ export function renderTodos(container, opts) {
       return;
     }
 
+    const dringliche = offene.filter((g) => g.dringend === true);
+    const normale    = offene.filter((g) => g.dringend !== true);
+
     const gruppen = maps
       .map((m) => ({ map: m, items: offene.filter((g) => (g.mapId || DEFAULT_MAP) === m.id) }))
       .filter((x) => x.items.length);
@@ -205,13 +248,25 @@ export function renderTodos(container, opts) {
     body.innerHTML = `
       <section class="todo-uebersicht card card--pad">
         <h2 class="todo-h2">${istSticky ? "📌" : "🎯"} Übersicht · ${offene.length} offen</h2>
-        <ul class="todo-liste">${offene.map((g) => itemHtml(g, mapVon(g), "")).join("")}</ul>
+        <p class="todo-drag-hint muted">Am Griff ⠿ ziehen, um zu sortieren — oder zwischen „Dringlich" und „Anstehend" verschieben.</p>
+        <div class="todo-zone todo-zone--dringend">
+          <div class="todo-zone-kopf">❗ Dringlich</div>
+          <ul class="todo-liste" data-zone="dringend">${
+            dringliche.map((g) => itemHtml(g, mapVon(g), true)).join("")
+            || `<li class="todo-zone-leer">Hierher ziehen, um „dringlich" zu markieren</li>`}</ul>
+        </div>
+        <div class="todo-zone todo-zone--normal">
+          <div class="todo-zone-kopf">Anstehend</div>
+          <ul class="todo-liste" data-zone="normal">${
+            normale.map((g) => itemHtml(g, mapVon(g), true)).join("")
+            || `<li class="todo-zone-leer">—</li>`}</ul>
+        </div>
       </section>
       <h2 class="todo-h2" style="margin-top:1.5rem">Pro Mindmap</h2>
       ${gruppen.map((x) => `
         <section class="todo-gruppe">
           <h3 class="todo-h3">🗺 ${escapeHtml(x.map.name)} <span class="muted">(${x.items.length})</span></h3>
-          <ul class="todo-liste">${x.items.map((g) => itemHtml(g, x.map, x.map.id)).join("")}</ul>
+          <ul class="todo-liste">${x.items.map((g) => itemHtml(g, x.map, false)).join("")}</ul>
         </section>`).join("")}`;
 
     body.querySelectorAll(".todo-check").forEach((cb) => cb.addEventListener("change", async () => {
@@ -235,11 +290,10 @@ export function renderTodos(container, opts) {
         render();
       } catch (e) { console.warn("Zuweisen fehlgeschlagen:", e); }
     }));
-    // ↑↓ Reihenfolge (②)
-    body.querySelectorAll(".todo-move-btn").forEach((btn) => btn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      verschiebe(btn.getAttribute("data-id"), btn.getAttribute("data-move"), btn.getAttribute("data-scope") || null);
-    }));
+    // Drag & Drop am Griff (②) — sortieren + Dringlichkeit ändern
+    body.querySelectorAll(".todo-drag").forEach((h) => {
+      h.addEventListener("pointerdown", (e) => { if (e.button === 0 || e.pointerType !== "mouse") starteDrag(h, e); });
+    });
     // Doppelklick → volles To-Do im Split-Panel (④)
     body.querySelectorAll(".todo-item").forEach((li) => li.addEventListener("dblclick", (e) => {
       if (e.target.closest("input, select, button")) return;
