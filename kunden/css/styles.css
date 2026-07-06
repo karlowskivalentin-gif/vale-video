@@ -1643,6 +1643,59 @@ a.row-item:hover { background: var(--off-white); }
   word-break: break-word;
 }
 
+/* ---- Inspiration (Dashboard: Referenz-Videos/-Profile + eigene Videos) ---- */
+.insp-chips { display: flex; gap: .45rem; flex-wrap: wrap; margin: 0 0 1.1rem; }
+.insp-chip {
+  font: inherit; font-size: .78rem; font-weight: 600; cursor: pointer;
+  border: 1px solid var(--mid); border-radius: 999px; padding: .35rem .85rem;
+  background: var(--surface); color: var(--muted);
+}
+.insp-chip:hover { border-color: var(--accent); color: var(--accent-dim); }
+.insp-chip.is-active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.insp-form { margin-bottom: 1.25rem; max-width: 640px; }
+.insp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 1.25rem; align-items: start; }
+.insp-card { padding: 1rem 1.1rem 1.1rem; display: flex; flex-direction: column; gap: .8rem; min-width: 0; }
+.insp-card-kopf { display: flex; align-items: center; gap: .55rem; min-width: 0; }
+.insp-card-titel { font-size: 1rem; font-weight: 700; margin: 0; flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.insp-badge {
+  flex: 0 0 auto; font-size: .68rem; font-weight: 700; border-radius: 999px;
+  padding: .18rem .55rem; border: 1px solid transparent; white-space: nowrap;
+}
+.insp-badge--video     { background: rgba(226,98,44,.10); color: var(--accent-dim); border-color: rgba(226,98,44,.25); }
+.insp-badge--profil    { background: rgba(47,111,159,.12); color: #1f5478; border-color: rgba(47,111,159,.30); }
+.insp-badge--sonstiges { background: rgba(107,78,158,.12); color: #574089; border-color: rgba(107,78,158,.30); }
+.insp-del { flex: 0 0 auto; }
+.insp-embed { border-radius: var(--radius); overflow: hidden; min-width: 0; }
+.insp-embed iframe, .insp-embed img, .insp-embed video { width: 100%; display: block; border: 0; }
+.insp-embed .instagram-media, .insp-embed iframe.instagram-media,
+.insp-embed .tiktok-embed {
+  min-width: 0 !important; max-width: 100% !important; width: 100% !important; margin: 0 !important;
+}
+.insp-profil {
+  display: flex; align-items: center; gap: .8rem;
+  border: 1px solid var(--mid); border-radius: var(--radius); padding: .85rem 1rem;
+  background: var(--surface-2); transition: border-color .12s;
+}
+.insp-profil:hover { border-color: var(--accent); }
+.insp-profil-icon { font-size: 1.5rem; }
+.insp-profil-text { display: flex; flex-direction: column; min-width: 0; font-size: .88rem; }
+.insp-profil-text .muted { font-size: .76rem; overflow-wrap: anywhere; }
+.insp-profil-pfeil { margin-left: auto; color: var(--accent-dim); font-weight: 700; }
+.insp-notiz { font-size: .86rem; line-height: 1.5; margin: 0; color: var(--black); white-space: pre-wrap; }
+.insp-eigene { border-top: 1px dashed var(--mid); padding-top: .7rem; display: flex; flex-direction: column; gap: .7rem; }
+.insp-eigene-titel { font-size: .74rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--light); }
+.insp-eigen { position: relative; }
+.insp-eigen-del { position: absolute; top: 4px; right: 4px; z-index: 2; background: rgba(255,255,255,.85); border-radius: 4px; }
+.insp-add { display: flex; gap: .45rem; }
+.insp-add-url {
+  flex: 1 1 auto; min-width: 0; font: inherit; font-size: .82rem;
+  border: 1px solid var(--mid); border-radius: var(--radius); padding: .45rem .6rem; background: var(--surface);
+}
+.insp-add-url:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(226,98,44,.12); }
+@media (max-width: 720px) {
+  .insp-grid { grid-template-columns: 1fr; }
+}
+
 /* ---- Transkript (lokaler Whisper-Server auf Valentins PC) ---- */
 .tk-server { font-size: .78rem; color: var(--muted); display: inline-flex; align-items: center; gap: .4rem; }
 .tk-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--mid); display: inline-block; }

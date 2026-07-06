@@ -153,6 +153,13 @@ service cloud.firestore {
       allow update, delete: if istAdmin();
     }
 
+    // ---- inspirationen (Inspirations-Dashboard, Admin-only) ----------
+    // Cards mit Kategorie (profil|video|sonstiges), Referenz-Link (Video/
+    // Account) und eigenen davon inspirierten Videos. Der Kunde sieht das NIE.
+    match /inspirationen/{id} {
+      allow read, write: if istAdmin();
+    }
+
     // ---- fokusvideos (kuratierte Fokus-YouTube-Liste, Admin-only) ----
     // Private Anspiel-Liste auf der Fokus-Seite. Nur Metadaten (kein Blob).
     // Gleiche Vertrauensgrenze wie gedanken/plaene/shotvorlagen.

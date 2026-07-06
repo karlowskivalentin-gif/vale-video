@@ -21,6 +21,7 @@ import { renderAdminFokus } from "./views/admin-fokus.js";
 import { renderAdminGedanken } from "./views/admin-gedanken.js";
 import { renderTodos } from "./views/todos.js";
 import { renderAdminTranskript } from "./views/admin-transkript.js";
+import { renderAdminInspiration } from "./views/admin-inspiration.js";
 
 // --- Zustand -----------------------------------------------------------
 let _user = null;
@@ -54,6 +55,7 @@ const ROUTES = {
   "/admin/todos":    { rolle: "admin", titel: "To-Dos",           render: renderTodos },
   "/admin/stickies": { rolle: "admin", titel: "Sticky Notes",     render: (c, o) => renderTodos(c, { ...o, modus: "sticky" }) },
   "/admin/transkript": { rolle: "admin", titel: "Transkript",     render: renderAdminTranskript },
+  "/admin/inspiration": { rolle: "admin", titel: "Inspiration",   render: renderAdminInspiration },
   // Kollaborator (externer Mitarbeiter: geteilte + eigene Mindmaps)
   "/gedanken":       { rolle: "kollaborator", titel: "Mindmap",   render: renderAdminGedanken },
   "/todos":          { rolle: "kollaborator", titel: "To-Dos",    render: renderTodos },
@@ -76,7 +78,8 @@ const NAV = {
     { href: "#/admin/gedanken", label: "Gedanken" },
     { href: "#/admin/todos",    label: "To-Dos" },
     { href: "#/admin/stickies", label: "Stickies" },
-    { href: "#/admin/transkript", label: "Transkript" }
+    { href: "#/admin/transkript", label: "Transkript" },
+    { href: "#/admin/inspiration", label: "Inspiration" }
   ],
   kollaborator: [
     { href: "#/gedanken", label: "Mindmap" },

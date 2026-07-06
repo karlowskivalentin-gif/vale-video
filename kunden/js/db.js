@@ -405,6 +405,46 @@ export async function loescheDateiblob(id) {
 }
 
 // =====================================================================
+// INSPIRATIONEN — Inspirations-Dashboard (Admin-only)
+// Eine Card = eine Inspirationsquelle:
+//   kategorie  ('video'|'profil'|'sonstiges')
+//   titel      (string)  — eigener Name der Card
+//   url        (string)  — Referenz-Link (Video ODER Account/Profil)
+//   notiz      (string)  — warum inspirierend / worauf achten
+//   eigene     (array)   — eigene, davon inspirierte Videos: [{ url }]
+// Rechte: ausschließlich Admin (siehe firestore.rules: /inspirationen).
+// =====================================================================
+const inspirationenCol = () => collection(db, "inspirationen");
+
+export async function inspirationAnlegen(daten) {
+  return addDoc(inspirationenCol(), {
+    kategorie:  ["video", "profil", "sonstiges"].includes(daten.kategorie) ? daten.kategorie : "video",
+    titel:      daten.titel || "",
+    url:        daten.url || "",
+    notiz:      daten.notiz || "",
+    eigene:     Array.isArray(daten.eigene) ? daten.eigene : [],
+    erstelltAm:     serverTimestamp(),
+    aktualisiertAm: serverTimestamp()
+  });
+}
+
+export async function aktualisiereInspiration(id, felder) {
+  return updateDoc(doc(db, "inspirationen", id), { ...felder, aktualisiertAm: serverTimestamp() });
+}
+
+export async function loescheInspiration(id) {
+  return deleteDoc(doc(db, "inspirationen", id));
+}
+
+export function beobachteInspirationen(callback, onError) {
+  return onSnapshot(
+    query(inspirationenCol(), orderBy("erstelltAm", "desc")),
+    (snap) => callback(snapToArr(snap)),
+    onError || (() => {})
+  );
+}
+
+// =====================================================================
 // FOKUSVIDEOS — private Fokus-/Ambient-YouTube-Videos (Admin-only)
 // Kuratierte Anspiel-Liste auf der Fokus-Seite: Karten-Grid + Inline-Player.
 // Ein Dokument = ein Video. Es werden NUR Metadaten gespeichert (kein Blob):
