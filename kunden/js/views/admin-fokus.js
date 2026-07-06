@@ -11,7 +11,7 @@
 //   Der Kunde sieht diesen Bereich nie.
 import { beiViewWechsel } from "../view-lifecycle.js";
 import { youtubeId } from "../drive.js";
-import { escapeHtml, formatDatum } from "../util.js";
+import { escapeHtml, formatDatum, mdZuHtml } from "../util.js";
 import { fokusvideoAnlegen, aktualisiereFokusvideo, beobachteFokusvideos, loescheFokusvideo,
          fokusSessionAnlegen, beobachteFokusSessions, loescheFokusSession,
          beobachteGedanken, aktualisiereGedanke } from "../db.js";
@@ -211,31 +211,30 @@ export function renderAdminFokus(container) {
     const pl = body.querySelector("#fokusPflanze"); if (pl) pl.textContent = pflanze(f);
   }
 
-  // --- Kategorien (= Subs/Bereiche mit 🎯-Häkchen) + verbundene To-Dos --
-  // Default ohne gesetztes Feld: Subs zählen als Kategorie, Bereiche nicht —
-  // per 🎯 an der Karte explizit an-/abschaltbar.
-  function istFokusKategorie(g) {
-    if (typeof g.fokusKategorie === "boolean") return g.fokusKategorie;
-    return g.ebene === "sub";
-  }
+  // --- Kategorien (= ALLE Subs/Bereiche, automatisch) + verbundene To-Dos --
+  // Jeder neue Sub/Bereich taucht sofort als Fokus-Kategorie auf — das
+  // frühere 🎯-Häkchen entfällt.
   function subKategorien() {
     return alleGedanken
-      .filter((g) => (g.ebene === "sub" || g.ebene === "bereich") && !g.archiviert && istFokusKategorie(g))
+      .filter((g) => (g.ebene === "sub" || g.ebene === "bereich") && !g.archiviert)
       .map((g) => ({ id: g.id, name: g.text || "Unbenannter Sub" }))
       .sort((a, b) => a.name.localeCompare(b.name, "de"));
   }
   // Nicht erledigte einzelne Gedanken, die mit dem Sub verbunden sind.
-  // ❗ Dringliche stehen ganz oben.
+  // ❗ Dringliche ganz oben, danach die manuelle Reihenfolge aus der To-Do-Liste.
   function todosFuerSub(subId) {
     const sub = alleGedanken.find((g) => g.id === subId);
     if (!sub) return [];
     const direkt = new Set(sub.verbindungen || []);
+    const ordnung = (g) => (Number.isFinite(g.reihenfolge) ? g.reihenfolge : Infinity);
     return alleGedanken.filter((g) =>
       g.id !== subId
       && (g.ebene || "gedanke") === "gedanke"
       && !g.erledigt && !g.archiviert
       && (direkt.has(g.id) || (g.verbindungen || []).includes(subId))
-    ).sort((a, b) => (b.dringend === true ? 1 : 0) - (a.dringend === true ? 1 : 0));
+    ).sort((a, b) => ((b.dringend === true ? 1 : 0) - (a.dringend === true ? 1 : 0))
+      || (ordnung(a) - ordnung(b))
+      || (a.text || "").localeCompare(b.text || "", "de"));
   }
   // Idle-Dropdown mit aktuellen Sub-Kategorien nachfüllen (ohne zeichneIdle
   // komplett neu zu bauen → Name/Dauer-Eingaben bleiben erhalten).
@@ -260,6 +259,7 @@ export function renderAdminFokus(container) {
         ? `<ul class="fokus-todos-liste">${todos.map((t) => `
             <li class="fokus-todo-item">
               <label><input type="checkbox" data-todo="${escapeHtml(t.id)}"> <span>${t.dringend === true ? "❗ " : ""}${escapeHtml(t.text || "Unbenannter Gedanke")}</span></label>
+              ${t.detail && t.detail.trim() ? `<div class="fokus-todo-detail gd-md-preview">${mdZuHtml(t.detail)}</div>` : ""}
             </li>`).join("")}</ul>`
         : `<p class="fokus-todos-leer muted">Keine offenen To-Dos für diese Kategorie. 🎉</p>`}`;
     el.querySelectorAll("input[data-todo]").forEach((cb) => {

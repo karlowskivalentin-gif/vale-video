@@ -980,6 +980,8 @@ a.row-item:hover { background: var(--off-white); }
   justify-content: space-between;
   gap: 6px;
   margin-bottom: 4px;
+  flex-wrap: wrap;              /* „Löschen?"-Bestätigung bleibt IN der Karte */
+  min-width: 0;
 }
 .gd-check {
   width: 15px; height: 15px;
@@ -1005,6 +1007,8 @@ a.row-item:hover { background: var(--off-white); }
   background: var(--error);
   color: var(--white);
   font-weight: 600;
+  white-space: nowrap;
+  font-size: 11px;
 }
 .gd-del:disabled { opacity: 0.5; cursor: default; }
 
@@ -1066,7 +1070,25 @@ a.row-item:hover { background: var(--off-white); }
 .gd-status.is-fehler { color: var(--error); }
 
 /* ---- Gedanken: Kopf-Tools (Chevron / Anhang / Löschen) ---- */
-.gd-node-tools { display: flex; align-items: center; gap: 2px; }
+.gd-node-tools {
+  display: flex; align-items: center; gap: 2px;
+  flex-wrap: wrap; justify-content: flex-end; row-gap: 2px; min-width: 0;
+}
+
+/* ---- Gedanken: 👤 Verantwortlich an der To-Do-Karte (geteilte Maps) ---- */
+.gd-wer-row {
+  display: flex; align-items: center; gap: 4px; margin-top: 4px;
+  cursor: default;
+}
+.gd-wer-row[hidden] { display: none; }
+.gd-wer-icon { font-size: 11px; line-height: 1; flex: 0 0 auto; }
+.gd-wer {
+  flex: 1 1 auto; min-width: 0; max-width: 100%;
+  font: inherit; font-size: 11px; color: var(--black);
+  border: 1px solid var(--mid); border-radius: var(--radius);
+  background: var(--surface); padding: 2px 4px; cursor: pointer;
+}
+.gd-wer:focus { outline: none; border-color: var(--accent); }
 .gd-chevron, .gd-attach {
   border: none; background: transparent; color: var(--muted);
   font: inherit; font-size: 12px; line-height: 1;
@@ -1087,10 +1109,22 @@ a.row-item:hover { background: var(--off-white); }
 .gd-todo:hover { color: #2f9e44; background: var(--dark); }
 .gd-todo.is-active { color: #2f9e44; }
 .gd-todo[hidden] { display: none; }
-/* To-Do = grün, Post = rosa. Post gewinnt (in wendeFarbeAn zuerst geprüft). */
+/* To-Do = grün, Sticky = gelb, Post = rosa. Priorität: Post > Sticky > To-Do. */
 .gd-node.is-todo { border-color: #40a860; background: #f2fbf5; }
 .gd-node.is-todo.is-erledigt { opacity: 0.55; }
 .gd-node.is-post { border-color: #e255a1; background: #fdf2f9; }
+.gd-node.is-sticky { border-color: #eab308; background: #fefce8; }
+.gd-node.is-sticky.is-erledigt { opacity: 0.55; }
+
+/* 📌 Sticky-Note-Umschalter am Karten-Kopf */
+.gd-sticky-btn {
+  border: none; background: transparent; cursor: pointer;
+  font-size: 11px; line-height: 1; padding: 3px 4px; border-radius: var(--radius);
+  filter: grayscale(1); opacity: .55;
+}
+.gd-sticky-btn:hover { background: var(--dark); opacity: .85; }
+.gd-sticky-btn.is-active { filter: none; opacity: 1; }
+.gd-sticky-btn[hidden] { display: none; }
 
 /* ---- Gedanken: Post-Card (rosa) — Bilder-Carousel + Social-Embeds ---- */
 .gd-node--post { width: 264px; }
@@ -1209,15 +1243,8 @@ a.row-item:hover { background: var(--off-white); }
 .gd-farbe-dot:hover { transform: scale(1.15); }
 .gd-farbe-keine { background: var(--surface); color: var(--muted); font-size: 11px; line-height: 1; }
 
-/* 🎯 Fokus-Kategorie-Häkchen an Subs/Bereichen */
-.gd-kat {
-  border: none; background: transparent; cursor: pointer;
-  font-size: 11px; line-height: 1; padding: 3px 4px; border-radius: var(--radius);
-  filter: grayscale(1); opacity: .55;
-}
-.gd-kat:hover { background: var(--dark); opacity: .85; }
-.gd-kat.is-active { filter: none; opacity: 1; }
-.gd-kat[hidden] { display: none; }
+/* (Das frühere 🎯-Fokus-Kategorie-Häkchen entfällt — alle Subs/Bereiche sind
+   automatisch Kategorien; an seiner Stelle sitzt jetzt ⊖/⊕ Einklappen.) */
 
 /* ❗ Dringlich: roter Leucht-Rahmen um die (grüne) To-Do-Karte */
 .gd-dringend {
@@ -1314,6 +1341,9 @@ a.row-item:hover { background: var(--off-white); }
   box-shadow: 0 0 0 1px #ef4444, 0 0 10px rgba(239,68,68,.25);
 }
 .todo-item.is-dringend .todo-text { color: #b91c1c; }
+/* 📌 Sticky-Notes-Tab: Einträge im gelben Notizzettel-Look */
+.todo-item.is-sticky { border-color: #eab308; background: #fffbeb; }
+.todo-item.is-sticky .todo-check { accent-color: #ca8a04; }
 @media (max-width: 720px) {
   .todo-item { flex-wrap: wrap; }
   .todo-wer { max-width: 100%; flex: 1 1 100%; }
@@ -1499,3 +1529,122 @@ a.row-item:hover { background: var(--off-white); }
 }
 /* Archiv-Leinwand dezent anders einfärben, damit der Modus sofort erkennbar ist. */
 .gd-canvas.gd-archiv-modus { background-color: var(--dark); }
+
+/* ---- Gedanken: Subs/Bereiche einklappen (⊖/⊕) ---- */
+.gd-klapp {
+  border: none; background: transparent; cursor: pointer; color: var(--muted);
+  font: inherit; font-size: 12px; font-weight: 700; line-height: 1;
+  padding: 3px 5px; border-radius: var(--radius); white-space: nowrap;
+}
+.gd-klapp:hover { color: var(--accent); background: var(--dark); }
+.gd-klapp.is-active { color: #fff; background: var(--accent); }
+.gd-klapp[hidden] { display: none; }
+/* Eingeklappter Sub/Bereich: gestrichelter Rahmen als Hinweis auf Verstecktes */
+.gd-node.is-eingeklappt { border-style: dashed; }
+
+/* ---- Gedanken: Einladung (👥 Link + Einmal-Code pro Map) ---- */
+.gd-invite { margin: 0.75rem 0 1rem; padding: 1.1rem 1.25rem; }
+.gd-invite[hidden] { display: none; }
+.gd-invite-kopf {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+  font-weight: 700; margin-bottom: 0.7rem;
+}
+.gd-invite-zu {
+  border: none; background: transparent; color: var(--muted); cursor: pointer;
+  font-size: 13px; padding: 2px 6px; border-radius: var(--radius);
+}
+.gd-invite-zu:hover { color: var(--error); background: var(--dark); }
+.gd-invite-zeile { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.5rem; flex-wrap: wrap; }
+.gd-invite-lbl { flex: 0 0 3rem; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--light); }
+.gd-invite-wert {
+  flex: 1 1 200px; min-width: 0; font-size: 0.82rem; padding: 0.35rem 0.55rem;
+  background: var(--surface-2); border: 1px solid var(--mid); border-radius: var(--radius);
+  overflow-wrap: anywhere; user-select: all;
+}
+.gd-invite-code { font-size: 1.05rem; font-weight: 700; letter-spacing: 0.25em; flex: 0 1 auto; }
+.gd-invite-hint { font-size: 0.78rem; margin: 0.5rem 0 0; }
+
+/* ---- Gedanken: Post → Pipeline-Deploy (🚀) ---- */
+.gd-post-deploy { display: flex; }
+.gd-post-deploybtn {
+  flex: 1 1 auto; font: inherit; font-size: .78rem; font-weight: 600; cursor: pointer;
+  padding: .38rem .6rem; border: 1px solid #e255a1; border-radius: var(--radius);
+  background: #fdf2f9; color: #c026a0; transition: background .12s, color .12s;
+}
+.gd-post-deploybtn:hover:not(:disabled) { background: #e255a1; color: #fff; }
+.gd-post-deploybtn:disabled { opacity: .6; cursor: default; }
+.gd-post-deploybtn.is-deployt { border-color: #2f9e44; background: #f2fbf5; color: #2f9e44; }
+.gd-post-deploybtn.is-deployt:hover { background: #2f9e44; color: #fff; }
+
+/* ---- Fokus: volle Ausführung am To-Do im Session-Panel ---- */
+.fokus-todo-detail {
+  margin: .3rem 0 .15rem 1.55rem; padding: .45rem .6rem;
+  font-size: .82rem; line-height: 1.45; color: var(--black);
+  background: var(--surface-2); border-left: 3px solid #2f9e44; border-radius: 0 var(--radius) var(--radius) 0;
+  word-break: break-word;
+}
+
+/* ---- To-Dos: manuelle Reihenfolge (↑↓) ---- */
+.todo-move { display: inline-flex; flex-direction: column; gap: 2px; flex: 0 0 auto; }
+.todo-move-btn {
+  border: 1px solid var(--mid); background: var(--surface); color: var(--muted);
+  border-radius: 4px; width: 1.4rem; height: 1.05rem; line-height: 1;
+  font-size: 0.68rem; cursor: pointer; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.todo-move-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--off-white); }
+
+/* ---- To-Dos: Split-View (Doppelklick → Detail neben der Liste) ---- */
+.todo-split { display: grid; grid-template-columns: minmax(0, 1fr); }
+.todo-split.has-detail { grid-template-columns: minmax(0, 1fr) 360px; gap: 1.25rem; align-items: start; }
+.todo-item.is-detail { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.todo-detail {
+  position: sticky; top: 84px;
+  background: var(--surface); border: 1px solid var(--mid); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card); padding: 1.1rem 1.25rem;
+  max-height: calc(100vh - 110px); overflow-y: auto;
+}
+.todo-detail[hidden] { display: none; }
+.todo-detail-kopf { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; margin-bottom: 0.4rem; }
+.todo-detail-crumb { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; }
+.todo-detail-zu {
+  border: none; background: transparent; color: var(--muted); cursor: pointer;
+  font-size: 13px; padding: 2px 6px; border-radius: var(--radius);
+}
+.todo-detail-zu:hover { color: var(--error); background: var(--dark); }
+.todo-detail-titel { font-size: 1.15rem; font-weight: 700; margin: 0 0 0.2rem; line-height: 1.3; overflow-wrap: anywhere; }
+.todo-detail-meta { font-size: 0.78rem; overflow-wrap: anywhere; }
+.todo-detail-md { margin-top: 0.35rem; font-size: 0.9rem; }
+.todo-detail-md .gd-md-preview { min-height: 2rem; }
+.todo-detail-edit { min-height: 140px; font-size: 0.88rem; }
+
+/* ---- Mobile-Polish (⑧): To-Do-Filter, Kopfzeilen, Split-View, Mindmap ---- */
+@media (max-width: 720px) {
+  /* Kopfzeilen mit Filtern/Buttons: sauber umbrechen statt quetschen */
+  .admin-head { flex-wrap: wrap; }
+  .admin-head--todos { row-gap: 0.5rem; }
+  .admin-head--todos .view-title { flex: 1 1 100%; }
+  .admin-head--todos .gd-filter { flex: 1 1 calc(50% - 0.5rem); min-width: 0; max-width: 100%; }
+
+  /* To-Do-Zeile: Verschieben-Buttons touch-tauglich, Zeile umbrechen */
+  .todo-move { flex-direction: row; gap: 4px; }
+  .todo-move-btn { width: 1.9rem; height: 1.5rem; font-size: 0.8rem; }
+
+  /* Split-View: Panel liegt mobil als Vollbild-Overlay über der Liste */
+  .todo-split.has-detail { grid-template-columns: minmax(0, 1fr); }
+  .todo-detail {
+    position: fixed; inset: 0; z-index: 1100; border-radius: 0; border: none;
+    max-height: none; top: 0; padding: 1.25rem 1.1rem 2rem;
+  }
+
+  /* Gedanken-Kopf: Werkzeuge umbrechen, Karte hoch genug */
+  .gd-neu-group { row-gap: 6px; }
+  .gd-mapselect { max-width: 130px; }
+  .gd-canvas { height: calc(100vh - 300px); min-height: 360px; }
+  .gd-invite-zeile { gap: 0.4rem; }
+  .gd-invite-lbl { flex-basis: 100%; }
+
+  /* Fokus: Session-Panel volle Breite */
+  .fokus-todos-card { max-width: none; }
+  .fokus-todo-detail { margin-left: 0.9rem; }
+}

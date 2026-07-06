@@ -1,5 +1,11 @@
 // To-Do-Liste (map-übergreifend, Admin + Kollaborator).
-// Zeigt AUSSCHLIESSLICH anstehende To-Dos (todo=true, nicht erledigt, nicht
+// Zwei Modi über opts.modus:
+//   "todo"   (Default) — anstehende To-Dos (todo=true)
+//   "sticky"           — 📌 Sticky Notes (sticky=true): spontane offene
+//                        Fragestellungen; eigene Reihenfolge (stickyReihenfolge),
+//                        sonst identische Logik (Filter, Kategorien, ↑↓,
+//                        Split-View, Zuweisung, Abhaken wirkt in der Mindmap).
+// Zeigt AUSSCHLIESSLICH anstehende Einträge (nicht erledigt, nicht
 // archiviert):
 //   1) Übersicht über alle eigenen Maps (Filter: Alle | Mir zugewiesen |
 //      Nicht zugewiesen)
@@ -13,7 +19,7 @@
 import { beobachteGedanken, aktualisiereGedanke, beobachteMindmaps,
          beobachteMeineMindmaps, ladeMindmap } from "../db.js";
 import { beiViewWechsel } from "../view-lifecycle.js";
-import { escapeHtml } from "../util.js";
+import { escapeHtml, mdZuHtml } from "../util.js";
 
 const DEFAULT_MAP = "default";
 const lc = (s) => String(s || "").toLowerCase();
@@ -23,6 +29,9 @@ export function renderTodos(container, opts) {
   const istKollab = rolle === "kollaborator";
   const meineEmail = lc(opts && opts.user && opts.user.email);
   const kollabMapId = (opts && opts.kollabMapId) || null;
+  const modus = (opts && opts.modus) === "sticky" ? "sticky" : "todo";
+  const istSticky = modus === "sticky";
+  const FELD = istSticky ? "stickyReihenfolge" : "reihenfolge";   // getrennte manuelle Reihenfolgen
 
   let mindmaps = [];          // sichtbare Map-Definitionen
   let kollabMapDoc = null;    // Kollaborator: Doc der geteilten Map
@@ -32,39 +41,41 @@ export function renderTodos(container, opts) {
   const mapAbos = new Map();  // Kollaborator: mapId → Gedanken-Abo
 
   container.innerHTML = `
-    <div class="admin-head">
-      <h1 class="view-title" style="margin:0">To-Dos</h1>
+    <div class="admin-head admin-head--todos">
+      <h1 class="view-title" style="margin:0">${istSticky ? "Sticky Notes" : "To-Dos"}</h1>
       <select class="gd-filter" id="todoKat" aria-label="Nach Kategorie (Sub/Bereich) filtern">
         <option value="">Alle Kategorien</option>
       </select>
-      <select class="gd-filter" id="todoFilter" aria-label="To-Dos filtern">
+      <select class="gd-filter" id="todoFilter" aria-label="Einträge filtern">
         <option value="alle">Alle</option>
         <option value="meine">Mir zugewiesen</option>
         <option value="offen">Nicht zugewiesen</option>
       </select>
     </div>
-    <p class="muted view-intro">Alle anstehenden To-Dos aus deinen Mindmaps an einem Ort.
-      Abhaken erledigt sie auch in der Mindmap; wer verantwortlich ist, wählst du direkt am To-Do.
-      Die Kategorien entstehen aus deinen Subs/Bereichen — ein To-Do gehört dazu, wenn es damit verbunden ist.</p>
-    <div id="todoBody"><p class="muted">Lädt…</p></div>`;
+    <p class="muted view-intro">${istSticky
+      ? "Deine 📌 Sticky Notes aus allen Mindmaps — spontane Fragestellungen, die noch beantwortet, definiert oder ausgeführt werden müssen. Abhaken erledigt sie auch in der Mindmap; mit ↑↓ legst du deine Reihenfolge fest; Doppelklick öffnet die Note in voller Länge neben der Liste."
+      : "Alle anstehenden To-Dos aus deinen Mindmaps an einem Ort. Abhaken erledigt sie auch in der Mindmap; mit ↑↓ legst du deine Reihenfolge fest; Doppelklick öffnet das To-Do in voller Länge neben der Liste."}
+      Die Kategorien sind deine Subs/Bereiche — ein Eintrag gehört dazu, wenn er damit verbunden ist.</p>
+    <div class="todo-split" id="todoSplit">
+      <div id="todoBody"><p class="muted">Lädt…</p></div>
+      <aside class="todo-detail" id="todoDetail" hidden aria-label="To-Do-Detail"></aside>
+    </div>`;
   const body = container.querySelector("#todoBody");
+  const split = container.querySelector("#todoSplit");
+  const detail = container.querySelector("#todoDetail");
+  let detailId = null;   // aktuell im Split-Panel geöffnetes To-Do
   const katSelect = container.querySelector("#todoKat");
   let katFilter = "";   // Gedanken-Id des gewählten Subs/Bereichs ("" = alle)
   container.querySelector("#todoFilter").addEventListener("change", (e) => { filter = e.target.value; render(); });
   katSelect.addEventListener("change", () => { katFilter = katSelect.value; render(); });
 
-  // Kategorien = Subs/Bereiche der sichtbaren Maps MIT 🎯-Häkchen — dieselbe
-  // Logik wie im Fokus-Session-Dropdown (Default: Sub an, Bereich aus).
-  // 🎯 an der Karte ausschalten entfernt die Kategorie also auch hier.
-  function istFokusKategorie(g) {
-    if (typeof g.fokusKategorie === "boolean") return g.fokusKategorie;
-    return g.ebene === "sub";
-  }
+  // Kategorien = ALLE Subs/Bereiche der sichtbaren Maps (automatisch, kein
+  // 🎯-Häkchen mehr) — dieselbe Logik wie im Fokus-Session-Dropdown.
   function kategorien() {
     const mapIds = new Set(meineMaps().map((m) => m.id));
     return [...daten.values()]
       .filter((g) => (g.ebene === "sub" || g.ebene === "bereich") && !g.archiviert
-        && mapIds.has(g.mapId || DEFAULT_MAP) && istFokusKategorie(g))
+        && mapIds.has(g.mapId || DEFAULT_MAP))
       .map((g) => ({ id: g.id, name: (g.text || "Unbenannt").trim() || "Unbenannt" }))
       .sort((a, b) => a.name.localeCompare(b.name, "de"));
   }
@@ -103,21 +114,68 @@ export function renderTodos(container, opts) {
     if (m && m.besitzer) set.add(lc(m.besitzer));
     return [...set].filter(Boolean);
   }
-  const istOffen = (g) => g.todo === true && !g.erledigt && !g.archiviert;
+  const istOffen = (g) => (istSticky ? g.sticky === true : g.todo === true) && !g.erledigt && !g.archiviert;
   const passtFilter = (g) => filter === "alle"
     || (filter === "meine" && lc(g.verantwortlich) === meineEmail)
     || (filter === "offen" && !g.verantwortlich);
 
-  function itemHtml(g, map) {
+  // Manuelle Reihenfolge (②): kleiner = weiter oben; ohne Wert ans Ende.
+  // ❗ Dringliche bleiben immer als Block ganz oben fixiert.
+  const ordnung = (g) => (Number.isFinite(g[FELD]) ? g[FELD] : Infinity);
+  const vergleich = (a, b) =>
+    ((b.dringend === true ? 1 : 0) - (a.dringend === true ? 1 : 0))
+    || (ordnung(a) - ordnung(b))
+    || (a.text || "").localeCompare(b.text || "", "de");
+
+  function offeneListe() {
+    const maps = meineMaps();
+    const mapVon = (g) => maps.find((m) => m.id === (g.mapId || DEFAULT_MAP)) || null;
+    return [...daten.values()]
+      .filter((g) => istOffen(g) && mapVon(g) && passtFilter(g) && passtKategorie(g))
+      .sort(vergleich);
+  }
+
+  // ↑/↓: Nachbar-Tausch in der Liste, in der geklickt wurde (Übersicht oder
+  // pro Map). Beim ersten Verschieben bekommen alle offenen To-Dos eine feste
+  // Nummer (aktuelle Übersichts-Reihenfolge), danach werden nur noch die
+  // beiden Getauschten geschrieben.
+  async function verschiebe(id, richtung, scopeMapId) {
+    const alle = offeneListe();
+    const liste = scopeMapId ? alle.filter((g) => (g.mapId || DEFAULT_MAP) === scopeMapId) : alle;
+    const i = liste.findIndex((g) => g.id === id);
+    const j = i + (richtung === "up" ? -1 : 1);
+    if (i < 0 || j < 0 || j >= liste.length) return;
+    if ((liste[i].dringend === true) !== (liste[j].dringend === true)) return; // ❗-Block bleibt oben
+    const updates = new Map();
+    alle.forEach((g, idx) => { if (!Number.isFinite(g[FELD])) updates.set(g.id, idx); });
+    const ra = updates.has(liste[i].id) ? updates.get(liste[i].id) : liste[i][FELD];
+    const rb = updates.has(liste[j].id) ? updates.get(liste[j].id) : liste[j][FELD];
+    updates.set(liste[i].id, rb);
+    updates.set(liste[j].id, ra);
+    const schreiben = [];
+    for (const [gid, wert] of updates) {
+      const g = daten.get(gid);
+      if (g && g[FELD] !== wert) { g[FELD] = wert; schreiben.push(aktualisiereGedanke(gid, { [FELD]: wert })); }
+    }
+    render();   // optimistisch — Snapshots bestätigen später
+    try { await Promise.all(schreiben); }
+    catch (e) { console.warn("Reihenfolge speichern fehlgeschlagen:", e); }
+  }
+
+  function itemHtml(g, map, scopeMapId) {
     const nutzer = nutzerFuerMap(map);
     const wer = lc(g.verantwortlich);
     const dringend = g.dringend === true;
     return `
-      <li class="todo-item${dringend ? " is-dringend" : ""}">
+      <li class="todo-item${istSticky ? " is-sticky" : ""}${dringend ? " is-dringend" : ""}${g.id === detailId ? " is-detail" : ""}" data-id="${escapeHtml(g.id)}" title="Doppelklick: voll öffnen">
+        <span class="todo-move">
+          <button type="button" class="todo-move-btn" data-move="up" data-id="${escapeHtml(g.id)}" data-scope="${escapeHtml(scopeMapId || "")}" title="Nach oben">↑</button>
+          <button type="button" class="todo-move-btn" data-move="down" data-id="${escapeHtml(g.id)}" data-scope="${escapeHtml(scopeMapId || "")}" title="Nach unten">↓</button>
+        </span>
         <input type="checkbox" class="todo-check" data-id="${escapeHtml(g.id)}" title="Erledigen (wirkt auch in der Mindmap)">
         <div class="todo-haupt">
           <span class="todo-text">${dringend ? "❗ " : ""}${escapeHtml(g.text || "Unbenannter Gedanke")}</span>
-          <span class="todo-meta muted">🗺 ${escapeHtml(map ? map.name : "")}</span>
+          <span class="todo-meta muted">🗺 ${escapeHtml(map ? map.name : "")}${g.detail && g.detail.trim() ? " · 📝" : ""}</span>
         </div>
         <select class="todo-wer" data-id="${escapeHtml(g.id)}" title="Verantwortlich">
           <option value="">– niemand –</option>
@@ -130,14 +188,13 @@ export function renderTodos(container, opts) {
     renderKatSelect();
     const maps = meineMaps();
     const mapVon = (g) => maps.find((m) => m.id === (g.mapId || DEFAULT_MAP)) || null;
-    const offene = [...daten.values()]
-      .filter((g) => istOffen(g) && mapVon(g) && passtFilter(g) && passtKategorie(g))
-      // ❗ Dringliche immer ganz oben (fixiert), danach alphabetisch.
-      .sort((a, b) => ((b.dringend === true ? 1 : 0) - (a.dringend === true ? 1 : 0))
-        || (a.text || "").localeCompare(b.text || "", "de"));
+    const offene = offeneListe();
 
     if (!offene.length) {
-      body.innerHTML = `<p class="muted">Keine anstehenden To-Dos${filter !== "alle" ? " für diesen Filter" : ""}. 🎉</p>`;
+      body.innerHTML = `<p class="muted">${istSticky
+        ? `Keine offenen Sticky Notes${filter !== "alle" ? " für diesen Filter" : ""}. 📌 Markiere einen Gedanken in der Mindmap mit 📌, damit er hier auftaucht.`
+        : `Keine anstehenden To-Dos${filter !== "alle" ? " für diesen Filter" : ""}. 🎉`}</p>`;
+      aktualisiereDetail();
       return;
     }
 
@@ -147,14 +204,14 @@ export function renderTodos(container, opts) {
 
     body.innerHTML = `
       <section class="todo-uebersicht card card--pad">
-        <h2 class="todo-h2">🎯 Übersicht · ${offene.length} offen</h2>
-        <ul class="todo-liste">${offene.map((g) => itemHtml(g, mapVon(g))).join("")}</ul>
+        <h2 class="todo-h2">${istSticky ? "📌" : "🎯"} Übersicht · ${offene.length} offen</h2>
+        <ul class="todo-liste">${offene.map((g) => itemHtml(g, mapVon(g), "")).join("")}</ul>
       </section>
       <h2 class="todo-h2" style="margin-top:1.5rem">Pro Mindmap</h2>
       ${gruppen.map((x) => `
         <section class="todo-gruppe">
           <h3 class="todo-h3">🗺 ${escapeHtml(x.map.name)} <span class="muted">(${x.items.length})</span></h3>
-          <ul class="todo-liste">${x.items.map((g) => itemHtml(g, x.map)).join("")}</ul>
+          <ul class="todo-liste">${x.items.map((g) => itemHtml(g, x.map, x.map.id)).join("")}</ul>
         </section>`).join("")}`;
 
     body.querySelectorAll(".todo-check").forEach((cb) => cb.addEventListener("change", async () => {
@@ -178,6 +235,93 @@ export function renderTodos(container, opts) {
         render();
       } catch (e) { console.warn("Zuweisen fehlgeschlagen:", e); }
     }));
+    // ↑↓ Reihenfolge (②)
+    body.querySelectorAll(".todo-move-btn").forEach((btn) => btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      verschiebe(btn.getAttribute("data-id"), btn.getAttribute("data-move"), btn.getAttribute("data-scope") || null);
+    }));
+    // Doppelklick → volles To-Do im Split-Panel (④)
+    body.querySelectorAll(".todo-item").forEach((li) => li.addEventListener("dblclick", (e) => {
+      if (e.target.closest("input, select, button")) return;
+      oeffneDetail(li.getAttribute("data-id"));
+    }));
+
+    aktualisiereDetail();
+  }
+
+  // --- Split-Panel: volles To-Do neben der Liste (④) ----------------------
+  function schliesseDetail() {
+    detailId = null;
+    detail.hidden = true; detail.innerHTML = "";
+    split.classList.remove("has-detail");
+    body.querySelectorAll(".todo-item.is-detail").forEach((li) => li.classList.remove("is-detail"));
+  }
+  function oeffneDetail(id) {
+    if (!id) return;
+    detailId = id;
+    renderDetail();
+    body.querySelectorAll(".todo-item").forEach((li) => li.classList.toggle("is-detail", li.getAttribute("data-id") === id));
+  }
+  // Nach jedem Listen-Render: Panel nachziehen (außer man tippt gerade darin).
+  function aktualisiereDetail() {
+    if (!detailId) return;
+    if (detail.contains(document.activeElement)) return;
+    renderDetail();
+  }
+  function renderDetail() {
+    const g = daten.get(detailId);
+    if (!g || !istOffen(g)) { schliesseDetail(); return; }
+    const map = meineMaps().find((m) => m.id === (g.mapId || DEFAULT_MAP)) || null;
+    split.classList.add("has-detail");
+    detail.hidden = false;
+    detail.innerHTML = `
+      <div class="todo-detail-kopf">
+        <span class="todo-detail-crumb muted">${istSticky ? "📌 Sticky Note" : "To-Do"}</span>
+        <button type="button" class="todo-detail-zu" title="Schließen">✕</button>
+      </div>
+      <h2 class="todo-detail-titel">${g.dringend === true ? "❗ " : ""}${escapeHtml(g.text || "Unbenannter Gedanke")}</h2>
+      <div class="todo-detail-meta muted">🗺 ${escapeHtml(map ? map.name : "")}${g.verantwortlich ? ` · 👤 ${escapeHtml(g.verantwortlich)}` : ""}</div>
+      <div class="gd-abschnitt-titel" style="margin-top:.9rem">Ausführung</div>
+      <div class="todo-detail-md" id="tdMd"></div>
+      <div class="action-btns" style="margin-top:1.1rem">
+        <button type="button" class="btn btn--accent btn--sm" id="tdErledigt">✓ Erledigen</button>
+      </div>`;
+    detail.querySelector(".todo-detail-zu").addEventListener("click", schliesseDetail);
+    // Ausführung: Markdown-Vorschau; Klick → Bearbeiten; Blur → speichern
+    // (gleiches Muster wie in der Mindmap).
+    const md = detail.querySelector("#tdMd");
+    const zeigePreview = () => {
+      const cur = (daten.get(detailId) || {}).detail || "";
+      md.innerHTML = `<div class="gd-md-preview">${cur ? mdZuHtml(cur) : `<span class="gd-md-leer muted">＋ Ausführung hinzufügen … (Markdown)</span>`}</div>`;
+      md.querySelector(".gd-md-preview").addEventListener("click", zeigeEdit);
+    };
+    const zeigeEdit = () => {
+      md.innerHTML = "";
+      const ta = document.createElement("textarea");
+      ta.className = "gd-detail todo-detail-edit";
+      ta.placeholder = "Ausführung … (Markdown: # Titel, **fett**, - Liste, [Text](url))";
+      ta.value = (daten.get(detailId) || {}).detail || "";
+      md.appendChild(ta);
+      const wachse = () => { ta.style.height = "auto"; ta.style.height = Math.max(140, ta.scrollHeight) + "px"; };
+      wachse();
+      ta.addEventListener("input", wachse);
+      ta.addEventListener("blur", () => {
+        const val = ta.value;
+        const g2 = daten.get(detailId); if (g2) g2.detail = val;
+        aktualisiereGedanke(detailId, { detail: val }).catch((e) => console.warn(e));
+        zeigePreview();
+      });
+      ta.focus();
+    };
+    zeigePreview();
+    detail.querySelector("#tdErledigt").addEventListener("click", async () => {
+      const id = detailId;
+      const g2 = daten.get(id); if (g2) g2.erledigt = true;
+      try { await aktualisiereGedanke(id, { erledigt: true }); }
+      catch (e) { console.warn("Erledigen fehlgeschlagen:", e); }
+      schliesseDetail();
+      render();
+    });
   }
 
   // --- Daten-Abos --------------------------------------------------------

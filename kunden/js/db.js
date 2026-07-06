@@ -329,6 +329,7 @@ export async function gedankeAnlegen(daten) {
     ebene:       (daten.ebene === "bereich" || daten.ebene === "sub") ? daten.ebene : "gedanke",
     kind:        daten.kind === "post" ? "post" : "gedanke",  // Format: normaler Gedanke | Post-Card
     todo:        !!daten.todo,                                 // To-Do-Status (grün / im Filter)
+    sticky:      !!daten.sticky,                               // 📌 Sticky Note (gelb; offene Fragestellung, eigener Tab)
     dringend:    !!daten.dringend,                             // ❗ dringliches To-Do (roter Glow, oben fixiert)
     mapId:       daten.mapId || "default",                     // Zugehörigkeit zu einer Mindmap
     verantwortlich: (daten.verantwortlich || "").toLowerCase(),// zuständige E-Mail fürs To-Do ("" = niemand)

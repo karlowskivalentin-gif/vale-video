@@ -27,11 +27,11 @@ import {
   beobachteGedanken, gedankeAnlegen, aktualisiereGedanke, loescheGedanke,
   dateiblobAnlegen, ladeDateiblob, loescheDateiblob,
   beobachteMindmaps, beobachteMeineMindmaps, mindmapAnlegen, loescheMindmap,
-  ladeMindmap, benachrichtigungAnlegen
+  ladeMindmap, benachrichtigungAnlegen, einladungAnlegen, planAnlegen
 } from "../db.js";
 import { beiViewWechsel } from "../view-lifecycle.js";
-import { escapeHtml } from "../util.js";
-import { embedHtml, verarbeiteEmbeds } from "../embeds.js";
+import { escapeHtml, mdZuHtml } from "../util.js";
+import { embedHtml, erkennePlattform, verarbeiteEmbeds } from "../embeds.js";
 
 const SVGNS = "http://www.w3.org/2000/svg";
 const KNOTEN_B = 220;        // Knotenbreite (px) — Platzierung/Mittelpunkt-Fallback
@@ -82,6 +82,61 @@ export function renderAdminGedanken(container, opts) {
   const istEinzelGedanke = (g) => ebeneOk(g.ebene) === "gedanke";
   const istTodo = (g) => g.todo === true;
 
+  // --- Einklappen von Subs/Bereichen (⑤) ---------------------------------
+  // Ein eingeklappter Sub/Bereich versteckt alles, was an ihm „dranhängt":
+  // BFS über die Verbindungen, aber nur zu Knoten NIEDRIGERER Ebene (ein Sub
+  // versteckt seine Gedanken-Ketten, ein Bereich zusätzlich seine Subs — nie
+  // den übergeordneten Bereich daneben). Persistiert im Feld `eingeklappt`.
+  const RANG = { bereich: 3, sub: 2, gedanke: 1 };
+  let verdeckt = new Set();          // ids, die aktuell durch Einklappen unsichtbar sind
+  function nachbarIndex() {
+    const idx = new Map();
+    const add = (a, b) => { let s = idx.get(a); if (!s) { s = new Set(); idx.set(a, s); } s.add(b); };
+    for (const g of daten.values()) {
+      for (const z of (g.verbindungen || [])) { add(g.id, z); add(z, g.id); }
+    }
+    return idx;
+  }
+  function haengendeIds(startId, idx) {
+    const start = daten.get(startId);
+    if (!start) return new Set();
+    const startRang = RANG[ebeneOk(start.ebene)];
+    const gefunden = new Set();
+    const gesehen = new Set([startId]);
+    const queue = [startId];
+    while (queue.length) {
+      const cur = queue.shift();
+      for (const n of (idx.get(cur) || [])) {
+        if (gesehen.has(n)) continue;
+        const gn = daten.get(n);
+        if (!gn) continue;
+        if (RANG[ebeneOk(gn.ebene)] >= startRang) continue;   // Gleich-/Höherrangiges hängt nicht „dran"
+        gesehen.add(n); gefunden.add(n); queue.push(n);
+      }
+    }
+    return gefunden;
+  }
+  function berechneVerdeckte() {
+    verdeckt = new Set();
+    const idx = nachbarIndex();
+    for (const g of daten.values()) {
+      if (g.eingeklappt !== true) continue;
+      if (ebeneOk(g.ebene) === "gedanke") continue;
+      if ((g.mapId || DEFAULT_MAP) !== aktiveMapId) continue;
+      if (g.archiviert) continue;
+      for (const id of haengendeIds(g.id, idx)) verdeckt.add(id);
+    }
+  }
+  function zaehleAnhaengende(id) {
+    return haengendeIds(id, nachbarIndex()).size;
+  }
+  function setzeEingeklappt(id, val) {
+    const g = daten.get(id); if (g) g.eingeklappt = !!val;
+    aktualisiereGedanke(id, { eingeklappt: !!val }).catch((err) => console.warn(err));
+    berechneVerdeckte();
+    reconcile([...daten.values()]);   // versteckt/zeigt die dranhängenden Knoten
+  }
+
   // Sicht-Gate: Map-Zugehörigkeit (④) + Ansicht (aktiv/archiv) + To-Do-Filter (①).
   // Bereiche/Subs bleiben vom To-Do-Filter IMMER unberührt (nur echte Gedanken
   // werden ein-/ausgeblendet). `daten` hält stets ALLE Gedanken, gerendert wird
@@ -90,6 +145,8 @@ export function renderAdminGedanken(container, opts) {
   function istSichtbar(g) {
     if ((g.mapId || DEFAULT_MAP) !== aktiveMapId) return false;
     if ((!!g.archiviert) !== (ansicht === "archiv")) return false;
+    // Eingeklappte Subs/Bereiche: alles Dranhängende verschwindet (nur aktive Ansicht).
+    if (ansicht !== "archiv" && verdeckt.has(g.id)) return false;
     // „Nur kommentierte": ausschließlich Karten mit rotem Partner-Kommentar —
     // egal welcher Ebene, nichts anderes (auch keine unkommentierten Subs/Bereiche).
     if (ansicht !== "archiv" && filterModus === "kommentare") {
@@ -109,6 +166,7 @@ export function renderAdminGedanken(container, opts) {
         <select class="gd-mapselect" id="gdMapSelect" title="Mindmap wählen" aria-label="Mindmap wählen"></select>
         <button class="btn btn--ghost btn--sm gd-map-neu" id="gdNeuMap" type="button" title="Neue Mindmap anlegen">+ Karte</button>
         <button class="btn btn--ghost btn--sm gd-map-del" id="gdMapDel" type="button" title="Aktuelle Mindmap löschen" hidden>🗑 Karte</button>
+        <button class="btn btn--ghost btn--sm gd-map-invite" id="gdEinladen" type="button" title="Mitglied einladen — erzeugt Link + Einmal-Code für diese Map" hidden>👥 Einladen</button>
         <span class="gd-mapneu" id="gdMapNeu" hidden>
           <input type="text" id="gdMapNeuInput" class="gd-mapneu-input" maxlength="40" placeholder="Name der neuen Mindmap" aria-label="Name der neuen Mindmap" />
           <button class="btn btn--accent btn--sm" id="gdMapNeuOk" type="button">Anlegen</button>
@@ -128,6 +186,7 @@ export function renderAdminGedanken(container, opts) {
         <button class="btn btn--ghost btn--sm gd-archiv-toggle" id="gdArchivToggle" type="button" title="Archiv erledigter Gedanken ein-/ausblenden" aria-pressed="false">🗄 Archiv</button>
       </div>
     </div>
+    <div class="gd-invite card card--pad" id="gdInvite" hidden></div>
     <p class="muted view-intro">Deine private Denk-Leinwand: Ebene wählen (Bereich / Sub / Gedanke),
       Überschrift am Knoten tippen, mit dem Pfeil ▸ die Ausführung + Dateien inline aufklappen,
       per Doppelklick voll öffnen. Über die Rand-Punkte verbinden, auf leerer Fläche ziehen verschiebt den Ausschnitt,
@@ -288,32 +347,7 @@ export function renderAdminGedanken(container, opts) {
       .catch((err) => console.warn("Verbindung konnte nicht gespeichert werden:", err));
   }
 
-  // --- Markdown (klein, sicher: alles wird zuerst escaped) ---------------
-  function mdZuHtml(src) {
-    let out = escapeHtml(src || "");
-    out = out
-      .replace(/^###\s+(.*)$/gm, "<h3>$1</h3>")
-      .replace(/^##\s+(.*)$/gm, "<h2>$1</h2>")
-      .replace(/^#\s+(.*)$/gm, "<h1>$1</h1>");
-    out = out.replace(/(?:^|\n)((?:\s*-\s+.*(?:\n|$))+)/g, (m, block) => {
-      const items = block.trim().split("\n")
-        .map((l) => l.replace(/^\s*-\s+/, "").trim())
-        .filter(Boolean)
-        .map((t) => `<li>${t}</li>`).join("");
-      return `\n<ul>${items}</ul>\n`;
-    });
-    out = out
-      .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-      .replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<em>$2</em>")
-      .replace(/`([^`]+)`/g, "<code>$1</code>")
-      .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g,
-        '<a href="$2" target="_blank" rel="noopener">$1</a>');
-    out = out.replace(/\n/g, "<br>");
-    // <br> direkt um Blockelemente wieder entfernen (kosmetisch)
-    out = out.replace(/<br>\s*(<\/?(?:h1|h2|h3|ul|li)>)/g, "$1")
-             .replace(/(<\/?(?:h1|h2|h3|ul|li)>)\s*<br>/g, "$1");
-    return out;
-  }
+  // --- Markdown: geteilter Renderer aus util.js (mdZuHtml) ---------------
 
   // --- Dateien / Anhänge -------------------------------------------------
   function leseDatei(file) {
@@ -531,6 +565,55 @@ export function renderAdminGedanken(container, opts) {
     });
     add.append(bildBtn, linkBtn);
     wrap.appendChild(add);
+
+    // 🚀 „In Pipeline deployen" (nur Admin): legt aus der Post-Card einen Plan
+    // im Pipeline-Format an (Titel/Typ/Inspirationen/Notiz) — genau das Format
+    // der Content-Pipeline (#/admin/plaene). Einmal deployt → Link zum Plan.
+    if (!istKollab) {
+      const dep = document.createElement("div");
+      dep.className = "gd-post-deploy";
+      const gAkt = daten.get(id) || {};
+      if (gAkt.planId) {
+        const offen = document.createElement("button");
+        offen.type = "button"; offen.className = "gd-post-deploybtn is-deployt";
+        offen.textContent = "✓ In Pipeline — Plan öffnen";
+        offen.title = "Dieser Post liegt als Plan in der Pipeline";
+        offen.addEventListener("click", (e) => { e.stopPropagation(); location.hash = "/admin/plan/" + gAkt.planId; });
+        dep.appendChild(offen);
+      } else {
+        const btn = document.createElement("button");
+        btn.type = "button"; btn.className = "gd-post-deploybtn";
+        btn.textContent = "🚀 In Pipeline deployen";
+        btn.title = "Als Plan in der Content-Pipeline anlegen (Format wie #/admin/plaene)";
+        btn.addEventListener("click", async (e) => {
+          e.stopPropagation();
+          btn.disabled = true; btn.textContent = "Wird angelegt …";
+          try {
+            const g = daten.get(id) || {};
+            const links = (g.dateien || []).filter((a) => a.art === "link" && !istBildAnhang(a));
+            const ref = await planAnlegen({
+              titel: (g.text || "").trim() || "Post aus Mindmap",
+              typ: "Post",
+              status: "entwurf",
+              inspirationen: links.map((a) => ({ url: a.url, plattform: erkennePlattform(a.url) })),
+              sound: { name: "", link: "" },
+              shotlist: [],
+              notiz: g.detail || ""
+            });
+            await aktualisiereGedanke(id, { planId: ref.id });
+            if (daten.get(id)) daten.get(id).planId = ref.id;
+            toast("Post als Plan in der Pipeline angelegt. 🚀");
+            zeichnePostMedia(el, id);
+          } catch (err) {
+            console.warn("Pipeline-Deploy fehlgeschlagen:", err);
+            btn.disabled = false; btn.textContent = "🚀 In Pipeline deployen";
+            toast("Konnte den Plan nicht anlegen.");
+          }
+        });
+        dep.appendChild(btn);
+      }
+      wrap.appendChild(dep);
+    }
   }
 
   // --- „Verwandt mit" (verbundene Gedanken, beide Richtungen) ------------
@@ -730,17 +813,18 @@ export function renderAdminGedanken(container, opts) {
     zeichneKanten(); renderSidebar();
   }
 
-  // --- Farbe / To-Do (① grün = To-Do, ③ rosa = Post) --------------------
-  // Abgeleitete Farbklasse: Post gewinnt (rosa), sonst To-Do (grün), sonst neutral.
+  // --- Farbe / To-Do / Sticky (grün = To-Do, gelb = 📌 Sticky, rosa = Post) --
+  // Abgeleitete Farbklasse: Post gewinnt (rosa), dann Sticky (gelb), dann To-Do.
   function farbKlasse(g) {
     if ((g.kind || "gedanke") === "post") return "is-post";
+    if (g.sticky === true) return "is-sticky";
     if (g.todo === true) return "is-todo";
     return null;
   }
-  // Setzt is-todo/is-post bzw. die manuelle Palettenfarbe am Knoten und
-  // spiegelt To-Do-Umschalter + Farb-Button. Priorität: Post > To-Do > Farbe.
+  // Setzt is-todo/is-sticky/is-post bzw. die manuelle Palettenfarbe am Knoten
+  // und spiegelt die Umschalter. Priorität: Post > Sticky > To-Do > Farbe.
   function wendeFarbeAn(el, g) {
-    el.classList.remove("is-todo", "is-post");
+    el.classList.remove("is-todo", "is-post", "is-sticky");
     FARBEN.forEach((f) => el.classList.remove("gd-farbe-" + f.id));
     const k = farbKlasse(g);
     if (k) el.classList.add(k);
@@ -752,6 +836,14 @@ export function renderAdminGedanken(container, opts) {
       tb.classList.toggle("is-active", g.todo === true);
       tb.setAttribute("aria-pressed", String(g.todo === true));
     }
+    // 📌 Sticky Note: nur an einzelnen Gedanken (nicht Post/Sub/Bereich).
+    const st = el.querySelector(".gd-sticky-btn");
+    if (st) {
+      const einzel = ebeneOk(g.ebene) === "gedanke" && (g.kind || "gedanke") !== "post";
+      st.hidden = !einzel;
+      st.classList.toggle("is-active", g.sticky === true);
+      st.setAttribute("aria-pressed", String(g.sticky === true));
+    }
     const fb = el.querySelector(".gd-farbe-btn");
     if (fb) {
       fb.hidden = !!k;   // bei To-Do/Post keine manuelle Farbe
@@ -759,15 +851,22 @@ export function renderAdminGedanken(container, opts) {
       fb.style.setProperty("--f", f ? f.hex : "transparent");
       fb.classList.toggle("hat-farbe", !!f);
     }
-    // 🎯 Fokus-Kategorie-Häkchen: nur an Subs/Bereichen sichtbar.
-    const kb = el.querySelector(".gd-kat");
-    if (kb) {
-      const gruppe = ebeneOk(g.ebene) !== "gedanke";
-      kb.hidden = !gruppe;
-      const an = istFokusKategorie(g);
-      kb.classList.toggle("is-active", an);
-      kb.setAttribute("aria-pressed", String(an));
-      kb.title = an ? "Fokus-Session-Kategorie: AN — erscheint beim Session-Start" : "Als Fokus-Session-Kategorie anbieten";
+    // ⊖/⊕ Einklappen (⑤): nur an Subs/Bereichen sichtbar; ⊕ zeigt die Anzahl.
+    const kl = el.querySelector(".gd-klapp");
+    if (kl) {
+      const gruppe = ebeneOk(g.ebene) !== "gedanke" && (g.kind || "gedanke") !== "post";
+      kl.hidden = !gruppe;
+      const zu = g.eingeklappt === true;
+      kl.classList.toggle("is-active", zu);
+      kl.setAttribute("aria-pressed", String(zu));
+      if (gruppe) {
+        const n = zaehleAnhaengende(g.id);
+        kl.textContent = zu ? `⊕ ${n}` : "⊖";
+        kl.title = zu
+          ? `Aufklappen — ${n} verbundene${n === 1 ? "s Element" : " Elemente"} wieder einblenden`
+          : "Einklappen — alles Dranhängende ausblenden";
+      }
+      el.classList.toggle("is-eingeklappt", zu && gruppe);
     }
     // ❗ Dringlich: nur an To-Do-Karten sichtbar; roter Glow solange offen.
     const dr = el.querySelector(".gd-dringend");
@@ -777,18 +876,39 @@ export function renderAdminGedanken(container, opts) {
       dr.setAttribute("aria-pressed", String(g.dringend === true));
     }
     el.classList.toggle("is-dringend", g.dringend === true && g.todo === true && !g.erledigt);
+    // 👤 Verantwortlich direkt an der To-Do-Karte (geteilte Maps).
+    wendeWerAn(el, g);
   }
-  // Gilt dieser Sub/Bereich als Fokus-Session-Kategorie?
-  // Default (Feld nicht gesetzt): Subs ja, Bereiche nein — explizit umschaltbar.
-  function istFokusKategorie(g) {
-    if (typeof g.fokusKategorie === "boolean") return g.fokusKategorie;
-    return ebeneOk(g.ebene) === "sub";
+
+  // --- 👤 Verantwortlich an der To-Do-Karte (geteilte Maps) ---------------
+  // Wählbare Personen = Mitglieder + Besitzer der aktiven Map (+ ich).
+  function mapNutzer() {
+    const m = aktuelleMap() || {};
+    const set = new Set();
+    (Array.isArray(m.mitglieder) ? m.mitglieder : []).forEach((e) => set.add(lc(e)));
+    if (m.besitzer) set.add(lc(m.besitzer));
+    if (meineEmail) set.add(meineEmail);
+    return [...set].filter(Boolean);
   }
-  function setzeFokusKategorie(id, val) {
-    const g = daten.get(id); if (g) g.fokusKategorie = !!val;
-    const el = knoten.get(id); if (el) wendeFarbeAn(el, daten.get(id) || {});
-    aktualisiereGedanke(id, { fokusKategorie: !!val }).catch((err) => console.warn(err));
+  const werKurz = (e) => (e.split("@")[0] || e);
+  function wendeWerAn(el, g) {
+    const row = el.querySelector(".gd-wer-row");
+    if (!row) return;
+    const sel = row.querySelector(".gd-wer");
+    const nutzer = mapNutzer();
+    // An offenen To-Do-/Sticky-Karten: auf geteilten/benannten Maps immer
+    // sichtbar (weitere Personen erscheinen automatisch, sobald sie ihre
+    // Einladung eingelöst haben und damit Map-Mitglied sind).
+    const zeigen = (g.todo === true || g.sticky === true) && !g.erledigt
+      && (nutzer.length > 1 || aktiveMapId !== DEFAULT_MAP);
+    row.hidden = !zeigen;
+    if (!zeigen || document.activeElement === sel) return;
+    const wer = lc(g.verantwortlich);
+    sel.innerHTML = `<option value="">– niemand –</option>` +
+      nutzer.map((n) => `<option value="${escapeHtml(n)}"${n === wer ? " selected" : ""}>${escapeHtml(n === meineEmail ? `Ich (${werKurz(n)})` : werKurz(n))}</option>`).join("");
   }
+  // Fokus-Session-Kategorien: JEDER Sub/Bereich ist automatisch Kategorie —
+  // das frühere 🎯-Häkchen (fokusKategorie) entfällt bewusst.
   function setzeTodo(id, val) {
     const g = daten.get(id); if (g) { g.todo = !!val; if (!val) g.dringend = false; }
     const el = knoten.get(id); if (el) wendeFarbeAn(el, daten.get(id) || {});
@@ -796,6 +916,12 @@ export function renderAdminGedanken(container, opts) {
     if (!val) felder.dringend = false;   // kein To-Do mehr → auch nicht mehr dringlich
     aktualisiereGedanke(id, felder).catch((err) => console.warn(err));
     renderSidebar();
+  }
+  // 📌 Sticky Note umschalten (gelb; erscheint im Sticky-Notes-Tab).
+  function setzeSticky(id, val) {
+    const g = daten.get(id); if (g) g.sticky = !!val;
+    const el = knoten.get(id); if (el) wendeFarbeAn(el, daten.get(id) || {});
+    aktualisiereGedanke(id, { sticky: !!val }).catch((err) => console.warn(err));
   }
   function setzeDringend(id, val) {
     const g = daten.get(id); if (g) g.dringend = !!val;
@@ -925,8 +1051,9 @@ export function renderAdminGedanken(container, opts) {
         <span class="gd-neu-wrap"></span>
         <div class="gd-node-tools">
           <button type="button" class="gd-farbe-btn" title="Farbe wählen" hidden></button>
-          <button type="button" class="gd-kat" title="Als Fokus-Session-Kategorie anbieten" aria-pressed="false" hidden>🎯</button>
+          <button type="button" class="gd-klapp" title="Einklappen — alles Dranhängende ausblenden" aria-pressed="false" hidden>⊖</button>
           <button type="button" class="gd-todo" title="Als To-Do markieren (grün)" aria-pressed="false" hidden>◎</button>
+          <button type="button" class="gd-sticky-btn" title="Als Sticky Note markieren (gelb — offene Fragestellung, eigener Tab)" aria-pressed="false" hidden>📌</button>
           <button type="button" class="gd-dringend" title="Als dringlich markieren (rot leuchtend, in der To-Do-Liste oben fixiert)" aria-pressed="false" hidden>❗</button>
           <button type="button" class="gd-ebene" title="Ebene wechseln: Gedanke → Sub → Bereich">—</button>
           <button type="button" class="gd-archiv-btn" title="Erledigten Gedanken ins Archiv verschieben">→ Archiv</button>
@@ -936,6 +1063,7 @@ export function renderAdminGedanken(container, opts) {
         </div>
       </div>
       <textarea class="gd-text" rows="1" placeholder="Gedanke…"></textarea>
+      <div class="gd-wer-row" hidden><span class="gd-wer-icon" aria-hidden="true">👤</span><select class="gd-wer" title="Verantwortlich — wem ist dieses To-Do zugewiesen?"></select></div>
       <div class="gd-post" hidden></div>
       <div class="gd-node-body" hidden></div>
       <span class="gd-dock" data-seite="oben"></span>
@@ -976,18 +1104,31 @@ export function renderAdminGedanken(container, opts) {
       e.stopPropagation();
       setzeTodo(id, !((daten.get(id) || {}).todo === true));
     });
+    // 📌 Sticky-Note-Umschalter (gelb).
+    el.querySelector(".gd-sticky-btn").addEventListener("click", (e) => {
+      e.stopPropagation();
+      setzeSticky(id, !((daten.get(id) || {}).sticky === true));
+    });
     // Farbwahl (feste Palette) — für Gedanken, Subs UND Bereiche;
     // ausgeblendet bei To-Do (grün fix) und Post (rosa fix).
     farbeBtn.addEventListener("click", (e) => { e.stopPropagation(); zeigeFarbPop(el, id); });
-    // 🎯 Fokus-Kategorie an Subs/Bereichen umschalten.
-    el.querySelector(".gd-kat").addEventListener("click", (e) => {
+    // ⊖/⊕ Sub/Bereich ein-/aufklappen (⑤).
+    el.querySelector(".gd-klapp").addEventListener("click", (e) => {
       e.stopPropagation();
-      setzeFokusKategorie(id, !istFokusKategorie(daten.get(id) || {}));
+      setzeEingeklappt(id, !((daten.get(id) || {}).eingeklappt === true));
     });
     // ❗ Dringlich an To-Do-Karten umschalten.
     el.querySelector(".gd-dringend").addEventListener("click", (e) => {
       e.stopPropagation();
       setzeDringend(id, !((daten.get(id) || {}).dringend === true));
+    });
+    // 👤 Verantwortlich direkt an der Karte zuweisen (geteilte Maps).
+    const werSel = el.querySelector(".gd-wer");
+    werSel.addEventListener("pointerdown", (e) => e.stopPropagation());
+    werSel.addEventListener("change", () => {
+      const wert = werSel.value;
+      const d = daten.get(id); if (d) d.verantwortlich = wert;
+      aktualisiereGedanke(id, { verantwortlich: wert }).catch((err) => console.warn("Zuweisen fehlgeschlagen:", err));
     });
 
     // Archiv-Button: im aktiven Modus verschiebt er den (erledigten) Gedanken
@@ -1084,14 +1225,14 @@ export function renderAdminGedanken(container, opts) {
 
     // Doppelklick → Vollseite (nicht auf Buttons / Body).
     el.addEventListener("dblclick", (e) => {
-      if (e.target.closest(".gd-check, .gd-todo, .gd-kat, .gd-dringend, .gd-farbe-btn, .gd-farbe-pop, .gd-neu-wrap, .gd-hinweis, .gd-hinweis-form, .gd-del, .gd-attach, .gd-chevron, .gd-ebene, .gd-archiv-btn, .gd-dock, .gd-node-body")) return;
+      if (e.target.closest(".gd-check, .gd-todo, .gd-sticky-btn, .gd-klapp, .gd-dringend, .gd-farbe-btn, .gd-farbe-pop, .gd-neu-wrap, .gd-hinweis, .gd-hinweis-form, .gd-del, .gd-attach, .gd-chevron, .gd-ebene, .gd-archiv-btn, .gd-dock, .gd-node-body, .gd-post, .gd-wer-row")) return;
       oeffneSeite(id);
     });
 
     // Knoten-Drag (Pointer Events). Reiner Klick → Überschrift fokussieren.
     el.addEventListener("pointerdown", (e) => {
       if (e.pointerType === "mouse" && e.button !== 0) return;
-      if (e.target.closest(".gd-check, .gd-todo, .gd-kat, .gd-dringend, .gd-farbe-btn, .gd-farbe-pop, .gd-neu-wrap, .gd-hinweis, .gd-hinweis-form, .gd-del, .gd-attach, .gd-chevron, .gd-ebene, .gd-archiv-btn, .gd-dock, .gd-node-body")) return;
+      if (e.target.closest(".gd-check, .gd-todo, .gd-sticky-btn, .gd-klapp, .gd-dringend, .gd-farbe-btn, .gd-farbe-pop, .gd-neu-wrap, .gd-hinweis, .gd-hinweis-form, .gd-del, .gd-attach, .gd-chevron, .gd-ebene, .gd-archiv-btn, .gd-dock, .gd-node-body, .gd-post, .gd-wer-row")) return;
       if (e.target === ta && document.activeElement === ta) return;
       blurAktiv();
       e.preventDefault();
@@ -1251,6 +1392,8 @@ export function renderAdminGedanken(container, opts) {
       if (aktiveInteraktion.has(g.id)) { const alt = daten.get(g.id); if (alt) { g.x = alt.x; g.y = alt.y; } }
       daten.set(g.id, g);
     }
+    // Eingeklappte Subs/Bereiche → Menge der versteckten Knoten neu bestimmen.
+    berechneVerdeckte();
     // Knoten-Elemente entfernen, die nicht (mehr) in die aktuelle Ansicht gehören
     // — etwa weil gerade archiviert/zurückgeholt wurde.
     for (const [id, el] of knoten) {
@@ -1450,6 +1593,46 @@ export function renderAdminGedanken(container, opts) {
   const mapNeuBtn   = container.querySelector("#gdNeuMap");
   const mapNeuInput = container.querySelector("#gdMapNeuInput");
   const mapDelBtn   = container.querySelector("#gdMapDel");
+  const einladenBtn = container.querySelector("#gdEinladen");
+  const invitePanel = container.querySelector("#gdInvite");
+
+  // 👥 Mitglied einladen (Admin, pro Map): erzeugt einladung/<mapId> mit
+  // frischem Einmal-Code + zeigt Link & Code zum Kopieren. Die neue Person
+  // meldet sich über den Link an, gibt den Code ein und wird automatisch
+  // Kollaborator + Map-Mitglied (Rules sind bereits generisch pro Map).
+  function schliesseInvite() { invitePanel.hidden = true; invitePanel.innerHTML = ""; }
+  async function erzeugeEinladung() {
+    if (!invitePanel.hidden) { schliesseInvite(); return; }
+    const code = String(Math.floor(1000 + Math.random() * 9000));
+    einladenBtn.disabled = true;
+    try {
+      await einladungAnlegen(aktiveMapId, code, aktiveMapId);
+      const mapName = (aktuelleMap() || {}).name || aktiveMapId;
+      const link = location.origin + location.pathname + "#/einladung/" + encodeURIComponent(aktiveMapId);
+      invitePanel.innerHTML = `
+        <div class="gd-invite-kopf">👥 Einladung für „${escapeHtml(mapName)}"
+          <button type="button" class="gd-invite-zu" title="Schließen">✕</button></div>
+        <div class="gd-invite-zeile"><span class="gd-invite-lbl">Link</span>
+          <code class="gd-invite-wert">${escapeHtml(link)}</code>
+          <button type="button" class="btn btn--ghost btn--sm" data-copy="${escapeHtml(link)}">Kopieren</button></div>
+        <div class="gd-invite-zeile"><span class="gd-invite-lbl">Code</span>
+          <code class="gd-invite-wert gd-invite-code">${escapeHtml(code)}</code>
+          <button type="button" class="btn btn--ghost btn--sm" data-copy="${escapeHtml(code)}">Kopieren</button></div>
+        <p class="muted gd-invite-hint">Einmal-Code für genau eine Person: Link öffnen → mit eigener E-Mail anmelden →
+          Code eingeben. Danach ist sie Mitglied dieser Map. Ein neuer Klick auf „👥 Einladen" erzeugt einen frischen Code.</p>`;
+      invitePanel.hidden = false;
+      invitePanel.querySelector(".gd-invite-zu").addEventListener("click", schliesseInvite);
+      invitePanel.querySelectorAll("[data-copy]").forEach((b) => b.addEventListener("click", async () => {
+        try { await navigator.clipboard.writeText(b.getAttribute("data-copy")); b.textContent = "Kopiert ✓"; setTimeout(() => { b.textContent = "Kopieren"; }, 1500); }
+        catch (_) { toast("Kopieren nicht möglich — bitte manuell markieren."); }
+      }));
+    } catch (err) {
+      console.warn("Einladung anlegen fehlgeschlagen:", err);
+      toast("Einladung konnte nicht angelegt werden.");
+    }
+    einladenBtn.disabled = false;
+  }
+  einladenBtn.addEventListener("click", erzeugeEinladung);
 
   // Kollaborator: Name/Mitglieder der geteilten Map nachladen (fürs Dropdown
   // und die Geteilt-Erkennung des Neu-/Akzeptier-Systems).
@@ -1490,6 +1673,8 @@ export function renderAdminGedanken(container, opts) {
     mapDelBtn.hidden = istKollab ? !(m && lc(m.besitzer) === meineEmail) : aktiveMapId === DEFAULT_MAP;
     mapDelBtn.classList.remove("is-bestaetigen");
     mapDelBtn.textContent = "🗑 Karte";
+    // 👥 Einladen: nur Admin und nur auf echten Maps (Standard hat kein Doc).
+    einladenBtn.hidden = istKollab || aktiveMapId === DEFAULT_MAP;
   }
 
   // Aktuelle Map + alle ihre Gedanken löschen (2-Klick-Bestätigung am Button).
@@ -1513,6 +1698,7 @@ export function renderAdminGedanken(container, opts) {
   });
   function wechsleMap(mapId) {
     if (mapId === aktiveMapId) return;
+    schliesseInvite();                       // Einladung gilt pro Map
     aktiveMapId = mapId;
     localStorage.setItem(LS_MAP_KEY, mapId);
     if (istKollab) starteGedankenListener();   // Kollaborator lädt Gedanken pro Map

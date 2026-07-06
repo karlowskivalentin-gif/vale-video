@@ -51,9 +51,11 @@ const ROUTES = {
   "/admin/fokus":    { rolle: "admin", titel: "Fokus",            render: renderAdminFokus },
   "/admin/gedanken": { rolle: "admin", titel: "Gedanken",         render: renderAdminGedanken },
   "/admin/todos":    { rolle: "admin", titel: "To-Dos",           render: renderTodos },
+  "/admin/stickies": { rolle: "admin", titel: "Sticky Notes",     render: (c, o) => renderTodos(c, { ...o, modus: "sticky" }) },
   // Kollaborator (externer Mitarbeiter: geteilte + eigene Mindmaps)
   "/gedanken":       { rolle: "kollaborator", titel: "Mindmap",   render: renderAdminGedanken },
-  "/todos":          { rolle: "kollaborator", titel: "To-Dos",    render: renderTodos }
+  "/todos":          { rolle: "kollaborator", titel: "To-Dos",    render: renderTodos },
+  "/stickies":       { rolle: "kollaborator", titel: "Sticky Notes", render: (c, o) => renderTodos(c, { ...o, modus: "sticky" }) }
 };
 
 const NAV = {
@@ -70,11 +72,13 @@ const NAV = {
     { href: "#/admin/plaene",   label: "Pläne" },
     { href: "#/admin/fokus",    label: "Fokus" },
     { href: "#/admin/gedanken", label: "Gedanken" },
-    { href: "#/admin/todos",    label: "To-Dos" }
+    { href: "#/admin/todos",    label: "To-Dos" },
+    { href: "#/admin/stickies", label: "Stickies" }
   ],
   kollaborator: [
     { href: "#/gedanken", label: "Mindmap" },
-    { href: "#/todos",    label: "To-Dos" }
+    { href: "#/todos",    label: "To-Dos" },
+    { href: "#/stickies", label: "Stickies" }
   ]
 };
 
@@ -243,6 +247,15 @@ function render() {
   // Listener der vorherigen View (onSnapshot) abbestellen.
   raeumeViewAuf();
 
+  // Einladungs-Link (#/einladung/<mapId>): Ziel-Map merken, dann normaler
+  // Ablauf (Login → Zugangscode-Screen löst gegen genau diese Map ein).
+  const einladung = location.hash.match(/^#\/einladung\/([^/?#]+)/);
+  if (einladung) {
+    try { localStorage.setItem("vv_einladung_map", decodeURIComponent(einladung[1])); } catch (_) { /* egal */ }
+    location.hash = "";   // löst erneutes render() aus
+    return;
+  }
+
   if (!_authBereit) {
     appEl().innerHTML = `<div class="boot">Lädt…</div>`;
     return;
@@ -318,8 +331,14 @@ function renderCodeScreen(root) {
     const code = (inp.value || "").trim();
     if (!code) { inp.focus(); return; }
     btn.disabled = true; btn.textContent = "Prüfe…";
+    // Ziel-Map: aus dem geöffneten Einladungs-Link (#/einladung/<mapId>);
+    // Fallback = die klassische Johannvale-Einladung.
+    let mapId = null;
+    try { mapId = localStorage.getItem("vv_einladung_map"); } catch (_) { /* egal */ }
+    if (!mapId) mapId = KOLLAB_MAP_ID;
     try {
-      await loeseEinladungEin(EINLADUNG_ID, code, _user.email, KOLLAB_MAP_ID);
+      await loeseEinladungEin(mapId === KOLLAB_MAP_ID ? EINLADUNG_ID : mapId, code, _user.email, mapId);
+      try { localStorage.removeItem("vv_einladung_map"); } catch (_) { /* egal */ }
       // Erfolg → neu laden: beobachteAuth erkennt jetzt den Kollaborator.
       location.reload();
     } catch (ex) {
