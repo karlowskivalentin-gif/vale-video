@@ -5,11 +5,12 @@
 import {
   ladePlan, planAnlegen, aktualisierePlan, loeschePlan, ladeObjekte,
   ladeShotvorlagen, shotvorlageAnlegen, aktualisiereShotvorlage, loescheShotvorlage,
-  ladeDateiblob
+  ladeDateiblob, videoAnlegen
 } from "../db.js";
 import { beiViewWechsel } from "../view-lifecycle.js";
 import { escapeHtml, tsZuDateInput, dateInputZuDate } from "../util.js";
 import { embedHtml, erkennePlattform, verarbeiteEmbeds } from "../embeds.js";
+import { STATUS } from "../status.js";
 
 // Reihenfolge der Panels — global (alle Pläne), pro Browser in localStorage.
 // „anhaenge" erscheint nur, wenn der Plan Anhänge aus einem Post trägt.
@@ -75,6 +76,7 @@ export function renderAdminPlan(container, ctx) {
       notiz:    plan ? (plan.notiz || "") : "",
       dateien:  plan && Array.isArray(plan.dateien) ? plan.dateien : [],   // Anhänge aus dem Post (read-only Anzeige)
       poststatus: plan ? (plan.poststatus || "") : "",
+      videoId:  plan ? (plan.videoId || null) : null,   // Verknüpfung zum Pipeline-Video (nach Deploy)
       drehInput: plan ? tsZuDateInput(plan.geplanterDrehtermin) : "",
       pubInput:  plan ? tsZuDateInput(plan.geplantesDatum) : ""
     };
@@ -172,6 +174,7 @@ export function renderAdminPlan(container, ctx) {
         shotlist: state.shotlist,
         notiz: state.notiz,
         dateien: state.dateien,   // unverändert durchreichen (Anhänge nicht verlieren)
+        videoId: state.videoId || null,
         geplanterDrehtermin: dateInputZuDate(state.drehInput),
         geplantesDatum: dateInputZuDate(state.pubInput)
       };
@@ -425,6 +428,40 @@ export function renderAdminPlan(container, ctx) {
         }
       });
 
+      // 🚀 In die Video-Pipeline übernehmen: legt aus dem Plan ein Video an
+      // (voller Umfang: Titel, Typ, Objekt, Dreh-/Veröffentlichungstermin;
+      // Plan-Notiz + Shotlist bleiben hier als Referenz). Danach direkt ins
+      // Video-Edit springen — dort lassen sich alle Pipeline-Statusse setzen.
+      const pipe = body.querySelector("#planPipeline");
+      if (pipe) {
+        pipe.addEventListener("click", async () => {
+          if (state.videoId) { location.hash = "/admin/video/" + state.videoId; return; }
+          syncText();
+          if (!state.titel) { errBox.textContent = "Bitte zuerst einen Titel eingeben."; errBox.hidden = false; return; }
+          pipe.disabled = true; pipe.textContent = "Wird angelegt …";
+          try {
+            // Plan-Stand sichern, damit nichts verloren geht.
+            await aktualisierePlan(aktuelleId, datenAusState());
+            const ref = await videoAnlegen({
+              titel: state.titel,
+              typ: state.typ,
+              objektId: state.objektId || null,
+              status: STATUS.IDEE,
+              geplanterDrehtermin: dateInputZuDate(state.drehInput),
+              geplantesDatum: dateInputZuDate(state.pubInput)
+            });
+            state.videoId = ref.id;
+            await aktualisierePlan(aktuelleId, { videoId: ref.id });
+            location.hash = "/admin/video/" + ref.id;   // → Status direkt setzbar
+          } catch (err) {
+            console.error("Pipeline-Übernahme fehlgeschlagen:", err);
+            pipe.disabled = false; pipe.textContent = "🚀 In Video-Pipeline";
+            errBox.textContent = "Konnte das Video nicht anlegen.";
+            errBox.hidden = false;
+          }
+        });
+      }
+
       // Veröffentlichen / Auf Entwurf zurücksetzen
       const pub = body.querySelector("#planPublish");
       if (pub) {
@@ -607,6 +644,9 @@ function formHtml(state, objekte, istNeu, opts) {
 
         <div class="action-btns" style="margin-top:1.25rem">
           <button class="btn btn--accent" id="planSave" type="submit">${istNeu ? "Anlegen" : "Speichern"}</button>
+          ${!istNeu ? (state.videoId
+            ? `<button class="btn btn--ghost plan-pipeline-btn is-deployt" id="planPipeline" type="button" title="Dieser Plan liegt als Video in der Produktions-Pipeline">✓ In Video-Pipeline — öffnen</button>`
+            : `<button class="btn btn--ghost plan-pipeline-btn" id="planPipeline" type="button" title="Legt aus diesem Plan ein Video in der Produktions-Pipeline an — dort kannst du alle Statusse (💡 Idee … 🚀 Gepostet) setzen">🚀 In Video-Pipeline</button>`) : ""}
           ${!istNeu ? `<button class="btn btn--ghost" id="planPublish" type="button">${state.status === "veroeffentlicht" ? "Auf Entwurf zurücksetzen" : "Als Plan veröffentlichen"}</button>` : ""}
           ${!istNeu ? `<button class="btn btn--ghost" id="planDelete" type="button">Löschen</button>` : ""}
         </div>
