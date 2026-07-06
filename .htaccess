@@ -1,0 +1,12 @@
+RewriteEngine On
+
+# HTTP → HTTPS Redirect
+RewriteCond %{HTTPS} off
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# www → non-www (optional, uncomment if desired)
+# RewriteCond %{HTTP_HOST} ^www\.(.*)$ [NC]
+# RewriteRule ^ https://%1%{REQUEST_URI} [L,R=301]
+
+# Custom 404
+# ErrorDocument 404 /404.html

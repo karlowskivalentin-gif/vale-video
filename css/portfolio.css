@@ -23,6 +23,29 @@
   color: var(--muted);
 }
 
+/* Leistungs-Hero: kompakterer Titel, bricht lange Namen sauber um statt zu überlaufen */
+.portfolio-title--service {
+  font-size: clamp(2.5rem, 6.5vw, 5.5rem);
+  line-height: 1;
+  overflow-wrap: break-word;
+  -webkit-hyphens: auto;
+  hyphens: auto;
+}
+
+/* Work-Grid ohne Filter davor (Leistungsseiten): Abstand zur oberen Trennlinie */
+.work-grid--standalone {
+  padding-top: 3.5rem;
+}
+
+/* Einzelnes Projekt: eine große, zentrierte Feature-Karte statt kleiner Karte mit Leerraum */
+.work-grid--single {
+  grid-template-columns: minmax(0, 860px);
+  justify-content: center;
+}
+.work-grid--single .work-card {
+  aspect-ratio: 16 / 9;
+}
+
 /* ── Nav active state ── */
 .nav-active {
   color: var(--black) !important;

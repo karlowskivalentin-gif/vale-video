@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Preise & Pakete | Videograf Düsseldorf | vale-video</title>
+  <meta name="description" content="Videografie-Pakete für Unternehmen in Düsseldorf: Social Content, Imagefilm, Brand Video und Social Media Betreuung." />
+  <link rel="canonical" href="https://vale-video.de/pricing.html" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/pricing.css" />
+  <style>
+/* ── Social Media Pakete ── */
+.social-section {
+  padding: 7rem 3rem;
+  border-top: 1px solid var(--mid);
+  background: linear-gradient(180deg, rgba(201,168,76,0.03), transparent 40%);
+}
+.social-header { max-width: 820px; margin-bottom: 4rem; }
+.social-header h2 {
+  font-family: var(--font-display);
+  font-weight: 300;
+  font-size: clamp(2.4rem, 5vw, 5rem);
+  line-height: 1.05;
+  color: var(--white);
+  margin: 1rem 0 1.5rem;
+}
+.social-header h2 em { color: var(--gold); font-style: italic; }
+.social-intro-text { color: var(--muted); font-size: 0.92rem; line-height: 1.9; max-width: 640px; }
+.social-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--mid);
+  border: 1px solid var(--mid);
+  margin-bottom: 2rem;
+}
+.social-card { background: var(--black); position: relative; overflow: hidden; transition: background 0.35s ease; }
+.social-card:hover { background: var(--off-black); }
+.social-card-featured { background: linear-gradient(180deg, rgba(201,168,76,0.1), var(--black) 42%); }
+.social-card-inner {
+  padding: 2.5rem;
+  min-height: 580px;
+  display: flex;
+  flex-direction: column;
+}
+.social-top { margin-bottom: 0; }
+.social-name {
+  font-family: var(--font-display);
+  font-weight: 300;
+  font-size: clamp(1.8rem, 2.5vw, 2.6rem);
+  color: var(--white);
+  line-height: 1;
+  margin-bottom: 0.8rem;
+}
+.social-tagline { color: var(--muted); font-size: 0.82rem; line-height: 1.8; min-height: 60px; }
+.social-price {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 3.5vw, 3.2rem);
+  color: var(--gold);
+  line-height: 1;
+  margin: 2rem 0 1.8rem;
+}
+.social-price span { font-family: var(--font-ui); font-size: 0.78rem; color: var(--muted); letter-spacing: 0.1em; margin-left: 0.3rem; }
+.social-recommend {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: auto;
+  padding-top: 1.5rem;
+  margin-bottom: 1.25rem;
+  border-top: 1px solid rgba(201,168,76,0.15);
+}
+.social-recommend span { font-size: 0.58rem; letter-spacing: 0.28em; text-transform: uppercase; color: var(--gold-dim); }
+.social-recommend strong { font-size: 0.72rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--gold); font-weight: 600; }
+.social-note { color: var(--muted); font-size: 0.78rem; line-height: 1.7; letter-spacing: 0.06em; text-align: center; max-width: 680px; margin: 0 auto; padding-top: 0.5rem; }
+@media (max-width: 1050px) {
+  .social-grid { grid-template-columns: 1fr; }
+  .social-card-inner { min-height: auto; }
+}
+@media (max-width: 900px) {
+  .social-section { padding: 5rem 1.5rem; }
+}
+  </style>
+</head>
+<body>
+
+  <div class="cursor" id="cursor"></div>
+  <div class="cursor-follower" id="cursorFollower"></div>
+
+  <nav>
+    <a href="index.html" class="nav-logo">vale<span>—</span>video</a>
+    <ul class="nav-links">
+      <li><a href="portfolio.html">Portfolio</a></li>
+      <li><a href="about.html">About</a></li>
+      <li><a href="pricing.html" class="nav-active">Pricing</a></li>
+      <li><a href="contact.html">Kontakt</a></li>
+    </ul>
+  </nav>
+
+  <section class="pricing-hero">
+    <div class="hero-grain"></div>
+    <p class="hero-eyebrow">Angebote & Investition</p>
+    <h1 class="pricing-title">
+      Klarer Content.<br/>
+      <em>Klare Pakete.</em>
+    </h1>
+    <p class="pricing-sub">
+      Für Unternehmen, Personal Brands und lokale Marken, die nicht einfach nur ein Video wollen —
+      sondern sichtbarer, professioneller und hochwertiger auftreten möchten.
+    </p>
+    <div class="pricing-proof">
+      <span>u.a. gearbeitet für</span>
+      <strong>Cathy Hummels</strong>
+      <strong>Club Pilates</strong>
+      <strong>FIBO 2026</strong>
+    </div>
+  </section>
+
+  <section class="pricing-intro">
+    <p class="section-label">Wie du buchst</p>
+    <h2>Wähle nicht das günstigste Paket.<br/><em>Wähle das Paket, das dein Ziel löst.</em></h2>
+    <p>
+      Jedes Projekt wird individuell geplant. Die Pakete geben dir eine klare Orientierung —
+      final wird nach Aufwand, Location, Konzept und gewünschtem Output kalkuliert.
+    </p>
+  </section>
+
+  <section class="pricing-grid-section">
+    <div class="pricing-grid">
+
+      <article class="pricing-card">
+        <div class="pricing-card-top">
+          <p class="pricing-num">01</p>
+          <p class="pricing-kicker">Einstieg</p>
+          <h2>Social Content Paket</h2>
+          <p class="pricing-best">Ideal für Cafés, Fitnessstudios, Coaches & lokale Businesses.</p>
+        </div>
+        <div class="pricing-price">700–900€</div>
+        <ul class="pricing-list">
+          <li>1 Drehtag / Content-Block (ca. 2–3h)</li>
+          <li>3 vertikale Reels für Instagram & TikTok</li>
+          <li>Cineastischer Schnitt + Basic Colorgrading</li>
+          <li>Hook-orientierter Aufbau für Social Media</li>
+          <li>Export in Social-Media-Format</li>
+        </ul>
+        <a href="contact.html" class="pricing-btn">Paket anfragen</a>
+      </article>
+
+      <article class="pricing-card pricing-card-featured">
+        <div class="featured-badge">Empfohlen</div>
+        <div class="pricing-card-top">
+          <p class="pricing-num">02</p>
+          <p class="pricing-kicker">Standard</p>
+          <h2>Imagefilm + Content</h2>
+          <p class="pricing-best">Der stärkste Einstieg, wenn dein Unternehmen professionell wirken soll.</p>
+        </div>
+        <div class="pricing-price">1.200–1.800€</div>
+        <ul class="pricing-list">
+          <li>1 Drehtag mit klarer Shotlist & Ablauf (ca. 3–5h)</li>
+          <li>1 Imagefilm bis ca. 60–90 Sekunden</li>
+          <li>2 zusätzliche Reels aus dem Material</li>
+          <li>Storytelling, Musik, Sounddesign & Colorgrading</li>
+          <li>Lieferung für Website, Instagram, TikTok & YouTube</li>
+        </ul>
+        <a href="contact.html" class="pricing-btn pricing-btn-gold">Projekt anfragen</a>
+      </article>
+
+      <article class="pricing-card">
+        <div class="pricing-card-top">
+          <p class="pricing-num">03</p>
+          <p class="pricing-kicker">Premium</p>
+          <h2>Brand Video / Kampagne</h2>
+          <p class="pricing-best">Für Marken, Events und Personal Brands mit größerem Anspruch.</p>
+        </div>
+        <div class="pricing-price">2.000–3.000€</div>
+        <ul class="pricing-list">
+          <li>Konzept, Look & Story vor dem Dreh</li>
+          <li>1 ganzer Drehtag je nach Umfang</li>
+          <li>1 Imagefilm + 4–6 Social Reels</li>
+          <li>Hochwertige Interview-, Event- oder Brand-Inszenierung</li>
+          <li>Premium-Look für Website, Kampagnen & Social Media</li>
+        </ul>
+        <a href="contact.html" class="pricing-btn">Kampagne planen</a>
+      </article>
+
+    </div>
+  </section>
+
+  <!-- ── Social Media Pakete ── -->
+  <section class="social-section" id="social">
+    <div class="social-header">
+      <p class="section-label">Monatliche Betreuung</p>
+      <h2>Social Media<br/><em>Pakete.</em></h2>
+      <p class="social-intro-text">
+        Du willst nicht einmal im Jahr ein Video — sondern kontinuierlich sichtbar sein?
+        Dann ist unsere monatliche Social-Media-Betreuung das Richtige für dich.
+        Regelmäßiger Content, der deine Marke wachsen lässt.
+      </p>
+    </div>
+
+    <div class="social-grid">
+
+      <article class="social-card">
+        <div class="social-card-inner">
+          <div class="social-top">
+            <p class="pricing-num">S</p>
+            <p class="pricing-kicker">Starter</p>
+            <h3 class="social-name">Starter</h3>
+            <p class="social-tagline">Ideal für den Einstieg in kontinuierliche Sichtbarkeit.</p>
+          </div>
+          <div class="social-price">
+            ab 990 €<span>/Monat</span>
+          </div>
+          <ul class="pricing-list">
+            <li>6 Videos / Monat</li>
+            <li>Instagram Reels + TikTok</li>
+            <li>Schnitt, Untertitel & Branding</li>
+            <li>Caption-Texte für alle Videos</li>
+            <li>1× Strategy-Call (30 Min.)</li>
+          </ul>
+          <div class="social-recommend">
+            <span>Empfohlen</span>
+            <strong>6-Monats-Paket</strong>
+          </div>
+          <a href="contact.html" class="pricing-btn">Paket anfragen</a>
+        </div>
+      </article>
+
+      <article class="social-card social-card-featured">
+        <div class="featured-badge">Beliebtestes Paket</div>
+        <div class="social-card-inner">
+          <div class="social-top">
+            <p class="pricing-num">P</p>
+            <p class="pricing-kicker">Professional</p>
+            <h3 class="social-name">Professional</h3>
+            <p class="social-tagline">Für Marken, die auf allen relevanten Plattformen präsent sein wollen.</p>
+          </div>
+          <div class="social-price">
+            ab 1.990 €<span>/Monat</span>
+          </div>
+          <ul class="pricing-list">
+            <li>12 Videos / Monat</li>
+            <li>Alle Plattformen inkl. YouTube Shorts</li>
+            <li>Thumbnail-Design</li>
+            <li>Hashtag-Strategie & Redaktionsplan</li>
+            <li>2× Strategy-Call</li>
+            <li>Performance-Reporting</li>
+          </ul>
+          <div class="social-recommend">
+            <span>Empfohlen</span>
+            <strong>3-Monats-Paket</strong>
+          </div>
+          <a href="contact.html" class="pricing-btn pricing-btn-gold">Paket anfragen</a>
+        </div>
+      </article>
+
+      <article class="social-card">
+        <div class="social-card-inner">
+          <div class="social-top">
+            <p class="pricing-num">X</p>
+            <p class="pricing-kicker">Premium</p>
+            <h3 class="social-name">Premium</h3>
+            <p class="social-tagline">Full-Service für Personal Brands und Unternehmen mit hohem Anspruch.</p>
+          </div>
+          <div class="social-price">
+            ab 3.900 €<span>/Monat</span>
+          </div>
+          <ul class="pricing-list">
+            <li>20+ Videos / Monat</li>
+            <li>Full-Service: Konzept, Dreh, Schnitt, Publishing</li>
+            <li>Alle Plattformen inkl. YouTube Langformat</li>
+            <li>Personal-Brand-Beratung</li>
+            <li>Wöchentliche Abstimmung</li>
+            <li>KPI-Tracking & Optimierung</li>
+            <li>Exklusivität — kein Konkurrent wird betreut</li>
+          </ul>
+          <div class="social-recommend">
+            <span>Empfohlen</span>
+            <strong>12-Monats-Paket</strong>
+          </div>
+          <a href="contact.html" class="pricing-btn">Paket anfragen</a>
+        </div>
+      </article>
+
+    </div>
+
+    <p class="social-note">
+      Alle Pakete werden individuell geplant. Preise gelten als Orientierung — finale Kalkulation nach Aufwand, Plattformen und gewünschtem Output.
+    </p>
+  </section>
+
+  <section class="pricing-addons">
+    <div>
+      <p class="section-label">Optional</p>
+      <h2>Add-ons</h2>
+    </div>
+    <div class="addons-list">
+      <div class="addon-item">
+        <span>Zusätzliche Reels</span>
+        <strong>+120–200€</strong>
+      </div>
+      <div class="addon-item">
+        <span>Express-Lieferung</span>
+        <strong>+150–300€</strong>
+      </div>
+      <div class="addon-item">
+        <span>Monatliche Content-Betreuung</span>
+        <strong>ab 1.000€ / Monat</strong>
+      </div>
+    </div>
+  </section>
+
+  <section class="pricing-process">
+    <p class="section-label">Ablauf</p>
+    <div class="process-grid">
+      <div class="process-step">
+        <span>01</span>
+        <h3>Anfrage</h3>
+        <p>Du beschreibst kurz dein Projekt, dein Ziel und den gewünschten Zeitraum.</p>
+      </div>
+      <div class="process-step">
+        <span>02</span>
+        <h3>Konzept</h3>
+        <p>Wir klären, welcher Content wirklich Sinn ergibt — nicht nur, was gut aussieht.</p>
+      </div>
+      <div class="process-step">
+        <span>03</span>
+        <h3>Dreh & Schnitt</h3>
+        <p>Ich produziere das Material, schneide es hochwertig und liefere es passend für deine Kanäle.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="pricing-cta-section">
+    <p class="section-label">Nächster Schritt</p>
+    <h2>Bereit, dein Unternehmen hochwertig sichtbar zu machen?</h2>
+    <p>Schreib mir kurz, was du planst. Ich gebe dir eine ehrliche Einschätzung, welches Paket Sinn ergibt.</p>
+    <a href="contact.html" class="hero-cta pricing-final-cta">
+      <span class="hero-cta-line"></span>
+      Projekt anfragen
+    </a>
+  </section>
+
+  <footer>
+    <span class="footer-logo">vale<span>—</span>video</span>
+    <span class="footer-copy">© 2026 Valentin Karlowski</span>
+  </footer>
+
+  <script src="js/main.js"></script>
+
+  <footer class="legal-footer">
+    <div class="legal-footer-inner">
+      <span>© 2026 VALE VIDEO</span>
+      <a href="impressum.html">Impressum</a>
+      <a href="datenschutz.html">Datenschutz</a>
+    </div>
+  </footer>
+
+</body>
+</html>
