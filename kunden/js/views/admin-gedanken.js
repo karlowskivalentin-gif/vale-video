@@ -988,6 +988,71 @@ export function renderAdminGedanken(container, opts) {
     }));
   }
 
+  // --- Karte duplizieren (⧉, Anzahl wählbar) ------------------------------
+  // Kopiert JEDE Card-Art (Gedanke/Sub/Bereich/Post/To-Do/Sticky) inkl.
+  // Inhalt, Farbe, Status-Flags, Anhängen und Verbindungen. Datei-Blobs
+  // werden ECHT dupliziert (sonst teilen sich Original und Kopie einen Blob
+  // und das Löschen des einen zerstört den Anhang des anderen).
+  async function dupliziereGedanke(id, anzahl) {
+    const g = daten.get(id);
+    if (!g) return;
+    const n = Math.min(10, Math.max(1, parseInt(anzahl, 10) || 1));
+    toast(n === 1 ? "Karte wird dupliziert …" : `${n} Kopien werden angelegt …`);
+    try {
+      for (let i = 1; i <= n; i++) {
+        const dateien = [];
+        for (const a of (g.dateien || [])) {
+          if (a.art === "datei" && a.blobId) {
+            const b = await ladeDateiblob(a.blobId);
+            if (!b) continue;
+            const ref = await dateiblobAnlegen({ base64: b.base64, name: b.name, typ: b.typ });
+            dateien.push({ art: "datei", blobId: ref.id, name: a.name, typ: a.typ });
+          } else {
+            dateien.push({ ...a });
+          }
+        }
+        await gedankeAnlegen({
+          text: g.text || "", detail: g.detail || "",
+          ebene: ebeneOk(g.ebene), kind: (g.kind || "gedanke") === "post" ? "post" : "gedanke",
+          todo: g.todo === true, sticky: g.sticky === true, dringend: g.dringend === true,
+          poststatus: g.poststatus || "",
+          farbe: g.farbe || null,
+          mapId: aktiveMapId,
+          neuVon: aktiveMapGeteilt() ? meineEmail : null,
+          x: Math.round((g.x || 0) + 28 * i), y: Math.round((g.y || 0) + 28 * i),
+          erledigt: false, archiviert: ansicht === "archiv",
+          verbindungen: [...(g.verbindungen || [])],   // Kopien hängen an denselben Subs/Bereichen
+          dateien
+        });
+      }
+      toast(n === 1 ? "Karte dupliziert. ⧉" : `${n} Kopien angelegt. ⧉`);
+    } catch (err) {
+      console.warn("Duplizieren fehlgeschlagen:", err);
+      toast("Duplizieren fehlgeschlagen.");
+    }
+  }
+  // Kleines Popover am Knoten: Anzahl wählen (1–10), Enter/OK legt los.
+  function zeigeDuplPop(el, id) {
+    let pop = el.querySelector(".gd-dupl-pop");
+    if (pop) { pop.remove(); return; }
+    pop = document.createElement("div");
+    pop.className = "gd-dupl-pop";
+    pop.innerHTML = `<span class="gd-dupl-lbl">Kopien</span>
+      <input type="number" min="1" max="10" value="1" aria-label="Anzahl Kopien">
+      <button type="button" class="gd-dupl-ok">⧉ Los</button>`;
+    el.querySelector(".gd-node-kopf").appendChild(pop);
+    const inp = pop.querySelector("input");
+    const los = () => { const n = inp.value; pop.remove(); dupliziereGedanke(id, n); };
+    pop.querySelector(".gd-dupl-ok").addEventListener("click", (e) => { e.stopPropagation(); los(); });
+    inp.addEventListener("pointerdown", (e) => e.stopPropagation());
+    inp.addEventListener("keydown", (e) => {
+      e.stopPropagation();
+      if (e.key === "Enter") { e.preventDefault(); los(); }
+      else if (e.key === "Escape") pop.remove();
+    });
+    inp.focus(); inp.select();
+  }
+
   // --- Neu-Markierung + Anerkennen + Kommentar (geteilte Maps, ④) --------
   const kurz = (t) => { const s = String(t || "Unbenannt").trim() || "Unbenannt"; return s.length > 40 ? s.slice(0, 40) + "…" : s; };
 
@@ -1093,6 +1158,7 @@ export function renderAdminGedanken(container, opts) {
           <button type="button" class="gd-todo" title="Als To-Do markieren (grün)" aria-pressed="false" hidden>◎</button>
           <button type="button" class="gd-sticky-btn" title="Als Sticky Note markieren (gelb — offene Fragestellung, eigener Tab)" aria-pressed="false" hidden>📌</button>
           <button type="button" class="gd-dringend" title="Als dringlich markieren (rot leuchtend, in der To-Do-Liste oben fixiert)" aria-pressed="false" hidden>❗</button>
+          <button type="button" class="gd-dupl" title="Karte duplizieren (Anzahl wählbar)">⧉</button>
           <button type="button" class="gd-ebene" title="Ebene wechseln: Gedanke → Sub → Bereich">—</button>
           <button type="button" class="gd-archiv-btn" title="Erledigten Gedanken ins Archiv verschieben">→ Archiv</button>
           <button type="button" class="gd-chevron" title="Ausführung ein-/ausklappen">▸</button>
@@ -1150,6 +1216,8 @@ export function renderAdminGedanken(container, opts) {
     // Farbwahl (feste Palette) — für Gedanken, Subs UND Bereiche;
     // ausgeblendet bei To-Do (grün fix) und Post (rosa fix).
     farbeBtn.addEventListener("click", (e) => { e.stopPropagation(); zeigeFarbPop(el, id); });
+    // ⧉ Duplizieren (jede Card-Art, Anzahl wählbar).
+    el.querySelector(".gd-dupl").addEventListener("click", (e) => { e.stopPropagation(); zeigeDuplPop(el, id); });
     // ⊖/⊕ Sub/Bereich ein-/aufklappen (⑤).
     el.querySelector(".gd-klapp").addEventListener("click", (e) => {
       e.stopPropagation();
@@ -1263,14 +1331,14 @@ export function renderAdminGedanken(container, opts) {
 
     // Doppelklick → Vollseite (nicht auf Buttons / Body).
     el.addEventListener("dblclick", (e) => {
-      if (e.target.closest(".gd-check, .gd-todo, .gd-sticky-btn, .gd-klapp, .gd-dringend, .gd-farbe-btn, .gd-farbe-pop, .gd-neu-wrap, .gd-hinweis, .gd-hinweis-form, .gd-del, .gd-attach, .gd-chevron, .gd-ebene, .gd-archiv-btn, .gd-dock, .gd-node-body, .gd-post, .gd-wer-row")) return;
+      if (e.target.closest(".gd-check, .gd-todo, .gd-sticky-btn, .gd-klapp, .gd-dringend, .gd-farbe-btn, .gd-farbe-pop, .gd-dupl, .gd-dupl-pop, .gd-neu-wrap, .gd-hinweis, .gd-hinweis-form, .gd-del, .gd-attach, .gd-chevron, .gd-ebene, .gd-archiv-btn, .gd-dock, .gd-node-body, .gd-post, .gd-wer-row")) return;
       oeffneSeite(id);
     });
 
     // Knoten-Drag (Pointer Events). Reiner Klick → Überschrift fokussieren.
     el.addEventListener("pointerdown", (e) => {
       if (e.pointerType === "mouse" && e.button !== 0) return;
-      if (e.target.closest(".gd-check, .gd-todo, .gd-sticky-btn, .gd-klapp, .gd-dringend, .gd-farbe-btn, .gd-farbe-pop, .gd-neu-wrap, .gd-hinweis, .gd-hinweis-form, .gd-del, .gd-attach, .gd-chevron, .gd-ebene, .gd-archiv-btn, .gd-dock, .gd-node-body, .gd-post, .gd-wer-row")) return;
+      if (e.target.closest(".gd-check, .gd-todo, .gd-sticky-btn, .gd-klapp, .gd-dringend, .gd-farbe-btn, .gd-farbe-pop, .gd-dupl, .gd-dupl-pop, .gd-neu-wrap, .gd-hinweis, .gd-hinweis-form, .gd-del, .gd-attach, .gd-chevron, .gd-ebene, .gd-archiv-btn, .gd-dock, .gd-node-body, .gd-post, .gd-wer-row")) return;
       if (e.target === ta && document.activeElement === ta) return;
       blurAktiv();
       e.preventDefault();

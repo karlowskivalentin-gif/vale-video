@@ -1605,6 +1605,32 @@ a.row-item:hover { background: var(--off-white); }
 /* Archiv-Leinwand dezent anders einfärben, damit der Modus sofort erkennbar ist. */
 .gd-canvas.gd-archiv-modus { background-color: var(--dark); }
 
+/* ---- Gedanken: ⧉ Duplizieren (jede Card-Art, Anzahl wählbar) ---- */
+.gd-dupl {
+  border: none; background: transparent; color: var(--muted);
+  font: inherit; font-size: 12px; line-height: 1;
+  padding: 3px 5px; border-radius: var(--radius); cursor: pointer;
+}
+.gd-dupl:hover { color: var(--accent); background: var(--dark); }
+.gd-dupl-pop {
+  position: absolute; top: 28px; right: 6px; z-index: 6;
+  display: flex; gap: 5px; align-items: center; padding: 6px 8px;
+  background: var(--surface); border: 1px solid var(--mid); border-radius: var(--radius);
+  box-shadow: var(--shadow-card); cursor: default;
+}
+.gd-dupl-lbl { font-size: 11px; font-weight: 600; color: var(--muted); }
+.gd-dupl-pop input {
+  width: 3.2rem; font: inherit; font-size: 12px; text-align: center;
+  border: 1px solid var(--mid); border-radius: 4px; padding: 3px 4px;
+}
+.gd-dupl-pop input:focus { outline: none; border-color: var(--accent); }
+.gd-dupl-ok {
+  font: inherit; font-size: 11px; font-weight: 600; cursor: pointer;
+  border: 1px solid var(--accent); border-radius: 4px; padding: 3px 8px;
+  background: var(--accent); color: #fff; white-space: nowrap;
+}
+.gd-dupl-ok:hover { background: var(--accent-dim); }
+
 /* ---- Gedanken: Subs/Bereiche einklappen (⊖/⊕) ---- */
 .gd-klapp {
   border: none; background: transparent; cursor: pointer; color: var(--muted);

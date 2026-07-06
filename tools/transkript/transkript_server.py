@@ -286,9 +286,10 @@ UI_HTML = """<!DOCTYPE html>
   <div class="card">
     <label for="url">Video-Link</label>
     <input id="url" type="url" placeholder="https://www.instagram.com/reel/…  ·  TikTok  ·  YouTube">
+    <div id="vorschau" style="margin-top:.9rem"></div>
     <div class="row">
       <label for="spr" style="margin:0">Sprache</label>
-      <select id="spr"><option value="auto">Automatisch</option><option value="de" selected>Deutsch</option><option value="en">Englisch</option></select>
+      <select id="spr"><option value="auto" selected>Automatisch (erkennt Deutsch/Englisch selbst)</option><option value="de">Deutsch erzwingen</option><option value="en">Englisch erzwingen</option></select>
       <button class="btn btn-accent" id="go">Transkribieren</button>
     </div>
     <div id="fehler" class="fehler" hidden></div>
@@ -315,6 +316,34 @@ UI_HTML = """<!DOCTYPE html>
 <script>
 const $ = (id) => document.getElementById(id);
 let transkript = "", segmente = [], titel = "", mitZeiten = false, timer = null;
+
+// --- Video-Vorschau direkt nach dem Einfuegen des Links -----------------
+function ladeSkript(src, id, cb){ if(document.getElementById(id)){ if(cb)cb(); return; }
+  const s=document.createElement("script"); s.id=id; s.src=src; s.async=true; if(cb)s.onload=cb; document.body.appendChild(s); }
+function vorschauHtml(url){
+  let m = url.match(/(?:youtube\\.com\\/(?:watch\\?.*v=|shorts\\/|embed\\/)|youtu\\.be\\/)([\\w-]{11})/);
+  if(m) return '<iframe style="width:100%;aspect-ratio:16/9;border:0;border-radius:8px" src="https://www.youtube-nocookie.com/embed/'+m[1]+'" allowfullscreen loading="lazy"></iframe>';
+  m = url.match(/tiktok\\.com\\/.*\\/video\\/(\\d+)/);
+  if(m) return '<blockquote class="tiktok-embed" cite="'+url+'" data-video-id="'+m[1]+'" style="max-width:325px;min-width:240px;margin:0"><section></section></blockquote>';
+  if(/instagram\\.com\\/(reel|p|tv)\\//.test(url)){
+    const clean = url.split("?")[0].replace(/\\/?$/,"/");
+    return '<blockquote class="instagram-media" data-instgrm-permalink="'+clean+'" data-instgrm-version="14" style="max-width:340px;min-width:240px;margin:0"><a href="'+clean+'">Instagram-Beitrag</a></blockquote>';
+  }
+  return "";
+}
+function zeigeVorschau(){
+  const url = $("url").value.trim();
+  const box = $("vorschau");
+  if(!/^https?:/.test(url)){ box.innerHTML=""; return; }
+  const html = vorschauHtml(url);
+  box.innerHTML = html || '<p class="muted hint" style="margin:0">Keine Vorschau f\\u00FCr diesen Link \\u2014 transkribieren geht trotzdem.</p>';
+  if(html.includes("tiktok-embed")) ladeSkript("https://www.tiktok.com/embed.js","tt-js");
+  if(html.includes("instagram-media")) ladeSkript("https://www.instagram.com/embed.js","ig-js",
+    ()=>{ try{ window.instgrm.Embeds.process(); }catch(_){} });
+  if(html.includes("instagram-media") && window.instgrm){ try{ window.instgrm.Embeds.process(); }catch(_){} }
+}
+$("url").addEventListener("input", zeigeVorschau);
+$("url").addEventListener("paste", ()=>setTimeout(zeigeVorschau, 50));
 function fmt(s){const m=Math.floor(s/60),r=Math.floor(s%60);return String(m).padStart(2,"0")+":"+String(r).padStart(2,"0");}
 function zeige(){ $("zeiten").classList.toggle("aktiv", mitZeiten);
   $("text").value = mitZeiten ? segmente.map(s=>"["+fmt(s.start)+"] "+s.text).join("\\n") : transkript; }
