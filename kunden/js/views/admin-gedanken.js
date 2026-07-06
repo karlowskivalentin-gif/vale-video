@@ -465,6 +465,13 @@ export function renderAdminGedanken(container, opts) {
   }
 
   // --- Post-Card: Bilder-Carousel + Social/Video-Embeds -----------------
+  // Produktions-Status eines Posts (Dropdown auf der Karte, in die Pipeline übernommen).
+  const POST_STATUS = [
+    ["", "— Status —"],
+    ["skript", "📝 Skript"],
+    ["shotlist", "🎬 Shotlist"],
+    ["geschnitten", "✂️ Geschnitten"]
+  ];
   const istBildAnhang = (a) =>
     (a.art === "datei" && (a.typ || "").startsWith("image/")) ||
     (a.art === "link" && /\.(png|jpe?g|gif|webp|svg)(\?.*)?$/i.test(a.url || ""));
@@ -486,6 +493,27 @@ export function renderAdminGedanken(container, opts) {
     postIndex.set(id, idx);
 
     wrap.innerHTML = "";
+
+    // Produktions-Status des Posts (Skript → Shotlist → Geschnitten). Wird beim
+    // Pipeline-Deploy mitgenommen. Färbt sich passend zur gewählten Phase.
+    const statusRow = document.createElement("div");
+    statusRow.className = "gd-post-status";
+    const curStatus = g.poststatus || "";
+    const stSel = document.createElement("select");
+    stSel.className = "gd-post-status-sel" + (curStatus ? " is-" + curStatus : "");
+    stSel.title = "Produktions-Status dieses Posts (wird in die Pipeline übernommen)";
+    stSel.innerHTML = POST_STATUS.map(([v, l]) =>
+      `<option value="${v}"${v === curStatus ? " selected" : ""}>${l}</option>`).join("");
+    stSel.addEventListener("pointerdown", (e) => e.stopPropagation());
+    stSel.addEventListener("change", (e) => {
+      e.stopPropagation();
+      const val = stSel.value;
+      const d = daten.get(id); if (d) d.poststatus = val;
+      stSel.className = "gd-post-status-sel" + (val ? " is-" + val : "");
+      aktualisiereGedanke(id, { poststatus: val }).catch((err) => console.warn(err));
+    });
+    statusRow.appendChild(stSel);
+    wrap.appendChild(statusRow);
 
     // Bilder-Carousel
     if (bilder.length) {
@@ -591,15 +619,21 @@ export function renderAdminGedanken(container, opts) {
           btn.disabled = true; btn.textContent = "Wird angelegt …";
           try {
             const g = daten.get(id) || {};
-            const links = (g.dateien || []).filter((a) => a.art === "link" && !istBildAnhang(a));
+            // ALLE Anhänge (Bilder, Videos, Links, Dateien) 1:1 in den Plan —
+            // damit in der Pipeline genau das Material des Posts erscheint.
+            const dateien = (g.dateien || []).map((a) => ({ ...a }));
+            // Nicht-Bild-Links zusätzlich als Inspirationen (bestehende Vorschau).
+            const links = dateien.filter((a) => a.art === "link" && !istBildAnhang(a));
             const ref = await planAnlegen({
               titel: (g.text || "").trim() || "Post aus Mindmap",
               typ: "Post",
               status: "entwurf",
+              poststatus: g.poststatus || "",
               inspirationen: links.map((a) => ({ url: a.url, plattform: erkennePlattform(a.url) })),
               sound: { name: "", link: "" },
               shotlist: [],
-              notiz: g.detail || ""
+              notiz: g.detail || "",
+              dateien
             });
             await aktualisiereGedanke(id, { planId: ref.id });
             if (daten.get(id)) daten.get(id).planId = ref.id;

@@ -229,10 +229,12 @@ export async function planAnlegen(daten) {
     typ:           daten.typ || "",
     objektId:      daten.objektId || null,
     status:        daten.status || "entwurf",
+    poststatus:    daten.poststatus || "",   // aus einem Post übernommen: ''|skript|shotlist|geschnitten
     inspirationen: Array.isArray(daten.inspirationen) ? daten.inspirationen : [],
     sound:         daten.sound || { name: "", link: "" },
     shotlist:      Array.isArray(daten.shotlist) ? daten.shotlist : [],
     notiz:         daten.notiz || "",
+    dateien:       Array.isArray(daten.dateien) ? daten.dateien : [],   // Anhänge aus dem Post (Bilder/Links/Dateien)
     geplanterDrehtermin: daten.geplanterDrehtermin || null,
     geplantesDatum:      daten.geplantesDatum || null,
     erstelltAm:     serverTimestamp(),
@@ -328,6 +330,7 @@ export async function gedankeAnlegen(daten) {
     text:        daten.text || "",
     ebene:       (daten.ebene === "bereich" || daten.ebene === "sub" || daten.ebene === "untersub") ? daten.ebene : "gedanke",
     kind:        daten.kind === "post" ? "post" : "gedanke",  // Format: normaler Gedanke | Post-Card
+    poststatus:  daten.poststatus || "",                      // Post-Produktionsphase: ''|skript|shotlist|geschnitten
     todo:        !!daten.todo,                                 // To-Do-Status (grün / im Filter)
     sticky:      !!daten.sticky,                               // 📌 Sticky Note (gelb; offene Fragestellung, eigener Tab)
     dringend:    !!daten.dringend,                             // ❗ dringliches To-Do (roter Glow, oben fixiert)

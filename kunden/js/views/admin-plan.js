@@ -4,15 +4,20 @@
 // „Veröffentlichen" markiert den Plan als fertige Referenz (kein Kunden-Zugriff).
 import {
   ladePlan, planAnlegen, aktualisierePlan, loeschePlan, ladeObjekte,
-  ladeShotvorlagen, shotvorlageAnlegen, aktualisiereShotvorlage, loescheShotvorlage
+  ladeShotvorlagen, shotvorlageAnlegen, aktualisiereShotvorlage, loescheShotvorlage,
+  ladeDateiblob
 } from "../db.js";
 import { beiViewWechsel } from "../view-lifecycle.js";
 import { escapeHtml, tsZuDateInput, dateInputZuDate } from "../util.js";
 import { embedHtml, erkennePlattform, verarbeiteEmbeds } from "../embeds.js";
 
 // Reihenfolge der Panels — global (alle Pläne), pro Browser in localStorage.
-const PANEL_KEYS    = ["eckdaten", "inspiration", "sound", "shotlist", "notizen"];
+// „anhaenge" erscheint nur, wenn der Plan Anhänge aus einem Post trägt.
+const PANEL_KEYS    = ["eckdaten", "anhaenge", "inspiration", "sound", "shotlist", "notizen"];
 const LS_PANELORDER = "vale_plan_panelorder";
+
+// Post-Produktionsphase (aus dem Post übernommen) → Badge im Plan.
+const POST_STATUS_LABEL = { skript: "📝 Skript", shotlist: "🎬 Shotlist", geschnitten: "✂️ Geschnitten" };
 
 function ladePanelOrder() {
   try {
@@ -68,6 +73,8 @@ export function renderAdminPlan(container, ctx) {
       sound:    plan && plan.sound ? { name: plan.sound.name || "", link: plan.sound.link || "" } : { name: "", link: "" },
       shotlist: plan && Array.isArray(plan.shotlist) ? plan.shotlist.map((s) => ({ text: s.text || "", erledigt: !!s.erledigt, notiz: s.notiz || "" })) : [],
       notiz:    plan ? (plan.notiz || "") : "",
+      dateien:  plan && Array.isArray(plan.dateien) ? plan.dateien : [],   // Anhänge aus dem Post (read-only Anzeige)
+      poststatus: plan ? (plan.poststatus || "") : "",
       drehInput: plan ? tsZuDateInput(plan.geplanterDrehtermin) : "",
       pubInput:  plan ? tsZuDateInput(plan.geplantesDatum) : ""
     };
@@ -88,6 +95,46 @@ export function renderAdminPlan(container, ctx) {
       });
       wire();
       verarbeiteEmbeds(body.querySelector("#plInspListe"));
+      renderAnhaenge();
+    }
+
+    // Anhänge aus dem Post (read-only): Bilder/Videos/Audio aus Blobs, Links als
+    // Embed (YouTube/Insta/TikTok) bzw. Bild/Video-URL, sonstige zum Download.
+    function renderAnhaenge() {
+      const ziel = body.querySelector("#plAnhListe");
+      if (!ziel) return;
+      ziel.innerHTML = "";
+      (state.dateien || []).forEach((att) => {
+        const box = document.createElement("div");
+        box.className = "plan-anh";
+        const name = document.createElement("div");
+        name.className = "plan-anh-name";
+        name.textContent = (att.art === "link" ? "🔗 " : "📄 ") + (att.name || att.url || "Datei");
+        const media = document.createElement("div");
+        media.className = "plan-anh-media";
+        box.append(name, media);
+        ziel.appendChild(box);
+        fuelleAnhang(media, att);
+      });
+    }
+    function fuelleAnhang(el, att) {
+      if (att.art === "link") {
+        const u = String(att.url || "").toLowerCase();
+        if (/\.(png|jpe?g|gif|webp|svg)(\?.*)?$/.test(u)) { el.innerHTML = `<img class="plan-anh-img" src="${escapeHtml(att.url)}" alt="">`; return; }
+        if (/\.(mp4|webm|mov|m4v)(\?.*)?$/.test(u)) { el.innerHTML = `<video class="plan-anh-vid" controls src="${escapeHtml(att.url)}"></video>`; return; }
+        el.innerHTML = embedHtml(att.url); verarbeiteEmbeds(el); return;
+      }
+      if (!att.blobId) { el.innerHTML = `<span class="plan-anh-fehler">Datei fehlt</span>`; return; }
+      el.innerHTML = `<span class="muted" style="font-size:.8rem">lädt …</span>`;
+      ladeDateiblob(att.blobId).then((b) => {
+        if (!b) { el.innerHTML = `<span class="plan-anh-fehler">Datei nicht gefunden</span>`; return; }
+        const url = `data:${b.typ};base64,${b.base64}`;
+        const typ = b.typ || att.typ || "";
+        if (typ.startsWith("image/"))      el.innerHTML = `<img class="plan-anh-img" src="${url}" alt="${escapeHtml(att.name || "")}">`;
+        else if (typ.startsWith("video/")) el.innerHTML = `<video class="plan-anh-vid" controls src="${url}"></video>`;
+        else if (typ.startsWith("audio/")) el.innerHTML = `<audio style="width:100%" controls src="${url}"></audio>`;
+        else el.innerHTML = `<a class="btn btn--ghost btn--sm" href="${url}" download="${escapeHtml(att.name || "datei")}">Herunterladen ↓</a>`;
+      }).catch(() => { el.innerHTML = `<span class="plan-anh-fehler">Fehler beim Laden</span>`; });
     }
 
     function syncText() {
@@ -119,10 +166,12 @@ export function renderAdminPlan(container, ctx) {
         typ: state.typ,
         objektId: state.objektId || null,
         status: state.status,
+        poststatus: state.poststatus,
         inspirationen: state.inspirationen,
         sound: state.sound,
         shotlist: state.shotlist,
         notiz: state.notiz,
+        dateien: state.dateien,   // unverändert durchreichen (Anhänge nicht verlieren)
         geplanterDrehtermin: dateInputZuDate(state.drehInput),
         geplantesDatum: dateInputZuDate(state.pubInput)
       };
@@ -481,9 +530,11 @@ function formHtml(state, objekte, istNeu, opts) {
       `<option value="${escapeHtml(o.id)}"${o.id === state.objektId ? " selected" : ""}>${escapeHtml(o.adresse || o.id)}</option>`))
     .join("");
 
-  const statusBadge = state.status === "veroeffentlicht"
+  const postBadge = state.poststatus && POST_STATUS_LABEL[state.poststatus]
+    ? `<span class="plan-badge plan-badge--post">${POST_STATUS_LABEL[state.poststatus]}</span>` : "";
+  const statusBadge = postBadge + (state.status === "veroeffentlicht"
     ? `<span class="plan-badge plan-badge--veroeffentlicht">Veröffentlicht</span>`
-    : `<span class="plan-badge plan-badge--entwurf">Entwurf</span>`;
+    : `<span class="plan-badge plan-badge--entwurf">Entwurf</span>`);
 
   const inspListe = state.inspirationen.length
     ? state.inspirationen.map((insp, i) => `
@@ -561,6 +612,13 @@ function formHtml(state, objekte, istNeu, opts) {
         </div>
       </form>
     </section>`,
+
+    anhaenge: state.dateien.length ? `
+    <section class="card card--pad form-card">
+      ${panelKopf("anhaenge", "Anhänge aus dem Post", panelOrder)}
+      <p class="field-hint muted" style="margin-top:-0.4rem">Alle Bilder, Videos, Links und Dateien, die am Post hingen — automatisch übernommen.</p>
+      <div id="plAnhListe" class="plan-anh-liste"></div>
+    </section>` : "",
 
     inspiration: `
     <section class="card card--pad form-card">

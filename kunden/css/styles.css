@@ -538,6 +538,15 @@ a.row-item:hover { background: var(--off-white); }
 }
 .plan-badge--entwurf        { background: rgba(107,98,88,0.10); color: var(--muted); border-color: rgba(107,98,88,0.30); }
 .plan-badge--veroeffentlicht{ background: #eaf5ee; color: var(--ok); border-color: #bfe0cb; }
+.plan-badge--post           { background: #fdf2f9; color: #c026a0; border-color: #f5c2e4; }
+
+/* Plan: Anhänge aus dem Post (read-only Galerie) */
+.plan-anh-liste { display: flex; flex-direction: column; gap: 1rem; }
+.plan-anh { border: 1px solid var(--mid); border-radius: var(--radius); padding: 0.75rem; background: var(--off-white); }
+.plan-anh-name { font-size: 0.82rem; font-weight: 600; color: var(--black); margin-bottom: 0.5rem; overflow-wrap: anywhere; }
+.plan-anh-media { display: flex; }
+.plan-anh-img, .plan-anh-vid { max-width: 100%; max-height: 360px; border-radius: var(--radius); }
+.plan-anh-fehler { color: var(--error); font-size: 0.82rem; }
 
 /* Zeile aus Eingabefeld (wächst) + Button daneben */
 .field-inline-form { display: flex; gap: 0.5rem; align-items: stretch; margin-bottom: 1rem; flex-wrap: wrap; }
@@ -1133,6 +1142,18 @@ a.row-item:hover { background: var(--off-white); }
 
 .gd-post { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; cursor: default; }
 .gd-post[hidden] { display: none; }
+
+/* Post-Produktions-Status (Dropdown auf der Karte): Skript → Shotlist → Geschnitten */
+.gd-post-status { display: flex; }
+.gd-post-status-sel {
+  flex: 1 1 auto; min-width: 0; font: inherit; font-size: .78rem; font-weight: 600;
+  padding: .3rem .5rem; cursor: pointer; color: var(--black);
+  border: 1px solid var(--mid); border-radius: var(--radius); background: var(--surface);
+}
+.gd-post-status-sel:focus { outline: none; border-color: #e255a1; }
+.gd-post-status-sel.is-skript      { border-color: #3b82f6; background: #eff6ff; color: #1d4ed8; }
+.gd-post-status-sel.is-shotlist    { border-color: #eab308; background: #fefce8; color: #a16207; }
+.gd-post-status-sel.is-geschnitten { border-color: #2f9e44; background: #f2fbf5; color: #2f7a3a; }
 
 .gd-post-carousel {
   position: relative; border-radius: var(--radius); overflow: hidden;
