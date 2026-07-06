@@ -446,6 +446,7 @@ export function renderAdminPlan(container, ctx) {
               titel: state.titel,
               typ: state.typ,
               objektId: state.objektId || null,
+              planId: aktuelleId,   // Video-Edit zeigt ALLE Plan-Details (Links, Dateien, Shotlist, Notiz)
               status: STATUS.IDEE,
               geplanterDrehtermin: dateInputZuDate(state.drehInput),
               geplantesDatum: dateInputZuDate(state.pubInput)

@@ -1,6 +1,6 @@
 // Admin-View: Pipeline. Alle Videos mit Status-Dropdown (alle 10 Stufen).
 // Beim Setzen auf eine Freigabe-Stufe → EmailJS-Benachrichtigung an die Kunden.
-import { beobachteVideos, adminSetzeStatus } from "../db.js";
+import { beobachteVideos, adminSetzeStatus, loescheVideo } from "../db.js";
 import { beiViewWechsel } from "../view-lifecycle.js";
 import { STATUS, STATUS_REIHENFOLGE, istFreigabeStufe, kundenStatus } from "../status.js";
 import { sendKundeFreigabe } from "../email.js";
@@ -54,6 +54,7 @@ function zeichne(el, videos) {
             </span>
           </div>
           <select class="pl-status field-inline" aria-label="Status">${opts}</select>
+          <button class="pl-del" type="button" title="Video aus der Pipeline entfernen">✕</button>
         </div>`;
     }).join("")}
   </div>`;
@@ -62,6 +63,20 @@ function zeichne(el, videos) {
     const id = row.getAttribute("data-id");
     const sel = row.querySelector(".pl-status");
     const video = videos.find((x) => x.id === id);
+
+    // Entfernen mit 2-Klick-Bestätigung (erst „Löschen?", dann wirklich weg).
+    const del = row.querySelector(".pl-del");
+    del.addEventListener("click", async () => {
+      if (!del.classList.contains("is-bestaetigen")) {
+        del.classList.add("is-bestaetigen");
+        del.textContent = "Löschen?";
+        setTimeout(() => { if (del.isConnected) { del.classList.remove("is-bestaetigen"); del.textContent = "✕"; } }, 4000);
+        return;
+      }
+      del.disabled = true;
+      try { await loescheVideo(id); }   // Liste aktualisiert der Observer
+      catch (e) { console.error(e); del.disabled = false; del.classList.remove("is-bestaetigen"); del.textContent = "✕"; }
+    });
     sel.addEventListener("change", async () => {
       const neu = sel.value;
       sel.disabled = true;

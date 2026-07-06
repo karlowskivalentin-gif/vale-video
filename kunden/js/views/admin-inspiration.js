@@ -99,10 +99,7 @@ export function renderAdminInspiration(container) {
   // --- Card-Rendering -------------------------------------------------------
   function katLabel(k) { return (KATEGORIEN.find((x) => x.id === k) || KATEGORIEN[2]).label; }
 
-  function referenzHtml(insp) {
-    // Videos einbetten; Profile/Accounts (oder alles Nicht-Einbettbare) als Kachel.
-    const p = erkennePlattform(insp.url);
-    if (insp.kategorie !== "profil") return `<div class="insp-embed">${embedHtml(insp.url)}</div>`;
+  function profilKachel(insp, p) {
     return `
       <a class="insp-profil" href="${escapeHtml(insp.url)}" target="_blank" rel="noopener">
         <span class="insp-profil-icon">👤</span>
@@ -112,6 +109,40 @@ export function renderAdminInspiration(container) {
         </span>
         <span class="insp-profil-pfeil">↗</span>
       </a>`;
+  }
+
+  function referenzHtml(insp) {
+    // Videos einbetten; Profile mit ECHTER Vorschau, wo die Plattform es
+    // offiziell hergibt (Instagram-Profil-Embed, TikTok-Creator-Embed).
+    // YouTube-Kanäle/Sonstiges: Kachel mit Link (kein offizielles Embed).
+    const p = erkennePlattform(insp.url);
+    if (insp.kategorie !== "profil") return `<div class="insp-embed">${embedHtml(insp.url)}</div>`;
+
+    if (p === "instagram") {
+      // Offizielles Profil-Embed: Avatar + letzte Posts (embed.js rendert).
+      const profilUrl = insp.url.replace(/\/?(\?.*)?$/, "/");
+      return `<div class="insp-embed">
+        <blockquote class="instagram-media embed-blockquote"
+          data-instgrm-permalink="${escapeHtml(profilUrl)}" data-instgrm-version="14"
+          style="max-width:340px;min-width:240px;margin:0;">
+          <a href="${escapeHtml(insp.url)}" target="_blank" rel="noopener">Instagram-Profil ansehen</a>
+        </blockquote>
+      </div>` + profilKachel(insp, p);
+    }
+    if (p === "tiktok") {
+      // Offizielles Creator-Embed (Profil-Card mit letzten Videos).
+      const m = insp.url.match(/@([\w.\-]+)/);
+      if (m) {
+        return `<div class="insp-embed">
+          <blockquote class="tiktok-embed embed-blockquote" cite="${escapeHtml(insp.url)}"
+            data-unique-id="${escapeHtml(m[1])}" data-embed-type="creator"
+            style="max-width:340px;min-width:240px;margin:0;">
+            <section><a href="${escapeHtml(insp.url)}" target="_blank" rel="noopener">@${escapeHtml(m[1])} auf TikTok</a></section>
+          </blockquote>
+        </div>` + profilKachel(insp, p);
+      }
+    }
+    return profilKachel(insp, p);
   }
 
   function cardHtml(insp) {

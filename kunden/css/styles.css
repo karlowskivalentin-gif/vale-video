@@ -552,6 +552,20 @@ a.row-item:hover { background: var(--off-white); }
 .plan-pipeline-btn.is-deployt { border-color: #2f9e44; color: #2f7a3a; }
 .plan-pipeline-btn.is-deployt:hover { border-color: #2f9e44; background: #f2fbf5; }
 
+/* Video-Edit: "Aus dem Plan"-Sektion + Pipeline-Löschen */
+.ave-plan-block { margin-top: 1rem; }
+.ave-plan-block:first-of-type { margin-top: .4rem; }
+.ave-plan-shots { list-style: none; margin: .4rem 0 0; padding: 0; display: flex; flex-direction: column; gap: .35rem; font-size: .92rem; }
+.ave-plan-shots li.is-done { color: var(--muted); }
+.pl-del {
+  flex: 0 0 auto; border: none; background: transparent; color: var(--muted);
+  font: inherit; font-size: .8rem; line-height: 1; padding: .35rem .5rem;
+  border-radius: var(--radius); cursor: pointer; white-space: nowrap;
+}
+.pl-del:hover { color: var(--error); background: var(--dark); }
+.pl-del.is-bestaetigen { background: var(--error); color: #fff; font-weight: 600; }
+.pl-del:disabled { opacity: .5; cursor: default; }
+
 /* Plan: Anhänge aus dem Post (read-only Galerie) */
 .plan-anh-liste { display: flex; flex-direction: column; gap: 1rem; }
 .plan-anh { border: 1px solid var(--mid); border-radius: var(--radius); padding: 0.75rem; background: var(--off-white); }

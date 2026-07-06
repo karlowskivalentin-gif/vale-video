@@ -66,6 +66,7 @@ export async function videoAnlegen(daten) {
     titel:          daten.titel || "",
     typ:            daten.typ || "",
     objektId:       daten.objektId || null,
+    planId:         daten.planId || null,   // Herkunfts-Plan (Video-Edit zeigt dessen volle Details)
     status:         daten.status || STATUS.IDEE,
     skriptLink:     daten.skriptLink || "",
     schnittLink:    daten.schnittLink || "",
