@@ -147,11 +147,11 @@ export function renderTodos(container, opts) {
     ev.preventDefault();
     istDragging = true;
     li.classList.add("is-dragging");
-    try { handle.setPointerCapture(ev.pointerId); } catch (_) { /* egal */ }
 
     const zonen = () => [...body.querySelectorAll(".todo-uebersicht .todo-liste[data-zone]")];
 
     const move = (e) => {
+      e.preventDefault();
       const y = e.clientY, x = e.clientX;
       // Ziel-Zone bestimmen (Element unter dem Cursor, sonst per Y der Zonen-Box).
       let zoneUl = null;
@@ -171,9 +171,9 @@ export function renderTodos(container, opts) {
     };
 
     const up = () => {
-      handle.removeEventListener("pointermove", move);
-      handle.removeEventListener("pointerup", up);
-      handle.removeEventListener("pointercancel", up);
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
       li.classList.remove("is-dragging");
       istDragging = false;
       // Neue Reihenfolge + Dringlichkeit aus dem finalen DOM ableiten.
@@ -196,9 +196,11 @@ export function renderTodos(container, opts) {
       Promise.all(schreiben); // im Hintergrund; Snapshots bestätigen
     };
 
-    handle.addEventListener("pointermove", move);
-    handle.addEventListener("pointerup", up);
-    handle.addEventListener("pointercancel", up);
+    // Auf window lauschen (nicht am Griff): funktioniert unabhängig von
+    // Pointer-Capture-Eigenheiten mit jeder Maus/jedem Finger zuverlässig.
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
   }
 
   function itemHtml(g, map, mitDrag) {

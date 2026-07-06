@@ -418,19 +418,29 @@ a.row-item:hover { background: var(--off-white); }
   border-radius: var(--radius); font-size: 0.85rem;
 }
 
-/* --- Objekte-Zeile --------------------------------------------------- */
-.ob-row {
-  display: flex; align-items: flex-start; justify-content: space-between;
-  gap: 1rem; padding: 1rem 1.25rem; border-bottom: 1px solid var(--mid);
+/* --- Objekte: Karten im Formular-Look (wie das Kunden-Meldeformular) --- */
+.ob-karten { display: flex; flex-direction: column; gap: 1.25rem; }
+.ob-card { max-width: 720px; }
+.ob-card-kopf {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 1rem; margin-bottom: 1.1rem; flex-wrap: wrap;
 }
-.ob-row:last-child { border-bottom: none; }
-.ob-main { display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; }
-.ob-beschr { font-size: 0.85rem; margin: 0.2rem 0 0; line-height: 1.5; white-space: pre-wrap; }
-.ob-link { font-size: 0.78rem; }
-.ob-link:hover { color: var(--accent); }
-.ob-aktionen {
-  display: flex; flex-direction: column; gap: 0.5rem;
-  flex: 0 0 auto; align-items: stretch;
+.ob-card-adresse { font-size: 1.15rem; font-weight: 700; margin: 0; overflow-wrap: anywhere; }
+.ob-felder { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.9rem 1.1rem; }
+.ob-feld { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; }
+.ob-feld--voll { grid-column: 1 / -1; }
+.ob-feld-label { font-size: 0.78rem; font-weight: 600; color: var(--muted); }
+.ob-feld-wert {
+  font-size: 0.95rem; color: var(--black);
+  background: var(--surface-2); border: 1px solid var(--mid); border-radius: var(--radius);
+  padding: 0.6rem 0.8rem; overflow-wrap: anywhere;
+}
+.ob-feld-wert--text { white-space: pre-wrap; line-height: 1.55; min-height: 3rem; }
+.ob-feld-link { display: block; color: var(--accent-dim); }
+.ob-feld-link:hover { color: var(--accent); }
+.ob-card-fuss { margin-top: 1.1rem; }
+@media (max-width: 720px) {
+  .ob-felder { grid-template-columns: 1fr; }
 }
 
 /* --- Termine-Zeile --------------------------------------------------- */
@@ -889,10 +899,7 @@ a.row-item:hover { background: var(--off-white); }
   .pw-panel { right: 0.5rem; left: 0.5rem; width: auto; }
   .pl-row { flex-direction: column; align-items: stretch; gap: 0.6rem; }
   .pl-status { width: 100%; }
-  .ob-row { flex-direction: column; }
   .tm-row { flex-direction: column; }
-  .ob-aktionen { flex-direction: row; flex-wrap: wrap; }
-  .ob-aktionen .field-inline { flex: 1 1 100%; }
   .kal-tag { min-height: 60px; }
   .kal-chip { font-size: 0.62rem; }
   .kal-titel { min-width: 0; flex: 1; font-size: 0.95rem; }
@@ -1643,6 +1650,8 @@ a.row-item:hover { background: var(--off-white); }
 .tk-dot.is-aus { background: var(--error); }
 .tk-optionen { display: flex; align-items: center; gap: .7rem; flex-wrap: wrap; }
 .tk-opt-label { font-size: .8rem; font-weight: 600; color: var(--muted); }
+.tk-schritte { margin: 0; padding-left: 1.3rem; display: flex; flex-direction: column; gap: .6rem; font-size: .95rem; }
+.tk-schritte code { background: var(--surface-2); border: 1px solid var(--mid); border-radius: 4px; padding: .1rem .4rem; font-size: .82rem; }
 .tk-progress { margin-top: 1.25rem; }
 .tk-progress-kopf { display: flex; align-items: baseline; justify-content: space-between; gap: .8rem; font-weight: 600; margin-bottom: .6rem; flex-wrap: wrap; }
 .tk-bar { height: 10px; border-radius: 999px; background: var(--off-white); border: 1px solid var(--mid); overflow: hidden; }

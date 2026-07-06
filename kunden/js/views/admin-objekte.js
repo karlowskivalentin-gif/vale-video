@@ -37,30 +37,48 @@ function zeichne(el, objekte) {
     return;
   }
 
-  el.innerHTML = `<div class="card row-list">
+  // Eine Karte pro Objekt — gleiche Feld-Optik wie das Melde-Formular des
+  // Kunden (Adresse, Objekttyp, Beschreibung, Link), nur read-only.
+  el.innerHTML = `<div class="ob-karten">
     ${objekte.map((o) => {
       const opts = OBJEKT_STATUS_LISTE
         .map((s) => `<option value="${escapeHtml(s)}"${s === o.status ? " selected" : ""}>${escapeHtml(s)}</option>`)
         .join("");
-      const link = o.link
-        ? `<a class="ob-link muted" href="${escapeHtml(o.link)}" target="_blank" rel="noopener">Material ↗</a>` : "";
       return `
-        <div class="ob-row" data-id="${escapeHtml(o.id)}">
-          <div class="ob-main">
-            <span class="row-name">${escapeHtml(o.adresse || "Ohne Adresse")}</span>
-            <span class="row-sub muted">
-              ${o.objektTyp ? escapeHtml(o.objektTyp) + " · " : ""}gemeldet von ${escapeHtml(kurz(o.gemeldetVon))}
-              ${o.erstelltAm ? " · " + escapeHtml(formatDatum(o.erstelltAm)) : ""}
-            </span>
-            ${o.beschreibung ? `<p class="ob-beschr">${escapeHtml(o.beschreibung)}</p>` : ""}
-            ${link}
-          </div>
-          <div class="ob-aktionen">
+        <section class="card card--pad ob-card ob-row" data-id="${escapeHtml(o.id)}">
+          <div class="ob-card-kopf">
+            <h2 class="ob-card-adresse">🏠 ${escapeHtml(o.adresse || "Ohne Adresse")}</h2>
             <select class="ob-status field-inline" aria-label="Status">${opts}</select>
+          </div>
+          <div class="ob-felder">
+            <div class="ob-feld">
+              <span class="ob-feld-label">Objekttyp</span>
+              <span class="ob-feld-wert">${escapeHtml(o.objektTyp || "—")}</span>
+            </div>
+            <div class="ob-feld">
+              <span class="ob-feld-label">Gemeldet von</span>
+              <span class="ob-feld-wert">${escapeHtml(kurz(o.gemeldetVon))}</span>
+            </div>
+            <div class="ob-feld">
+              <span class="ob-feld-label">Eingegangen am</span>
+              <span class="ob-feld-wert">${o.erstelltAm ? escapeHtml(formatDatum(o.erstelltAm)) : "—"}</span>
+            </div>
+            <div class="ob-feld ob-feld--voll">
+              <span class="ob-feld-label">Beschreibung / Eckdaten</span>
+              <div class="ob-feld-wert ob-feld-wert--text">${escapeHtml(o.beschreibung || "—")}</div>
+            </div>
+            <div class="ob-feld ob-feld--voll">
+              <span class="ob-feld-label">Material-Link</span>
+              ${o.link
+                ? `<a class="ob-feld-wert ob-feld-link" href="${escapeHtml(o.link)}" target="_blank" rel="noopener">${escapeHtml(o.link)} ↗</a>`
+                : `<span class="ob-feld-wert muted">— kein Link —</span>`}
+            </div>
+          </div>
+          <div class="ob-card-fuss action-btns">
             <button class="btn btn--accent btn--sm ob-video" type="button">+ Video anlegen</button>
             <button class="btn btn--ghost btn--sm ob-del" type="button" aria-label="Löschen">Löschen</button>
           </div>
-        </div>`;
+        </section>`;
     }).join("")}
   </div>`;
 
