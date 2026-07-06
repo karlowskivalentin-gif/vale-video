@@ -74,7 +74,7 @@ export function renderTodos(container, opts) {
   function kategorien() {
     const mapIds = new Set(meineMaps().map((m) => m.id));
     return [...daten.values()]
-      .filter((g) => (g.ebene === "sub" || g.ebene === "bereich") && !g.archiviert
+      .filter((g) => (g.ebene === "sub" || g.ebene === "bereich" || g.ebene === "untersub") && !g.archiviert
         && mapIds.has(g.mapId || DEFAULT_MAP))
       .map((g) => ({ id: g.id, name: (g.text || "Unbenannt").trim() || "Unbenannt" }))
       .sort((a, b) => a.name.localeCompare(b.name, "de"));

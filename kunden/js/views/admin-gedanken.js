@@ -87,7 +87,7 @@ export function renderAdminGedanken(container, opts) {
   // BFS über die Verbindungen, aber nur zu Knoten NIEDRIGERER Ebene (ein Sub
   // versteckt seine Gedanken-Ketten, ein Bereich zusätzlich seine Subs — nie
   // den übergeordneten Bereich daneben). Persistiert im Feld `eingeklappt`.
-  const RANG = { bereich: 3, sub: 2, gedanke: 1 };
+  const RANG = { bereich: 4, sub: 3, untersub: 2, gedanke: 1 };
   let verdeckt = new Set();          // ids, die aktuell durch Einklappen unsichtbar sind
   function nachbarIndex() {
     const idx = new Map();
@@ -174,6 +174,7 @@ export function renderAdminGedanken(container, opts) {
         </span>
         <button class="btn btn--accent btn--sm" id="gdNeuBereich" type="button" title="Großer, übergeordneter Bereich (z. B. Vale Video)">+ Bereich</button>
         <button class="btn btn--ghost btn--sm" id="gdNeuSub" type="button" title="Subbereich (z. B. Social Media)">+ Sub</button>
+        <button class="btn btn--ghost btn--sm" id="gdNeuUntersub" type="button" title="Unter-Sub (H3) — Zwischenebene unter einem Sub (z. B. Reels unter Content System)">+ H3</button>
         <button class="btn btn--ghost btn--sm" id="gdNeuGedanke" type="button" title="Einzelner Gedanke">+ Gedanke</button>
         <button class="btn btn--ghost btn--sm gd-neu-post" id="gdNeuPost" type="button" title="Post-Entwurf (Bilder-Carousel + Video/Social-Link)">+ Post</button>
         <select class="gd-filter" id="gdFilter" title="Gedanken filtern (Bereiche & Subs bleiben immer sichtbar)" aria-label="Gedanken filtern">
@@ -791,13 +792,13 @@ export function renderAdminGedanken(container, opts) {
   }
 
   // --- Ebenen (Bereich / Sub / Gedanke) ---------------------------------
-  const EBENEN = ["gedanke", "sub", "bereich"];
-  function ebeneOk(e) { return e === "bereich" || e === "sub" ? e : "gedanke"; }
-  function ebeneLabel(e) { return e === "bereich" ? "H1" : e === "sub" ? "H2" : "—"; }
+  const EBENEN = ["gedanke", "untersub", "sub", "bereich"];
+  function ebeneOk(e) { return (e === "bereich" || e === "sub" || e === "untersub") ? e : "gedanke"; }
+  function ebeneLabel(e) { return e === "bereich" ? "H1" : e === "sub" ? "H2" : e === "untersub" ? "H3" : "—"; }
   // Setzt die Ebenen-Klasse am Knoten-Element und das Umschalter-Label.
   function wendeEbeneAn(el, ebene) {
     const e = ebeneOk(ebene);
-    el.classList.remove("gd-node--bereich", "gd-node--sub", "gd-node--gedanke");
+    el.classList.remove("gd-node--bereich", "gd-node--sub", "gd-node--untersub", "gd-node--gedanke");
     el.classList.add("gd-node--" + e);
     const btn = el.querySelector(".gd-ebene");
     if (btn) btn.textContent = ebeneLabel(e);
@@ -806,8 +807,11 @@ export function renderAdminGedanken(container, opts) {
     const e = ebeneOk(ebene);
     const g = daten.get(id); if (g) g.ebene = e;
     const felder = { ebene: e };
-    // Nur einzelne Gedanken dürfen To-Do sein — beim Höherstufen entfernen.
-    if (e !== "gedanke" && g && g.todo) { g.todo = false; felder.todo = false; }
+    // Nur einzelne Gedanken dürfen To-Do/Sticky sein — beim Höherstufen entfernen.
+    if (e !== "gedanke" && g) {
+      if (g.todo)    { g.todo = false;    felder.todo = false; felder.dringend = false; g.dringend = false; }
+      if (g.sticky)  { g.sticky = false;  felder.sticky = false; }
+    }
     const el = knoten.get(id); if (el) { wendeEbeneAn(el, e); wendeFarbeAn(el, g || {}); }
     aktualisiereGedanke(id, felder).catch((err) => console.warn(err));
     zeichneKanten(); renderSidebar();
@@ -1524,7 +1528,7 @@ export function renderAdminGedanken(container, opts) {
     const r = canvas.getBoundingClientRect();
     neuZaehler++;
     const versatz = (neuZaehler % 5) * 26 - 52;
-    const breite = e === "bereich" ? 300 : e === "sub" ? 250 : KNOTEN_B;
+    const breite = e === "bereich" ? 300 : e === "sub" ? 250 : e === "untersub" ? 234 : KNOTEN_B;
     const worldCX = (r.width / 2 - panX) / zoom;   // Welt-Mitte des Ausschnitts
     const worldCY = (r.height / 2 - panY) / zoom;
     const x = Math.round(worldCX - breite / 2 + versatz);
@@ -1542,6 +1546,7 @@ export function renderAdminGedanken(container, opts) {
   }
   container.querySelector("#gdNeuBereich").addEventListener("click", () => neuerGedanke("bereich"));
   container.querySelector("#gdNeuSub").addEventListener("click", () => neuerGedanke("sub"));
+  container.querySelector("#gdNeuUntersub").addEventListener("click", () => neuerGedanke("untersub"));
   container.querySelector("#gdNeuGedanke").addEventListener("click", () => neuerGedanke("gedanke"));
   container.querySelector("#gdNeuPost").addEventListener("click", () => neuerGedanke({ ebene: "gedanke", kind: "post" }));
 

@@ -216,7 +216,7 @@ export function renderAdminFokus(container) {
   // frühere 🎯-Häkchen entfällt.
   function subKategorien() {
     return alleGedanken
-      .filter((g) => (g.ebene === "sub" || g.ebene === "bereich") && !g.archiviert)
+      .filter((g) => (g.ebene === "sub" || g.ebene === "bereich" || g.ebene === "untersub") && !g.archiviert)
       .map((g) => ({ id: g.id, name: g.text || "Unbenannter Sub" }))
       .sort((a, b) => a.name.localeCompare(b.name, "de"));
   }

@@ -1494,10 +1494,20 @@ a.row-item:hover { background: var(--off-white); }
 .gd-node--sub .gd-text { font-size: 1.08rem; font-weight: 700; line-height: 1.25; }
 .gd-node--sub .gd-ebene { color: var(--accent-dim); }
 
+/* Unter-Sub (H3) = kleiner als Sub, halbfett — Zwischenebene über dem Gedanken. */
+.gd-node--untersub {
+  width: 234px;
+  border-color: var(--muted);
+  box-shadow: inset 0 2px 0 var(--muted), var(--shadow-card);
+}
+.gd-node--untersub .gd-text { font-size: 0.96rem; font-weight: 700; line-height: 1.3; }
+.gd-node--untersub .gd-ebene { color: var(--muted); }
+
 /* Seitenleiste: Hierarchie durch Gewicht + Einrückung andeuten. */
 .gd-liste-item.ebene-bereich .gd-liste-titel { font-weight: 800; font-size: 13.5px; }
 .gd-liste-item.ebene-sub .gd-liste-titel { font-weight: 700; padding-left: 12px; }
-.gd-liste-item.ebene-gedanke .gd-liste-titel { padding-left: 24px; }
+.gd-liste-item.ebene-untersub .gd-liste-titel { font-weight: 700; font-size: 12.5px; padding-left: 20px; }
+.gd-liste-item.ebene-gedanke .gd-liste-titel { padding-left: 28px; }
 
 /* ---- Gedanken: Zoom ----
    Gezoomt wird per Mausrad / Pinch (zwei Finger); der frühere Zoom-Regler

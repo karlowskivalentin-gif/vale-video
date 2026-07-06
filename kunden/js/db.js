@@ -300,8 +300,8 @@ export async function ladeShotvorlagen() {
 // Felder:
 //   text        (string)          — die Überschrift/der Gedanke selbst
 //   ebene       (string)          — Hierarchie-/Größenstufe:
-//                                    'bereich' (groß/fett), 'sub' (mittel),
-//                                    'gedanke' (normal, Standard)
+//                                    'bereich' (H1, groß/fett), 'sub' (H2, mittel),
+//                                    'untersub' (H3, klein-fett), 'gedanke' (normal, Standard)
 //   detail      (string)          — ausführlicher Markdown-Body („Ausführung")
 //   x, y        (number)          — Position auf der Leinwand (Weltkoordinaten)
 //   erledigt    (bool)            — Checkbox → durchgestrichen/abgehakt
@@ -326,7 +326,7 @@ const gedankenCol = () => collection(db, "gedanken");
 export async function gedankeAnlegen(daten) {
   return addDoc(gedankenCol(), {
     text:        daten.text || "",
-    ebene:       (daten.ebene === "bereich" || daten.ebene === "sub") ? daten.ebene : "gedanke",
+    ebene:       (daten.ebene === "bereich" || daten.ebene === "sub" || daten.ebene === "untersub") ? daten.ebene : "gedanke",
     kind:        daten.kind === "post" ? "post" : "gedanke",  // Format: normaler Gedanke | Post-Card
     todo:        !!daten.todo,                                 // To-Do-Status (grün / im Filter)
     sticky:      !!daten.sticky,                               // 📌 Sticky Note (gelb; offene Fragestellung, eigener Tab)
