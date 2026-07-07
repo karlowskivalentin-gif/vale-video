@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 200" width="720" height="200" role="img" aria-label="vale video">
+  <rect x="20" y="30" width="140" height="140" rx="40" fill="#14110d"></rect>
+  <path d="M73 79 L73 121 Q73 131 82 125 L119 103 Q128 98 119 93 L82 75 Q73 69 73 79 Z" fill="#e2622c"></path>
+  <text x="196" y="100" dominant-baseline="central" font-family="Inter, sans-serif" font-weight="800" font-size="76" letter-spacing="1" fill="#14110d">VALE <tspan fill="#e2622c">VIDEO</tspan></text>
+</svg>
