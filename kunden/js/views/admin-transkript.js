@@ -24,8 +24,9 @@ export function renderAdminTranskript(container) {
     <section class="card card--pad" style="max-width:640px">
       <h2 class="section-title" style="margin-top:0">So funktioniert's</h2>
       <ol class="tk-schritte">
-        <li><strong>Server starten</strong> (falls noch nicht an):<br>
-          <code>D:\\Projekte\\Website\\tools\\transkript\\transkript-server.bat</code> doppelklicken,
+        <li><strong>Server starten</strong> (falls noch nicht an): im Projektordner unter
+          <code>tools/transkript/</code> &mdash; unter Windows <code>transkript-server.bat</code>
+          doppelklicken, sonst <code>python transkript_server.py</code> im Terminal.
           Fenster offen lassen.</li>
         <li><strong>Tool öffnen</strong> und Link einfügen — fertig.</li>
       </ol>
