@@ -34,6 +34,44 @@ export function dateInputZuDate(value) {
   return isNaN(d.getTime()) ? null : d;
 }
 
+// ---------------------------------------------------------------------------
+// Kalender-Buckets für Auswertungen (Tag / ISO-Kalenderwoche / Monat).
+// Alle bewusst LOKAL (getFullYear/getMonth/getDate), nicht über toISOString,
+// damit Buckets nicht durch die UTC-Verschiebung auf den Vor-/Folgetag rutschen.
+// ---------------------------------------------------------------------------
+export const MONATE_KURZ = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun",
+                            "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
+
+// Lokaler Kalendertag als "YYYY-MM-DD".
+export function tagKey(d) {
+  if (!d) return "";
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+// ISO-8601-Kalenderwoche (Woche beginnt Montag; KW1 enthält den 4. Januar).
+// Rückgabe: { jahr, kw } — jahr ist das ISO-Wochenjahr (kann am Jahreswechsel
+// vom Kalenderjahr abweichen, z. B. 31.12. → KW1 des Folgejahres).
+export function isoKW(d) {
+  const t = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const tag = (t.getDay() + 6) % 7;           // Mo=0 … So=6
+  t.setDate(t.getDate() - tag + 3);           // auf den Donnerstag dieser Woche
+  const jahr = t.getFullYear();
+  const jan4 = new Date(jahr, 0, 4);
+  const kw = 1 + Math.round(((t - jan4) / 86400000 - 3 + ((jan4.getDay() + 6) % 7)) / 7);
+  return { jahr, kw };
+}
+
+// ISO-Wochen-Gruppierungs-Key, chronologisch sortierbar: "YYYY-Www".
+export function wochenKey(d) {
+  const { jahr, kw } = isoKW(d);
+  return `${jahr}-W${String(kw).padStart(2, "0")}`;
+}
+
+// Monats-Gruppierungs-Key "YYYY-MM".
+export function monatKey(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
 // Kleines, sicheres Markdown → HTML (alles wird zuerst escaped). Wird von der
 // Gedanken-Mindmap, dem Fokus-To-Do-Panel und der To-Do-Detailansicht geteilt.
 export function mdZuHtml(src) {

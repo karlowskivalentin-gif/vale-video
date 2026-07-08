@@ -884,6 +884,65 @@ a.row-item:hover { background: var(--off-white); }
 .fokus-liste-del:hover { background: var(--error); color: #fff; }
 .fokus-liste-kat { font-size: .72rem; color: var(--accent-dim); background: rgba(226,98,44,.1); padding: .05rem .4rem; border-radius: 999px; white-space: nowrap; }
 
+/* --- Fokus: Verteilung nach Fokus-Name (Dashboard) ------------------- */
+.fokus-verteilung { margin: 0 0 1.75rem; }
+.fokus-vt-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 0.75rem; flex-wrap: wrap; margin: 0 0 0.85rem;
+}
+.fokus-vt-toggle {
+  display: inline-flex; gap: 0.15rem; padding: 0.2rem;
+  background: var(--surface); border: 1px solid var(--mid); border-radius: 999px;
+}
+.fokus-vt-btn {
+  border: 0; background: transparent; cursor: pointer;
+  padding: 0.3rem 0.75rem; border-radius: 999px; font-size: 0.78rem;
+  color: var(--muted); transition: background .12s, color .12s;
+}
+.fokus-vt-btn.is-active { background: var(--accent); color: #fff; }
+.fokus-vt-liste { display: flex; flex-direction: column; gap: 0.85rem; }
+.fokus-vt-row {
+  display: flex; flex-direction: column; gap: 0.3rem;
+  padding: 0.75rem 0.85rem; background: var(--surface);
+  border: 1px solid var(--mid); border-radius: var(--radius);
+}
+.fokus-vt-top { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; }
+.fokus-vt-name { font-weight: 600; color: var(--black); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fokus-vt-min { flex: 0 0 auto; font-weight: 600; color: var(--accent-dim); font-size: 0.85rem; white-space: nowrap; }
+.fokus-vt-track { width: 100%; height: 8px; background: var(--mid); border-radius: 999px; overflow: hidden; }
+.fokus-vt-bar { height: 100%; min-width: 3px; background: var(--accent); border-radius: 999px; transition: width 0.3s ease; }
+.fokus-vt-meta { font-size: 0.75rem; }
+/* Zweiter Umschalter (Zeitraum) als eigene Zeile unter dem Kopf. */
+.fokus-verteilung > .fokus-vt-toggle { margin: 0 0 0.85rem; }
+
+/* --- Fokus: Statistik-Dashboard (Statistik-Tab) ---------------------- */
+.fokus-stat-sec { margin: 0 0 2rem; }
+/* KPI-Grid: flexibel umbrechen, Zahlen ggf. als Text (z. B. „2 h 15 min"). */
+.fokus-kpi { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+.fokus-kpi .fokus-stat-zahl { font-size: 1.2rem; }
+
+/* Wochentag-Muster: horizontale Balken Mo–So. */
+.fokus-wd { display: flex; flex-direction: column; gap: 0.5rem; }
+.fokus-wd-row { display: flex; align-items: center; gap: 0.75rem; }
+.fokus-wd-lbl { flex: 0 0 2rem; font-weight: 600; color: var(--black); font-size: 0.85rem; }
+.fokus-wd-track { flex: 1 1 auto; height: 10px; background: var(--mid); border-radius: 999px; overflow: hidden; }
+.fokus-wd-bar { height: 100%; min-width: 2px; background: var(--mid); border-radius: 999px; transition: width 0.3s ease; }
+.fokus-wd-bar.has-val { background: var(--accent); }
+.fokus-wd-val { flex: 0 0 auto; font-size: 0.75rem; white-space: nowrap; }
+
+/* Aktivitäts-Heatmap (GitHub-Stil): Spalten = Wochen, Zeilen = Mo–So. */
+.fokus-hm { display: flex; gap: 3px; overflow-x: auto; padding-bottom: 0.25rem; }
+.fokus-hm-col { display: grid; grid-template-rows: repeat(7, 1fr); gap: 3px; }
+.fokus-hm-cell {
+  display: inline-block; width: 13px; height: 13px; border-radius: 3px; background: var(--mid);
+}
+.fokus-hm-cell[data-level="1"] { background: rgba(226, 98, 44, 0.25); }
+.fokus-hm-cell[data-level="2"] { background: rgba(226, 98, 44, 0.5); }
+.fokus-hm-cell[data-level="3"] { background: rgba(226, 98, 44, 0.75); }
+.fokus-hm-cell[data-level="4"] { background: var(--accent); }
+.fokus-hm-cell.is-leer { background: transparent; }
+.fokus-hm-legende { display: flex; align-items: center; gap: 4px; margin-top: 0.6rem; font-size: 0.72rem; }
+
 /* --- Fokus: Kategorie-Dropdown + To-Do-Panel im laufenden Timer ------- */
 .fokus-kat {
   width: 100%; max-width: 320px; padding: 0.5rem 0.6rem; font: inherit;
