@@ -20,3 +20,7 @@ desktop.ini
 # Secrets / Deploy-Zugangsdaten — NIEMALS committen
 config/secrets.php
 config/secrets.py
+
+# Design-System ist ein EIGENES Repo (vale-video-design-system),
+# hier nur als Unterordner geklont — nicht vom Eltern-Repo tracken
+design-system/
