@@ -2,15 +2,15 @@
 // Route #/admin/video/neu = Anlegen, #/admin/video/{id} = Bearbeiten.
 import {
   ladeVideo, videoAnlegen, aktualisiereVideo, loescheVideo, ladeObjekte,
-  beobachteKommentare, kommentarHinzufuegen, ladePlan, ladeDateiblob,
+  beobachteKommentare, kommentarHinzufuegen, ladePlan,
   aktualisierePlan
 } from "../db.js";
 import { beiViewWechsel } from "../view-lifecycle.js";
 import {
   STATUS, STATUS_REIHENFOLGE, VIDEO_TYPEN, skriptFreigabeNoetig
 } from "../status.js";
-import { escapeHtml, formatDatum, tsZuDateInput, dateInputZuDate, mdZuHtml } from "../util.js";
-import { embedHtml, verarbeiteEmbeds } from "../embeds.js";
+import { escapeHtml, formatDatum, tsZuDateInput, dateInputZuDate } from "../util.js";
+import { renderPlanDetails, planZuSnapshot } from "../plan-ansicht.js";
 
 export function renderAdminVideoEdit(container, ctx) {
   const user = ctx.user;
@@ -50,9 +50,9 @@ export function renderAdminVideoEdit(container, ctx) {
     wire(video, istNeu, body, id, user);
     if (!istNeu) initKommentare(id, user, body);
     // Stammt das Video aus einem Plan → dessen KOMPLETTE Details anzeigen
-    // (Links, Dateien, Sound, Shotlist, Notiz). Live aus /plaene geladen —
-    // admin-only, der Kunde kann davon nichts lesen.
-    if (!istNeu && video && video.planId) initPlanDetails(video.planId, body);
+    // (Links, Dateien, Sound, Shotlist, Notiz). Live aus /plaene geladen.
+    // Zusätzlich wird hier der kundensichtbare planSnapshot aktuell gehalten.
+    if (!istNeu && video && video.planId) initPlanDetails(video, body);
   })();
 }
 
@@ -229,93 +229,37 @@ function wire(v, istNeu, body, id, user) {
 }
 
 // --- Plan-Details (1:1 aus dem Herkunfts-Plan, read-only) --------------
-// Zeigt ALLES, was im Plan hinterlegt wurde: Notiz, Sound, Shotlist,
-// Inspirations-Links (eingebettet), Anhänge (Bilder/Videos/Links aus einem
-// Post). Änderungen macht man im Plan — Link oben rechts.
-const POST_STATUS_LABEL = { skript: "📝 Skript", shotlist: "🎬 Shotlist", geschnitten: "✂️ Geschnitten" };
-
-async function initPlanDetails(planId, body) {
+// Zeigt LIVE aus /plaene ALLES, was im Plan hinterlegt wurde (Notiz, Sound,
+// Shotlist, Inspirationen, Anhänge). Dieselbe Darstellung wie beim Kunden —
+// die Render-Logik steckt in plan-ansicht.js.
+//
+// Zusätzlich: hier wird der kundensichtbare `planSnapshot` des Videos aktuell
+// gehalten. Das heilt auch Bestandsvideos, die vor diesem Feature deployt
+// wurden (ohne Snapshot) — sobald der Admin sie einmal öffnet.
+async function initPlanDetails(video, body) {
   const ziel = body.querySelector("#avePlanDetails");
   if (!ziel) return;
   ziel.innerHTML = `<section class="card card--pad" style="margin-top:1.5rem"><p class="muted">Plan-Details werden geladen …</p></section>`;
   let plan = null;
-  try { plan = await ladePlan(planId); } catch (e) { console.error(e); }
+  try { plan = await ladePlan(video.planId); } catch (e) { console.error(e); }
   if (!plan) {
     ziel.innerHTML = `<section class="card card--pad" style="margin-top:1.5rem"><p class="muted">Herkunfts-Plan nicht (mehr) gefunden.</p></section>`;
     return;
   }
 
-  const postBadge = plan.poststatus && POST_STATUS_LABEL[plan.poststatus]
-    ? `<span class="plan-badge plan-badge--post">${POST_STATUS_LABEL[plan.poststatus]}</span>` : "";
+  renderPlanDetails(ziel, plan, {
+    titel: "📋 Aus dem Plan",
+    editLink: "#/admin/plan/" + video.planId
+  });
 
-  const inspHtml = (Array.isArray(plan.inspirationen) && plan.inspirationen.length)
-    ? `<div class="ave-plan-block"><div class="gd-abschnitt-titel">Inspirationen</div>
-        <div class="plan-insp-liste">${plan.inspirationen.map((i) => `
-          <div class="plan-insp">${embedHtml(i.url)}
-            <a class="plan-insp-link" href="${escapeHtml(i.url)}" target="_blank" rel="noopener">${escapeHtml(i.url)} ↗</a>
-          </div>`).join("")}</div></div>` : "";
-
-  const soundHtml = (plan.sound && (plan.sound.name || plan.sound.link))
-    ? `<div class="ave-plan-block"><div class="gd-abschnitt-titel">Offizieller Sound</div>
-        <p style="margin:.3rem 0">${escapeHtml(plan.sound.name || "")}
-        ${plan.sound.link ? ` — <a href="${escapeHtml(plan.sound.link)}" target="_blank" rel="noopener">Sound öffnen ↗</a>` : ""}</p></div>` : "";
-
-  const shotHtml = (Array.isArray(plan.shotlist) && plan.shotlist.length)
-    ? `<div class="ave-plan-block"><div class="gd-abschnitt-titel">Shotlist</div>
-        <ul class="ave-plan-shots">${plan.shotlist.map((s) => `
-          <li class="${s.erledigt ? "is-done" : ""}">${s.erledigt ? "✅" : "⬜"} ${escapeHtml(s.text || "")}
-          ${s.notiz ? `<div class="muted" style="font-size:.8rem;margin-left:1.6rem">📝 ${escapeHtml(s.notiz)}</div>` : ""}</li>`).join("")}</ul></div>` : "";
-
-  const notizHtml = plan.notiz
-    ? `<div class="ave-plan-block"><div class="gd-abschnitt-titel">Notizen</div>
-        <div class="gd-md-preview" style="font-size:.92rem">${mdZuHtml(plan.notiz)}</div></div>` : "";
-
-  const dateien = Array.isArray(plan.dateien) ? plan.dateien : [];
-  const anhHtml = dateien.length
-    ? `<div class="ave-plan-block"><div class="gd-abschnitt-titel">Anhänge aus dem Post</div>
-        <div class="plan-anh-liste" id="avePlanAnh"></div></div>` : "";
-
-  ziel.innerHTML = `
-    <section class="card card--pad" style="margin-top:1.5rem">
-      <div class="plan-head-row">
-        <h2 class="section-title" style="margin:0">📋 Aus dem Plan ${postBadge}</h2>
-        <a class="btn btn--ghost btn--sm" href="#/admin/plan/${encodeURIComponent(planId)}">Plan öffnen ↗</a>
-      </div>
-      ${notizHtml}${soundHtml}${shotHtml}${inspHtml}${anhHtml}
-      ${!notizHtml && !soundHtml && !shotHtml && !inspHtml && !anhHtml
-        ? `<p class="muted" style="margin:0">Der Plan enthält (noch) keine Details.</p>` : ""}
-    </section>`;
-  verarbeiteEmbeds(ziel);
-
-  // Anhänge (Blobs on-demand, Links als Embed/Bild/Video) — wie im Plan-Editor.
-  const anhZiel = ziel.querySelector("#avePlanAnh");
-  if (anhZiel) {
-    dateien.forEach((att) => {
-      const box = document.createElement("div");
-      box.className = "plan-anh";
-      box.innerHTML = `<div class="plan-anh-name">${(att.art === "link" ? "🔗 " : "📄 ")}${escapeHtml(att.name || att.url || "Datei")}</div><div class="plan-anh-media"></div>`;
-      anhZiel.appendChild(box);
-      const el = box.querySelector(".plan-anh-media");
-      if (att.art === "link") {
-        const u = String(att.url || "").toLowerCase();
-        if (/\.(png|jpe?g|gif|webp|svg)(\?.*)?$/.test(u)) el.innerHTML = `<img class="plan-anh-img" src="${escapeHtml(att.url)}" alt="">`;
-        else if (/\.(mp4|webm|mov|m4v)(\?.*)?$/.test(u)) el.innerHTML = `<video class="plan-anh-vid" controls src="${escapeHtml(att.url)}"></video>`;
-        else { el.innerHTML = embedHtml(att.url); verarbeiteEmbeds(el); }
-        return;
-      }
-      if (!att.blobId) { el.innerHTML = `<span class="plan-anh-fehler">Datei fehlt</span>`; return; }
-      el.innerHTML = `<span class="muted" style="font-size:.8rem">lädt …</span>`;
-      ladeDateiblob(att.blobId).then((b) => {
-        if (!b) { el.innerHTML = `<span class="plan-anh-fehler">Datei nicht gefunden</span>`; return; }
-        const url = `data:${b.typ};base64,${b.base64}`;
-        const typ = b.typ || att.typ || "";
-        if (typ.startsWith("image/"))      el.innerHTML = `<img class="plan-anh-img" src="${url}" alt="">`;
-        else if (typ.startsWith("video/")) el.innerHTML = `<video class="plan-anh-vid" controls src="${url}"></video>`;
-        else if (typ.startsWith("audio/")) el.innerHTML = `<audio style="width:100%" controls src="${url}"></audio>`;
-        else el.innerHTML = `<a class="btn btn--ghost btn--sm" href="${url}" download="${escapeHtml(att.name || "datei")}">Herunterladen ↓</a>`;
-      }).catch(() => { el.innerHTML = `<span class="plan-anh-fehler">Fehler beim Laden</span>`; });
-    });
-  }
+  // Snapshot für den Kunden aktuell halten — nur schreiben, wenn abweichend.
+  try {
+    const neu = planZuSnapshot(plan);
+    const alt = video.planSnapshot ? planZuSnapshot(video.planSnapshot) : null;
+    if (JSON.stringify(neu) !== JSON.stringify(alt)) {
+      aktualisiereVideo(video.id, { planSnapshot: neu }).catch(() => {});
+    }
+  } catch (_) { /* Snapshot-Sync ist Best-Effort */ }
 }
 
 // --- Kommentare (Bearbeiten-Modus) ------------------------------------

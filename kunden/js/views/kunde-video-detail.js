@@ -11,6 +11,7 @@ import { beiViewWechsel } from "../view-lifecycle.js";
 import { STATUS, kundenStatus, istFreigabeStufe } from "../status.js";
 import { drivePreviewUrl, youtubeEmbedUrl } from "../drive.js";
 import { escapeHtml, formatDatum } from "../util.js";
+import { renderPlanDetails, planHatDetails } from "../plan-ansicht.js";
 
 export function renderVideoDetail(container, ctx) {
   const user = ctx.user;
@@ -26,6 +27,7 @@ export function renderVideoDetail(container, ctx) {
     <a class="back-link" href="#/aufgaben">← Zurück zu Aufgaben</a>
     <h1 class="view-title" id="vdTitel">Video</h1>
     <div id="vdMedia" class="vd-media"><div class="card card--pad"><p class="muted">Wird geladen …</p></div></div>
+    <div id="vdPlan" class="vd-plan"></div>
     <div id="vdAction" class="vd-action"></div>
 
     <section class="vd-komm">
@@ -43,6 +45,7 @@ export function renderVideoDetail(container, ctx) {
 
   const elTitel    = container.querySelector("#vdTitel");
   const elMedia    = container.querySelector("#vdMedia");
+  const elPlan     = container.querySelector("#vdPlan");
   const elAction   = container.querySelector("#vdAction");
   const elComments = container.querySelector("#vdComments");
   const kForm      = container.querySelector("#kForm");
@@ -60,6 +63,7 @@ export function renderVideoDetail(container, ctx) {
         elTitel.textContent = "Video nicht gefunden";
         elMedia.innerHTML = `<div class="card card--pad"><p class="muted">
           Dieses Video existiert nicht (mehr).</p></div>`;
+        elPlan.innerHTML = "";
         elAction.innerHTML = "";
         kForm.style.display = "none";
         return;
@@ -67,6 +71,7 @@ export function renderVideoDetail(container, ctx) {
       kForm.style.display = "";
       elTitel.textContent = v.titel || "Unbenanntes Video";
       elMedia.innerHTML = mediaHtml(v);
+      renderPlan(v);
       renderAction(v);
     },
     (err) => {
@@ -84,6 +89,22 @@ export function renderVideoDetail(container, ctx) {
 
   beiViewWechsel(unsubV);
   beiViewWechsel(unsubK);
+
+  // --- Plan-Details (das Skript & ALLES, was deployt wurde) -----------
+  // Bei aus einem Plan deployten Videos steckt das Skript nicht in einem
+  // Drive-PDF, sondern im planSnapshot (Notiz, Sound, Shotlist, Inspira-
+  // tionen, Anhänge). Gleiche Darstellung wie in der Admin-Video-Ansicht.
+  function renderPlan(v) {
+    if (v.planSnapshot && planHatDetails(v.planSnapshot)) {
+      renderPlanDetails(elPlan, v.planSnapshot, {
+        titel: "📝 Dein Skript & alle Details",
+        anhangLabel: "Anhänge",
+        leerText: ""
+      });
+    } else {
+      elPlan.innerHTML = "";
+    }
+  }
 
   // --- Aktionen (Freigeben / Änderungen) ------------------------------
   function renderAction(v) {
@@ -239,9 +260,13 @@ function mediaHtml(v) {
   else if (v.schnittLink && youtubeEmbedUrl(v.schnittLink)) art = "schnitt";
   else if (v.skriptLink && drivePreviewUrl(v.skriptLink)) art = "skript";
 
+  // Skript aus einem Plan deployt? Dann steckt der Inhalt im planSnapshot
+  // (wird als eigener Block unter dem Media gerendert) — kein leerer Platzhalter.
+  const hatPlan = v.planSnapshot && planHatDetails(v.planSnapshot);
+
   if (art === "skript") {
     const url = drivePreviewUrl(v.skriptLink);
-    if (!url) return infoCard("Das Skript liegt noch nicht vor.");
+    if (!url) return hatPlan ? "" : infoCard("Das Skript liegt noch nicht vor.");
     return `
       <div class="card media-card">
         <div class="media-label">📝 Skript</div>
@@ -260,7 +285,7 @@ function mediaHtml(v) {
           allowfullscreen></iframe></div>
       </div>`;
   }
-  return infoCard("Hier erscheinen Skript und Schnitt, sobald sie bereitstehen.");
+  return hatPlan ? "" : infoCard("Hier erscheinen Skript und Schnitt, sobald sie bereitstehen.");
 }
 
 function infoCard(text) {

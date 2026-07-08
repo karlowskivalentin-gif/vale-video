@@ -144,10 +144,13 @@ service cloud.firestore {
     }
 
     // ---- dateiblobs (Base64-Anhänge der Gedanken) -------------------
-    // Admin: alles. Kollaborator: einzelne Blobs lesen (get) + neue anlegen —
-    // aber NICHT auflisten (list) und keine fremden ändern/löschen.
+    // Admin: alles. Kollaborator: einzelne Blobs lesen (get) + neue anlegen.
+    // Kunde: einzelne Blobs lesen (get) — nötig, damit Anhänge aus einem in
+    // die Pipeline deployten Plan (planSnapshot) im Kundenportal angezeigt
+    // werden. Kein list (Blob-IDs sind unvorhersehbar, nur über den Snapshot
+    // des eigenen Videos erreichbar), kein Schreiben/Ändern/Löschen.
     match /dateiblobs/{blobId} {
-      allow get:    if istAdmin() || istKollaborator();
+      allow get:    if istAdmin() || istKollaborator() || istKunde();
       allow list:   if istAdmin();
       allow create: if istAdmin() || istKollaborator();
       allow update, delete: if istAdmin();

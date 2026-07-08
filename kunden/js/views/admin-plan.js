@@ -10,6 +10,7 @@ import {
 import { beiViewWechsel } from "../view-lifecycle.js";
 import { escapeHtml, tsZuDateInput, dateInputZuDate } from "../util.js";
 import { embedHtml, erkennePlattform, verarbeiteEmbeds } from "../embeds.js";
+import { planZuSnapshot } from "../plan-ansicht.js";
 import { STATUS } from "../status.js";
 
 // Reihenfolge der Panels — global (alle Pläne), pro Browser in localStorage.
@@ -454,12 +455,14 @@ export function renderAdminPlan(container, ctx) {
           pipe.disabled = true; pipe.textContent = "Wird angelegt …";
           try {
             // Plan-Stand sichern, damit nichts verloren geht.
-            await aktualisierePlan(aktuelleId, datenAusState());
+            const planDaten = datenAusState();
+            await aktualisierePlan(aktuelleId, planDaten);
             const ref = await videoAnlegen({
               titel: state.titel,
               typ: state.typ,
               objektId: state.objektId || null,
               planId: aktuelleId,   // Video-Edit zeigt ALLE Plan-Details (Links, Dateien, Shotlist, Notiz)
+              planSnapshot: planZuSnapshot(planDaten),   // kundensichtbarer Ausschnitt (Kunde darf /plaene nicht lesen)
               status: STATUS.IDEE,
               geplanterDrehtermin: dateInputZuDate(state.drehInput),
               geplantesDatum: dateInputZuDate(state.pubInput)
