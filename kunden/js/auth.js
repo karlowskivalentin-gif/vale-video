@@ -17,8 +17,8 @@ import {
   updatePassword,
   sendPasswordResetEmail
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { rolleVon } from "./roles.js";
-import { ladeKollaborator } from "./db.js";
+import { rolleVon, KUNDE_EMAILS } from "./roles.js";
+import { ladeKollaborator, ladeKundenmitglied } from "./db.js";
 
 const provider = new GoogleAuthProvider();
 provider.setCustomParameters({ prompt: "select_account" });
@@ -49,14 +49,13 @@ export async function logout() {
 // (per Link angelegt + verifiziert); das Passwort setzt man im Portal
 // (setzePasswort) — dadurch bleibt email_verified erhalten und die
 // Firestore-Regeln (email_verified == true) greifen weiter.
+// Kein Vorab-Gate mehr: Ob eine E-Mail Kunde ist, steht in Firestore und ist
+// UNAUTHENTIFIZIERT nicht lesbar (Rules) — ein Vorab-Check würde legitime Kunden
+// fälschlich abweisen. Firebase prüft die Anmeldedaten; beobachteAuth entscheidet
+// danach über Rolle/Zugriff (ohne Rolle → Zugangscode-Screen, keine Daten).
 export async function loginMitPasswort(email, pw) {
   _abgewiesen = null;
   const e = (email || "").trim().toLowerCase();
-  if (!rolleVon(e)) {
-    const err = new Error("nicht freigeschaltet");
-    err.code = "vv/nicht-freigeschaltet";
-    throw err;
-  }
   return signInWithEmailAndPassword(auth, e, pw);
 }
 
@@ -79,11 +78,8 @@ export async function setzePasswort(pw) {
 // Schickt eine Passwort-zurücksetzen-Mail (nur an freigeschaltete Adressen).
 export async function sendePasswortReset(email) {
   const e = (email || "").trim().toLowerCase();
-  if (!rolleVon(e)) {
-    const err = new Error("nicht freigeschaltet");
-    err.code = "vv/nicht-freigeschaltet";
-    throw err;
-  }
+  // Kein Vorab-Gate (s. loginMitPasswort). Firebase versendet die Reset-Mail nur
+  // für tatsächlich existierende Konten.
   await sendPasswordResetEmail(auth, e);
   return e;
 }
@@ -103,6 +99,20 @@ export async function sendeLoginLink(email) {
   const e = (email || "").trim().toLowerCase();
   await sendSignInLinkToEmail(auth, e, actionCodeSettings());
   try { window.localStorage.setItem(LS_EMAIL, e); } catch (_) {}
+  return e;
+}
+
+// Schickt einem (frisch angelegten) Kunden seinen Anmelde-Link. Der Kunde
+// klickt ihn, ist eingeloggt (die Rolle „kunde" ergibt sich aus dem
+// kundenmitglieder-Lookup) und setzt danach im Portal sein Passwort → ab dann
+// Login mit E-Mail + Passwort (Selbstläufer). Anders als sendeLoginLink wird
+// hier bewusst KEINE E-Mail in localStorage gemerkt: Empfänger ist der Kunde,
+// nicht der gerade eingeloggte Admin (sonst würde dessen Login-Merker
+// überschrieben). Der Kunde tippt seine E-Mail beim ersten Klick selbst ein.
+export async function sendeKundenZugang(email) {
+  const e = (email || "").trim().toLowerCase();
+  if (!e) throw new Error("E-Mail fehlt");
+  await sendSignInLinkToEmail(auth, e, actionCodeSettings());
   return e;
 }
 
@@ -143,7 +153,8 @@ async function _signInMitLink(e) {
 
 // Beobachtet den Auth-Status. callback(user, rolle, info):
 //   nicht eingeloggt          -> callback(null, null, null)
-//   eingeloggt + admin/kunde  -> callback(user, 'admin'|'kunde', null)
+//   eingeloggt + Admin        -> callback(user, 'admin', null)
+//   eingeloggt + Kunde        -> callback(user, 'kunde', { kundeId })   (Mandant)
 //   eingeloggt + Kollaborator -> callback(user, 'kollaborator', { mapId })
 //   eingeloggt + keine Rolle  -> callback(user, null, { codeNoetig: true })
 //                                (NICHT ausloggen — der Code-Screen bietet Eingabe/Logout)
@@ -153,13 +164,32 @@ export function beobachteAuth(callback) {
       callback(null, null, null);
       return;
     }
-    const rolle = rolleVon(user.email);
-    if (rolle) {
+    // Admin (statisch)?
+    if (rolleVon(user.email) === "admin") {
       _abgewiesen = null;
-      callback(user, rolle, null);
+      callback(user, "admin", null);
       return;
     }
-    // Kein Admin/Kunde → evtl. freigeschalteter Kollaborator (Firestore)?
+    // Kunde (dynamisch, Mandant)? kundenmitglieder/<email> → { kundeId }
+    try {
+      const km = await ladeKundenmitglied(user.email);
+      if (km && km.kundeId) {
+        _abgewiesen = null;
+        callback(user, "kunde", { kundeId: km.kundeId });
+        return;
+      }
+    } catch (e) {
+      console.warn("Kunden-Prüfung fehlgeschlagen:", e);
+    }
+    // ÜBERGANG: ursprüngliche Deussen-/Test-Adressen gelten bis zur Migration als
+    // Kunde (Mandant „deussen"), auch ohne kundenmitglieder-Eintrag — passend zum
+    // altKundeEmails-Fallback in firestore.rules. NACH der Migration entfernen.
+    if (KUNDE_EMAILS.map((x) => x.toLowerCase()).includes((user.email || "").toLowerCase())) {
+      _abgewiesen = null;
+      callback(user, "kunde", { kundeId: "deussen" });
+      return;
+    }
+    // Sonst evtl. freigeschalteter Kollaborator (Firestore)?
     try {
       const k = await ladeKollaborator(user.email);
       if (k && k.mapId) {

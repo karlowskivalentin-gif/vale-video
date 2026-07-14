@@ -2,12 +2,15 @@
 // Status-Logik: die 10 internen Pipeline-Stufen, das kundenfreundliche
 // Mapping und die 4 erlaubten Kunden-Übergänge.
 //
-// WICHTIG: Die Übergangs-Whitelist (kundenFreigabeZiel / kundenAenderungZiel)
-// MUSS exakt mit der Funktion `erlaubterUebergang` in firestore.rules
-// übereinstimmen. Wird hier etwas geändert, auch dort anpassen.
+// WICHTIG: Die Übergangs-Whitelist (kundenFreigabeZiel / kundenAenderungZiel /
+// kundenVerwerfenZiel) MUSS exakt mit der Funktion `erlaubterUebergang` in
+// firestore.rules übereinstimmen. Wird hier etwas geändert, auch dort anpassen.
 // =====================================================================
 
-// --- Die 10 internen Pipeline-Stufen (in Reihenfolge) -----------------
+// --- Die internen Pipeline-Stufen (in Reihenfolge) --------------------
+// VERWORFEN ist ein terminaler Seiten-Status (nicht Teil der linearen Kette):
+// der Kunde hat das Skript abgelehnt („wird nicht gemacht"). Steht am Ende der
+// Reihenfolge, damit es im Admin-Dropdown wählbar/reaktivierbar bleibt.
 export const STATUS = {
   IDEE:             "💡 Idee",
   SKRIPT:           "📝 Skript",
@@ -18,7 +21,8 @@ export const STATUS = {
   FREIGABE_SCHNITT: "🔎 Freigabe Schnitt",
   FREIGEGEBEN:      "✅ Freigegeben",
   GEPLANT:          "📅 Geplant",
-  GEPOSTET:         "🚀 Gepostet"
+  GEPOSTET:         "🚀 Gepostet",
+  VERWORFEN:        "🚫 Verworfen"
 };
 
 // Reihenfolge für Dropdowns / Pipeline-Sortierung.
@@ -32,7 +36,8 @@ export const STATUS_REIHENFOLGE = [
   STATUS.FREIGABE_SCHNITT,
   STATUS.FREIGEGEBEN,
   STATUS.GEPLANT,
-  STATUS.GEPOSTET
+  STATUS.GEPOSTET,
+  STATUS.VERWORFEN
 ];
 
 export function statusIndex(status) {
@@ -57,12 +62,16 @@ export const VIDEO_TYPEN = [
   "Imagefilm",
   "Cinematic Film",
   "Objektvideo",
-  "Drohnenvideo"
+  "Drohnenvideo",
+  "Real Estate (wortloses Edit)"
 ];
 
-// Bei Cinematic Film gibt es keine separate Skript-Freigabe (nur Anzeige).
+// Typen, bei denen es KEINE separate Skript-Freigabe gibt (nur Schnitt-Freigabe):
+// reine Edit-/Cinematic-Formate ohne Sprechertext/Skript.
+const TYPEN_OHNE_SKRIPT = ["Cinematic Film", "Real Estate (wortloses Edit)"];
+
 export function skriptFreigabeNoetig(typ) {
-  return typ !== "Cinematic Film";
+  return !TYPEN_OHNE_SKRIPT.includes(typ);
 }
 
 // =====================================================================
@@ -94,6 +103,9 @@ export function kundenStatus(intern) {
     case STATUS.GEPOSTET:
       return { label: "Veröffentlicht", aktion: false, art: null, ton: "ok" };
 
+    case STATUS.VERWORFEN:
+      return { label: "Wird nicht produziert", aktion: false, art: null, ton: "rot" };
+
     default:
       return { label: "In Vorbereitung", aktion: false, art: null, ton: "neutral" };
   }
@@ -104,7 +116,7 @@ export function istFreigabeStufe(status) {
 }
 
 // =====================================================================
-// Die 4 erlaubten Kunden-Übergänge (= Sicherheitskern, gespiegelt in Rules)
+// Die erlaubten Kunden-Übergänge (= Sicherheitskern, gespiegelt in Rules)
 // =====================================================================
 
 // Kunde GIBT FREI → Auto-Sprung vorwärts. null = in diesem Status nicht erlaubt.
@@ -118,5 +130,12 @@ export function kundenFreigabeZiel(status) {
 export function kundenAenderungZiel(status) {
   if (status === STATUS.FREIGABE_SKRIPT)  return STATUS.SKRIPT;
   if (status === STATUS.FREIGABE_SCHNITT) return STATUS.SCHNITT;
+  return null;
+}
+
+// Kunde VERWIRFT das Skript („wird nicht gemacht") → Verworfen. Nur aus der
+// Skript-Freigabe erlaubt (die Ampel gibt es nur beim Skript). null = nicht erlaubt.
+export function kundenVerwerfenZiel(status) {
+  if (status === STATUS.FREIGABE_SKRIPT) return STATUS.VERWORFEN;
   return null;
 }

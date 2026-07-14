@@ -56,6 +56,10 @@ export function renderAdminGedanken(container, opts) {
   const kollabMapId = (opts && opts.kollabMapId) || null;
   const istKollab = !!kollabMapId;
   const meineEmail = lc((opts && opts.user && opts.user.email) || "");
+  // Mandant (Admin-Modus): Gedanken & Mindmaps sind pro Kunde getrennt. Der
+  // Kollaborator-Modus ist kundenneutral (kundeId bleibt null, Zugriff läuft
+  // über die geteilte mapId).
+  const kundeId = istKollab ? null : ((opts && opts.kundeId) || null);
 
   // --- Modul-State -------------------------------------------------------
   let panX = 0, panY = 0;            // Verschiebung des sichtbaren Ausschnitts
@@ -66,7 +70,8 @@ export function renderAdminGedanken(container, opts) {
   let seiteId = null;                // aktuell voll geöffneter Gedanke (Detailseite) | null
   let anhangZielId = null;           // Ziel-Gedanke des Datei-Dialogs
   let ansicht = "aktiv";             // "aktiv" = Haupt-Leinwand | "archiv" = erledigte Gedanken
-  const LS_MAP_KEY = istKollab ? "vale_gd_map_k" : "vale_gd_map";
+  // Aktive Map pro Mandant merken (sonst zeigt ein Kundenwechsel eine fremde Map).
+  const LS_MAP_KEY = istKollab ? "vale_gd_map_k" : ("vale_gd_map_" + (kundeId || "none"));
   let aktiveMapId = localStorage.getItem(LS_MAP_KEY) || (istKollab ? (kollabMapId || DEFAULT_MAP) : DEFAULT_MAP);  // gewählte Mindmap (④)
   let filterModus = "alle";          // "alle" | "todos" | "system" (① To-Do-Filter)
   let mindmaps = [];                 // ④ zusätzliche benannte Mindmaps (Firestore)
@@ -75,6 +80,7 @@ export function renderAdminGedanken(container, opts) {
   const knoten = new Map();          // id → HTMLElement (Reconcile)
   const offen = new Set();           // ids der INLINE aufgeklappten Knoten (UI-only)
   const blobCache = new Map();       // blobId → data:-URL (on-demand geladen)
+  const objUrlCache = new Map();     // blobId → blob:-URL (für PDF/Downloads, s.u.)
   const aktiveInteraktion = new Set(); // ids, die gerade gezogen werden
   const postIndex = new Map();       // id → aktueller Carousel-Bildindex (Post-Cards, UI-only)
 
@@ -400,6 +406,8 @@ export function renderAdminGedanken(container, opts) {
     if (weg && weg.art === "datei" && weg.blobId) {
       loescheDateiblob(weg.blobId).catch(() => {});
       blobCache.delete(weg.blobId);
+      const ou = objUrlCache.get(weg.blobId);
+      if (ou) { URL.revokeObjectURL(ou); objUrlCache.delete(weg.blobId); }
     }
   }
   async function blobDataUrl(blobId) {
@@ -410,12 +418,32 @@ export function renderAdminGedanken(container, opts) {
     blobCache.set(blobId, url);
     return url;
   }
+  // Echte Blob-URL für PDF/Downloads. Chrome blockt die Top-Navigation zu
+  // data:-URLs und lädt sie namenlos („unbenannt") herunter, statt sie zu
+  // öffnen — mit einer blob:-URL öffnet die PDF wieder im Viewer.
+  function base64ZuBytes(base64) {
+    const bin = atob(base64 || "");
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return bytes;
+  }
+  async function blobObjectUrl(blobId) {
+    if (objUrlCache.has(blobId)) return objUrlCache.get(blobId);
+    const b = await ladeDateiblob(blobId);
+    if (!b) return null;
+    const typ = b.typ || "application/octet-stream";
+    const url = URL.createObjectURL(new Blob([base64ZuBytes(b.base64)], { type: typ }));
+    objUrlCache.set(blobId, url);
+    return url;
+  }
   function medienHtml(src, typ, name) {
     const s = escapeHtml(src), n = escapeHtml(name || "Datei");
     if ((typ || "").startsWith("image/")) return `<img class="gd-media-img" src="${s}" alt="${n}">`;
     if ((typ || "").startsWith("audio/")) return `<audio class="gd-media-audio" controls src="${s}"></audio>`;
     if ((typ || "").startsWith("video/")) return `<video class="gd-media-video" controls src="${s}"></video>`;
-    if (typ === "application/pdf")        return `<a class="btn btn--ghost btn--sm" href="${s}" target="_blank" rel="noopener">PDF öffnen ↗</a>`;
+    if (typ === "application/pdf")
+      return `<a class="btn btn--ghost btn--sm" href="${s}" target="_blank" rel="noopener">PDF öffnen ↗</a>`
+           + ` <a class="btn btn--ghost btn--sm" href="${s}" download="${n}" title="Herunterladen">↓</a>`;
     return `<a class="btn btn--ghost btn--sm" href="${s}" download="${n}">Herunterladen ↓</a>`;
   }
   function linkMedienHtml(url) {
@@ -433,7 +461,12 @@ export function renderAdminGedanken(container, opts) {
       return;
     }
     el.innerHTML = `<span class="muted" style="font-size:.8rem">lädt …</span>`;
-    blobDataUrl(att.blobId).then((url) => {
+    const typ = att.typ || "";
+    const inline = typ.startsWith("image/") || typ.startsWith("audio/") || typ.startsWith("video/");
+    // Inline-Medien reichen als data:-URL; PDF/Downloads brauchen eine echte
+    // blob:-URL (sonst „unbenannt", s. blobObjectUrl).
+    const laden = inline ? blobDataUrl(att.blobId) : blobObjectUrl(att.blobId);
+    laden.then((url) => {
       if (!url) { el.innerHTML = `<span class="gd-anh-fehler">Datei nicht gefunden</span>`; return; }
       el.innerHTML = medienHtml(url, att.typ, att.name);
     }).catch(() => { el.innerHTML = `<span class="gd-anh-fehler">Fehler beim Laden</span>`; });
@@ -627,6 +660,7 @@ export function renderAdminGedanken(container, opts) {
             const ref = await planAnlegen({
               titel: (g.text || "").trim() || "Post aus Mindmap",
               typ: "Post",
+              kundeId,   // Mandant des Gedankens an den Plan übernehmen
               status: "entwurf",
               poststatus: g.poststatus || "",
               inspirationen: links.map((a) => ({ url: a.url, plattform: erkennePlattform(a.url) })),
@@ -1017,6 +1051,7 @@ export function renderAdminGedanken(container, opts) {
           todo: g.todo === true, sticky: g.sticky === true, dringend: g.dringend === true,
           poststatus: g.poststatus || "",
           farbe: g.farbe || null,
+          kundeId,
           mapId: aktiveMapId,
           neuVon: aktiveMapGeteilt() ? meineEmail : null,
           x: Math.round((g.x || 0) + 28 * i), y: Math.round((g.y || 0) + 28 * i),
@@ -1636,7 +1671,7 @@ export function renderAdminGedanken(container, opts) {
     const x = Math.round(worldCX - breite / 2 + versatz);
     const y = Math.round(worldCY - KNOTEN_H / 2 + (neuZaehler % 3) * 22);
     try {
-      const ref = await gedankeAnlegen({ text: "", ebene: e, kind, todo, mapId: aktiveMapId, neuVon: aktiveMapGeteilt() ? meineEmail : null, detail: "", x, y, erledigt: false, farbe: null, verbindungen: [], dateien: [], archiviert: ansicht === "archiv" });
+      const ref = await gedankeAnlegen({ text: "", ebene: e, kind, todo, kundeId, mapId: aktiveMapId, neuVon: aktiveMapGeteilt() ? meineEmail : null, detail: "", x, y, erledigt: false, farbe: null, verbindungen: [], dateien: [], archiviert: ansicht === "archiv" });
       fokusId = ref.id;
       const el = knoten.get(ref.id);
       if (el) { fokusId = null; el.querySelector(".gd-text").focus(); }
@@ -1826,7 +1861,7 @@ export function renderAdminGedanken(container, opts) {
     const name = (mapNeuInput.value || "").trim();
     if (!name) { mapNeuInput.focus(); return; }
     try {
-      const ref = await mindmapAnlegen({ name, besitzer: meineEmail, mitglieder: [meineEmail] });
+      const ref = await mindmapAnlegen({ name, besitzer: meineEmail, mitglieder: [meineEmail], kundeId });
       zeigeMapNeu(false);
       aktiveMapId = ref.id;                                  // zur neuen (leeren) Map wechseln
       localStorage.setItem(LS_MAP_KEY, ref.id);
@@ -1856,7 +1891,7 @@ export function renderAdminGedanken(container, opts) {
   };
   mapUnsub = istKollab
     ? beobachteMeineMindmaps(meineEmail, mapsCallback, (err) => console.warn("Mindmaps laden fehlgeschlagen:", err))
-    : beobachteMindmaps(mapsCallback, (err) => console.warn("Mindmaps laden fehlgeschlagen:", err));
+    : beobachteMindmaps(mapsCallback, (err) => console.warn("Mindmaps laden fehlgeschlagen:", err), kundeId);
   beiViewWechsel(() => { if (mapUnsub) { try { mapUnsub(); } catch (_) { /* egal */ } mapUnsub = null; } });
 
   // --- Realtime-Listener -------------------------------------------------
@@ -1874,7 +1909,8 @@ export function renderAdminGedanken(container, opts) {
         status.hidden = false; status.classList.add("is-fehler");
         status.textContent = `Konnte nicht laden${err && err.message ? ` (${String(err.message)})` : ""}…`;
       },
-      istKollab ? aktiveMapId : undefined
+      istKollab ? aktiveMapId : undefined,   // nurMapId (Kollaborator)
+      istKollab ? undefined : kundeId         // kundeId (Admin, pro Mandant)
     );
   }
   starteGedankenListener();

@@ -2,7 +2,7 @@
 // Route #/admin/video/neu = Anlegen, #/admin/video/{id} = Bearbeiten.
 import {
   ladeVideo, videoAnlegen, aktualisiereVideo, loescheVideo, ladeObjekte,
-  beobachteKommentare, kommentarHinzufuegen, ladePlan,
+  beobachteKommentare, kommentarHinzufuegen, kommentarSetzeBearbeitung, ladePlan,
   aktualisierePlan
 } from "../db.js";
 import { beiViewWechsel } from "../view-lifecycle.js";
@@ -11,10 +11,16 @@ import {
 } from "../status.js";
 import { escapeHtml, formatDatum, tsZuDateInput, dateInputZuDate } from "../util.js";
 import { renderPlanDetails, planZuSnapshot } from "../plan-ansicht.js";
+import { sendKundeFreigabe } from "../email.js";
+
+const BEARB_LABEL = {
+  neu: "Neu", gelesen: "Gelesen", in_umsetzung: "In Umsetzung", umgesetzt: "Umgesetzt"
+};
 
 export function renderAdminVideoEdit(container, ctx) {
   const user = ctx.user;
   const id = ctx.id;
+  const kundeId = ctx.kundeId || null;   // aktiver Kunde (Mandant) für neue Videos
   const istNeu = !id || id === "neu";
 
   container.innerHTML = `
@@ -26,7 +32,7 @@ export function renderAdminVideoEdit(container, ctx) {
 
   (async function init() {
     let objekte = [];
-    try { objekte = await ladeObjekte(); } catch (e) { console.error(e); }
+    try { objekte = await ladeObjekte(kundeId); } catch (e) { console.error(e); }
 
     let video = null;
     if (!istNeu) {
@@ -79,6 +85,7 @@ function formHtml(v, objekte, istNeu) {
 
   const freigabeInfo = (!istNeu && v) ? `
     <div class="freigabe-info">
+      <div><span class="muted">Entwurf:</span> <strong>${v.entwurf || 1}</strong></div>
       <div><span class="muted">Skript-Freigabe:</span> ${freigText(v.freigabeSkript)}</div>
       <div><span class="muted">Schnitt-Freigabe:</span> ${freigText(v.freigabeSchnitt)}</div>
     </div>` : "";
@@ -138,6 +145,13 @@ function formHtml(v, objekte, istNeu) {
           <button class="btn btn--accent" id="aveSave" type="submit">${istNeu ? "Anlegen" : "Speichern"}</button>
           ${!istNeu ? `<button class="btn btn--ghost" id="aveDelete" type="button">Löschen</button>` : ""}
         </div>
+        ${!istNeu ? `
+        <div class="entwurf-box">
+          <p class="muted" style="margin:0 0 .6rem">
+            Änderungen umgesetzt? Aktualisiere den Plan/die Links oben, dann gib den Kunden einen neuen Entwurf zur Freigabe.
+          </p>
+          <button class="btn btn--ok" id="aveNeuerEntwurf" type="button">🔁 Neuen Entwurf an Kunden geben</button>
+        </div>` : ""}
       </form>
     </section>
     ${!istNeu && v && v.planId ? `<div id="avePlanDetails"></div>` : ""}
@@ -191,7 +205,7 @@ function wire(v, istNeu, body, id, user) {
     save.textContent = istNeu ? "Wird angelegt …" : "Wird gespeichert …";
     try {
       if (istNeu) {
-        const ref = await videoAnlegen(daten);
+        const ref = await videoAnlegen({ ...daten, kundeId });
         location.hash = "/admin/video/" + ref.id;   // → lädt im Bearbeiten-Modus neu
       } else {
         await aktualisiereVideo(id, daten);
@@ -208,6 +222,48 @@ function wire(v, istNeu, body, id, user) {
       save.textContent = orig;
     }
   });
+
+  // „Neuen Entwurf an Kunden geben": Entwurfsnummer +1, Status auf die passende
+  // Freigabe-Stufe, Kunde wird zur Freigabe informiert. Der aktuelle Plan-Stand
+  // wird als kundensichtbarer Snapshot übernommen.
+  const neuerEntwurf = body.querySelector("#aveNeuerEntwurf");
+  if (neuerEntwurf) {
+    neuerEntwurf.addEventListener("click", async () => {
+      // Noch im Skript-Loop (Skript nötig, noch nicht freigegeben) → Skript-Freigabe,
+      // sonst Schnitt-Freigabe.
+      const zielStufe = (!v.freigabeSkript && skriptFreigabeNoetig(v.typ))
+        ? STATUS.FREIGABE_SKRIPT : STATUS.FREIGABE_SCHNITT;
+      const artLabel = zielStufe === STATUS.FREIGABE_SKRIPT ? "Skript" : "Schnitt";
+      const naechste = (v.entwurf || 1) + 1;
+      if (!confirm(`Neuen Entwurf (Nr. ${naechste}) an den Kunden geben?\nStatus springt auf „${zielStufe}" und der Kunde wird zur Freigabe benachrichtigt.`)) return;
+
+      okBox.hidden = true; errBox.hidden = true;
+      neuerEntwurf.disabled = true;
+      const orig = neuerEntwurf.textContent;
+      neuerEntwurf.textContent = "Wird veröffentlicht …";
+      try {
+        const felder = { status: zielStufe, entwurf: naechste };
+        // Aktuellen Plan-Stand (Inspirationen, Dateien, Shotlist …) als Snapshot mitgeben.
+        if (v.planId) {
+          try { const plan = await ladePlan(v.planId); if (plan) felder.planSnapshot = planZuSnapshot(plan); }
+          catch (_) { /* Snapshot best-effort */ }
+        }
+        await aktualisiereVideo(id, felder);
+        sendKundeFreigabe({ titel: v.titel || "Dein Video", art: artLabel, videoId: id });
+        v.entwurf = naechste; v.status = zielStufe;   // lokalen Stand nachziehen
+        okBox.textContent = `Entwurf ${naechste} veröffentlicht – der Kunde wurde zur Freigabe informiert.`;
+        okBox.hidden = false;
+        okBox.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      } catch (err) {
+        console.error(err);
+        errBox.textContent = "Konnte den neuen Entwurf nicht veröffentlichen.";
+        errBox.hidden = false;
+      } finally {
+        neuerEntwurf.disabled = false;
+        neuerEntwurf.textContent = orig;
+      }
+    });
+  }
 
   if (del) {
     del.addEventListener("click", async () => {
@@ -274,22 +330,46 @@ function initKommentare(id, user, body) {
     (komms) => {
       if (!komms.length) { liste.innerHTML = `<p class="muted">Noch keine Kommentare.</p>`; return; }
       liste.innerHTML = komms.map((k) => {
+        const istKunde = k.rolle !== "admin";
         const autor = k.rolle === "admin" ? "Du (Valentin)" : (String(k.autor || "").split("@")[0] || "Kunde");
         const wunsch = k.art === "aenderungswunsch" ? `<span class="pill pill--aktion">Änderungswunsch</span>` : "";
+        // Bearbeitungs-Status + Buttons nur bei Kunden-Nachrichten.
+        const status = k.bearbeitung || "neu";
+        const statusPille = istKunde
+          ? `<span class="komm-status komm-status--${status}">${BEARB_LABEL[status] || status}</span>` : "";
+        const setBtn = (val, label) =>
+          `<button class="ave-msg-set${status === val ? " is-active" : ""}" data-kid="${escapeHtml(k.id)}" data-set="${val}" type="button">${label}</button>`;
+        const btns = istKunde
+          ? `<div class="komm-btns">${setBtn("gelesen", "Gelesen")}${setBtn("in_umsetzung", "In Umsetzung")}${setBtn("umgesetzt", "Umgesetzt")}</div>` : "";
+        const neuKlasse = (istKunde && status === "neu") ? " komm--neu" : "";
         return `
-          <div class="komm komm--${escapeHtml(k.rolle || "kunde")}">
+          <div class="komm komm--${escapeHtml(k.rolle || "kunde")}${neuKlasse}">
             <div class="komm-head">
               <span class="komm-autor">${escapeHtml(autor)}</span>
               ${wunsch}
+              ${statusPille}
               <span class="komm-zeit muted">${escapeHtml(formatDatum(k.erstelltAm, true))}</span>
             </div>
             <div class="komm-text">${escapeHtml(k.text)}</div>
+            ${btns}
           </div>`;
       }).join("");
     },
     (e) => console.error(e)
   );
   beiViewWechsel(unsub);
+
+  // Event-Delegation: der Thread wird bei jedem Snapshot neu gerendert, daher
+  // einmal am Container lauschen statt pro Button.
+  liste.addEventListener("click", async (e) => {
+    const btn = e.target.closest(".ave-msg-set");
+    if (!btn) return;
+    const kid = btn.getAttribute("data-kid");
+    const wert = btn.getAttribute("data-set");
+    if (!kid) return;
+    try { await kommentarSetzeBearbeitung(id, kid, wert); }
+    catch (err) { console.error(err); }
+  });
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();

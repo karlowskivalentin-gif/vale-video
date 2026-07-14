@@ -7,7 +7,8 @@ rules_version = '2';
 // nur UI). In der Firebase-Console unter Firestore Database → Rules
 // einfügen und PUBLISH. NICHT aufs Hosting hochladen.
 //
-// Allowlist MUSS mit js/roles.js übereinstimmen.
+// Admin-Allowlist MUSS mit js/roles.js (ADMIN_EMAILS) übereinstimmen.
+// Kunden sind dynamisch (Collection kundenmitglieder), NICHT mehr hartcodiert.
 // Übergangs-Whitelist MUSS mit js/status.js (kundenFreigabeZiel /
 // kundenAenderungZiel) übereinstimmen.
 // =====================================================================
@@ -26,18 +27,44 @@ service cloud.firestore {
     function adminEmails() {
       return ['karlowskivalentin@gmail.com'];
     }
-    function kundeEmails() {
-      return ['n.berghaus@deussen-immobilien.de', 'c.deussen@deussen-immobilien.de',
-              'valentinkolja@icloud.com', 'valentinkolja@gmail.com']; // Test-Zugänge (Valentin) zum Gegenprüfen der Kundenansicht
-    }
     function istAdmin() {
       return istEingeloggt() && email() in adminEmails();
     }
+    // ÜBERGANGS-Fallback: die ursprünglichen Deussen-/Test-Adressen. Bis die
+    // Migration ihre kundenmitglieder-Einträge angelegt hat, gelten sie weiter
+    // als Kunde (Mandant „deussen"). NACH abgeschlossener Migration entfernen
+    // (Härtung) — dann ist die Zugehörigkeit rein dynamisch.
+    function altKundeEmails() {
+      return ['n.berghaus@deussen-immobilien.de', 'c.deussen@deussen-immobilien.de',
+              'valentinkolja@icloud.com', 'valentinkolja@gmail.com'];
+    }
+    // Kunde = wer einen kundenmitglieder/<email>-Eintrag hat. DYNAMISCH: der
+    // Admin legt Kunden (+ ihre Login-E-Mails) zur Laufzeit über die
+    // Kundenverwaltung an. Ersetzt die frühere hartcodierte kundeEmails()-Liste.
     function istKunde() {
-      return istEingeloggt() && email() in kundeEmails();
+      return istEingeloggt()
+          && (exists(/databases/$(database)/documents/kundenmitglieder/$(email()))
+              || email() in altKundeEmails());
+    }
+    // Zu welchem Kunden (kundeId) gehört die eingeloggte E-Mail? Übergang: fehlt
+    // der kundenmitglieder-Eintrag noch (Alt-Adresse), gilt „deussen".
+    function kundeVon() {
+      return exists(/databases/$(database)/documents/kundenmitglieder/$(email()))
+          ? get(/databases/$(database)/documents/kundenmitglieder/$(email())).data.kundeId
+          : 'deussen';
     }
     function istErlaubt() {
       return istAdmin() || istKunde();
+    }
+    // Gehört ein kundenbezogenes Dokument dem eingeloggten Nutzer? Admin sieht
+    // alles. Der default('deussen') ist das Sicherheitsnetz für Altbestände
+    // während der Migration (Docs ohne kundeId gehören faktisch zu Deussen).
+    // WICHTIG: Diese Bedingung steht direkt in der read-Regel — so scheitert
+    // eine list-Query auf eine FREMDE kundeId (Firestore garantiert, dass jedes
+    // zurückgegebene Doc die Regel erfüllt), nicht nur eine per-Doc-Prüfung.
+    function gehoertMir(res) {
+      return istAdmin()
+          || (istKunde() && res.data.get('kundeId', 'deussen') == kundeVon());
     }
 
     // ---- Kollaborator (geteilte Map-Bearbeitung per Einmal-Code) ------
@@ -66,8 +93,11 @@ service cloud.firestore {
     }
 
     // ---- Kunden-Übergangs-Whitelist (gespiegelt aus status.js) -------
+    // Skript-Freigabe: freigeben (→ Drehbereit), ändern (→ Skript) ODER
+    // verwerfen (→ Verworfen, „wird nicht gemacht"). Schnitt-Freigabe: freigeben
+    // (→ Freigegeben) oder ändern (→ Schnitt).
     function erlaubterUebergang(alt, neu) {
-      return (alt == '🔍 Freigabe Skript'  && (neu == '🎬 Drehbereit' || neu == '📝 Skript'))
+      return (alt == '🔍 Freigabe Skript'  && (neu == '🎬 Drehbereit' || neu == '📝 Skript' || neu == '🚫 Verworfen'))
           || (alt == '🔎 Freigabe Schnitt' && (neu == '✅ Freigegeben' || neu == '✂️ Schnitt'));
     }
     // Kunde darf bei Video-Updates NUR diese Felder ändern und nur die
@@ -79,38 +109,69 @@ service cloud.firestore {
     }
 
     // ---- objekte -----------------------------------------------------
+    // Kundengetrennt: der Kunde sieht/meldet nur Objekte seiner eigenen kundeId.
     match /objekte/{objektId} {
-      allow read: if istErlaubt();
+      allow read: if gehoertMir(resource);
       allow create: if istErlaubt()
                     && request.resource.data.gemeldetVon.lower() == email()
-                    && (istAdmin() || request.resource.data.status == 'Eingegangen');
+                    && (istAdmin()
+                        || (request.resource.data.status == 'Eingegangen'
+                            && request.resource.data.kundeId == kundeVon()));
       allow update, delete: if istAdmin();
     }
 
     // ---- videos ------------------------------------------------------
+    // Kundengetrennt (= die Pipeline). Der Kunde liest/aktualisiert nur Videos
+    // seiner eigenen kundeId; die kundeId selbst darf er nie ändern.
     match /videos/{videoId} {
-      allow read:          if istErlaubt();
+      allow read:          if gehoertMir(resource);
       allow create, delete: if istAdmin();
       allow update:        if istAdmin()
-                           || (istKunde() && kundenVideoUpdateOk());
+                           || (istKunde() && kundenVideoUpdateOk()
+                               && request.resource.data.get('kundeId', 'deussen')
+                                  == resource.data.get('kundeId', 'deussen'));
 
       // ---- kommentare (Subcollection) -------------------------------
+      // Sichtbar/schreibbar nur für Admin und den Kunden, dem das Eltern-Video
+      // gehört (get() auf das Video im selben Pfad).
+      function videoKunde() {
+        return get(/databases/$(database)/documents/videos/$(videoId))
+                 .data.get('kundeId', 'deussen');
+      }
       match /kommentare/{kommentarId} {
-        allow read: if istErlaubt();
+        allow read: if istAdmin() || (istKunde() && videoKunde() == kundeVon());
         allow create: if istErlaubt()
                       && request.resource.data.autor.lower() == email()
                       && (
                         (istAdmin() && request.resource.data.rolle == 'admin') ||
-                        (istKunde() && request.resource.data.rolle == 'kunde')
+                        (istKunde() && request.resource.data.rolle == 'kunde'
+                         && videoKunde() == kundeVon())
                       );
-        allow update, delete: if false;
+        // Nur der Admin darf den Bearbeitungs-Status einer Kunden-Nachricht
+        // setzen (neu → gelesen → in Umsetzung → umgesetzt). Der Text/Autor/die
+        // Rolle bleiben unveränderlich; der Kunde darf NIE updaten. Kein delete.
+        allow update: if istAdmin()
+                      && request.resource.data.diff(resource.data)
+                           .affectedKeys().hasOnly(['bearbeitung', 'bearbeitetAm']);
+        allow delete: if false;
       }
     }
 
+    // ---- kommentare als collectionGroup (nur Admin, für die Pipeline) ---
+    // Die Admin-Pipeline liest ALLE Kunden-Nachrichten in EINEM
+    // collectionGroup-Query. Firestore verlangt dafür eine Regel mit
+    // rekursivem Pfad-Wildcard — die verschachtelte videos/.../kommentare-Regel
+    // oben autorisiert collectionGroup-Queries NICHT. Nur Lesen, nur Admin;
+    // Schreiben/Anlegen läuft weiter ausschließlich über die verschachtelte Regel.
+    match /{pfad=**}/kommentare/{kommentarId} {
+      allow read: if istAdmin();
+    }
+
     // ---- termine (manuelle Kalender-Einträge) ------------------------
-    // Kunde liest nur (read-only Kalender); Admin legt an/ändert/löscht.
+    // Kundengetrennt: Kunde liest nur Termine seiner eigenen kundeId (read-only
+    // Kalender); Admin legt an/ändert/löscht.
     match /termine/{terminId} {
-      allow read:               if istErlaubt();
+      allow read:               if gehoertMir(resource);
       allow create, update, delete: if istAdmin();
     }
 
@@ -247,6 +308,27 @@ service cloud.firestore {
                         && request.resource.data.code == resource.data.code
                         && request.resource.data.mapId == resource.data.mapId
                         && request.resource.data.keys().hasOnly(['code', 'mapId', 'eingeloestVon']));
+    }
+
+    // ---- kunden (Mandanten-Stammdaten) -----------------------------
+    // Ein Doc = ein Kundenprofil { name, emails[], erstelltAm }. Nur der Admin
+    // verwaltet Kunden. Ein Kunde darf sein EIGENES Profil lesen (z. B. Name),
+    // aber nicht die Liste aller Kunden.
+    match /kunden/{kundeId} {
+      allow get:   if istAdmin() || (istKunde() && kundeId == kundeVon());
+      allow list:  if istAdmin();
+      allow write: if istAdmin();
+    }
+
+    // ---- kundenmitglieder (E-Mail → kundeId, autoritativer Lookup) --
+    // Spiegelbild von kollaboratoren/<email>. Die Security Rules lesen diese
+    // Collection intern (istKunde()/kundeVon()) — dafür braucht es KEINE
+    // allow-Regel. Client-seitig liest nur auth.js das EIGENE Doc zur
+    // Rollenauflösung. Geschrieben wird ausschließlich vom Admin (kundeSpeichern).
+    match /kundenmitglieder/{kEmail} {
+      allow get:   if istAdmin() || (istEingeloggt() && kEmail == email());
+      allow list:  if istAdmin();
+      allow write: if istAdmin();
     }
 
     // ---- Alles andere: zu ------------------------------------------

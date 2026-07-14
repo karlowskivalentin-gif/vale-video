@@ -6,7 +6,8 @@ import { beiViewWechsel } from "../view-lifecycle.js";
 import { kundenStatus, istFreigabeStufe, OBJEKT_STATUS } from "../status.js";
 import { escapeHtml, formatDatum } from "../util.js";
 
-export function renderAufgaben(container) {
+export function renderAufgaben(container, opts = {}) {
+  const kundeId = opts.kundeId || null;   // eigener Mandant des eingeloggten Kunden
   container.innerHTML = `
     <h1 class="view-title">Aufgaben</h1>
     <p class="muted view-intro">Dein Überblick: offene Freigaben, deine Videos und gemeldete Objekte.</p>
@@ -35,11 +36,13 @@ export function renderAufgaben(container) {
 
   const unsubV = beobachteVideos(
     (liste) => { videos = liste; rerender(); },
-    (err) => { console.error(err); secAufgaben.innerHTML = fehlerBlock(); }
+    (err) => { console.error(err); secAufgaben.innerHTML = fehlerBlock(); },
+    kundeId
   );
   const unsubO = beobachteObjekte(
     (liste) => { objekte = liste; rerender(); },
-    (err) => { console.error(err); }
+    (err) => { console.error(err); },
+    kundeId
   );
 
   beiViewWechsel(unsubV);
@@ -68,7 +71,7 @@ function zeichneAufgaben(el, videos) {
             <div class="task-main">
               <span class="pill pill--aktion">${escapeHtml(ks.label)}</span>
               <span class="task-name">${escapeHtml(v.titel || "Unbenanntes Video")}</span>
-              ${v.typ ? `<span class="task-typ muted">${escapeHtml(v.typ)}</span>` : ""}
+              ${v.typ ? `<span class="task-typ muted">${escapeHtml(v.typ)}${(v.entwurf || 1) > 1 ? " · Entwurf " + (v.entwurf || 1) : ""}</span>` : ((v.entwurf || 1) > 1 ? `<span class="task-typ muted">Entwurf ${v.entwurf}</span>` : "")}
             </div>
             <span class="task-cta btn btn--accent btn--sm">Ansehen &amp; freigeben</span>
           </a>`;

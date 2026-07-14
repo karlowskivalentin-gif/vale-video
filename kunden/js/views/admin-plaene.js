@@ -10,7 +10,8 @@ const STATUS_LABEL = {
   veroeffentlicht:{ txt: "Veröffentlicht", cls: "veroeffentlicht" }
 };
 
-export function renderAdminPlaene(container) {
+export function renderAdminPlaene(container, opts = {}) {
+  const kundeId = opts.kundeId || null;
   container.innerHTML = `
     <div class="admin-head">
       <h1 class="view-title" style="margin:0">Pläne</h1>
@@ -29,7 +30,8 @@ export function renderAdminPlaene(container) {
       console.error(err);
       plList.innerHTML = `<div class="card card--pad"><p class="notice notice--error" style="margin:0">
         Konnte nicht laden. Ist die Firestore-Datenbank eingerichtet?</p></div>`;
-    }
+    },
+    kundeId
   );
   beiViewWechsel(unsub);
 }

@@ -68,6 +68,11 @@ export async function sendAdminNeuesObjekt({ adresse, objektTyp, beschreibung, l
 
 // Mail an die Kunden, sobald ein Video eine Freigabe-Stufe erreicht.
 //   art: "Skript" | "Schnitt"
+// ⚠️ TODO (Mandanten-Umbau): sendet derzeit an ALLE KUNDE_EMAILS (Alt-Seed).
+// Vor dem Live-Gang (EMAIL_VERSAND_AKTIV=true) muss der Empfängerkreis auf die
+// E-Mails des JEWEILIGEN Kunden eingegrenzt werden — z. B. kundeId ans Video
+// hängen → kunden/<kundeId>.emails laden statt der globalen Liste. Solange der
+// Kill-Switch aus ist, geht ohnehin keine Mail raus.
 export async function sendKundeFreigabe({ titel, art, videoId }) {
   try {
     const ej = await ladeEmailjs();

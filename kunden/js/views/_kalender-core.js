@@ -39,6 +39,9 @@ export function renderKalender(container, opts) {
   // Nur der Admin-Kalender reicht beobachtePlaene durch → private Plan-Marker
   // (gestrichelt). Der Kunden-Kalender lässt das weg und sieht keine Pläne.
   const beobachtePlaene = typeof opts.beobachtePlaene === "function" ? opts.beobachtePlaene : null;
+  // Mandant: Admin reicht den aktiven Kunden durch, der Kunde seinen eigenen.
+  // Alle Kalender-Quellen (Videos/Termine/Pläne) werden danach gefiltert.
+  const kundeId = opts.kundeId || null;
 
   const heute = new Date();
   let jahr = heute.getFullYear();
@@ -165,18 +168,21 @@ export function renderKalender(container, opts) {
       console.error(err);
       gridEl.innerHTML = `<div class="card card--pad"><p class="notice notice--error" style="margin:0">
         Konnte nicht laden. Ist die Firestore-Datenbank eingerichtet?</p></div>`;
-    }
+    },
+    kundeId
   );
   // Termine: Fehler ist NICHT fatal (z. B. Rules noch nicht deployed) → Video-Marker bleiben.
   const unsubTermine = beobachteTermine(
     (liste) => { termine = liste; zeichne(); },
-    (err) => { console.warn("Termine konnten nicht geladen werden:", err); }
+    (err) => { console.warn("Termine konnten nicht geladen werden:", err); },
+    kundeId
   );
   // Pläne: nur Admin-Kalender (opts.beobachtePlaene gesetzt). Fehler NICHT fatal.
   const unsubPlaene = beobachtePlaene
     ? beobachtePlaene(
         (liste) => { plaene = liste; zeichne(); },
-        (err) => { console.warn("Pläne konnten nicht geladen werden:", err); }
+        (err) => { console.warn("Pläne konnten nicht geladen werden:", err); },
+        kundeId
       )
     : null;
 

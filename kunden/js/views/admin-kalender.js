@@ -4,10 +4,11 @@
 import { renderKalender } from "./_kalender-core.js";
 import { beobachtePlaene } from "../db.js";
 
-export function renderAdminKalender(container) {
+export function renderAdminKalender(container, opts = {}) {
   renderKalender(container, {
     intro: "Geplante Veröffentlichungen. Datum setzt du im jeweiligen Video.",
     chipHref: (v) => `#/admin/video/${encodeURIComponent(v.id)}`,
-    beobachtePlaene
+    beobachtePlaene,
+    kundeId: opts.kundeId || null
   });
 }

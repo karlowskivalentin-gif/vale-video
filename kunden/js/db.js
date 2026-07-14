@@ -9,13 +9,14 @@
 // =====================================================================
 import { db } from "./firebase-init.js";
 import {
-  collection, doc, addDoc, setDoc, getDoc, getDocs, updateDoc, deleteDoc,
+  collection, collectionGroup, doc, addDoc, setDoc, getDoc, getDocs, updateDoc, deleteDoc,
   query, where, orderBy, onSnapshot, serverTimestamp, writeBatch, arrayUnion
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import {
   STATUS, OBJEKT_STATUS,
-  kundenFreigabeZiel, kundenAenderungZiel
+  kundenFreigabeZiel, kundenAenderungZiel, kundenVerwerfenZiel
 } from "./status.js";
+import { ADMIN_EMAILS } from "./roles.js";
 
 const snapToArr = (snap) => snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
@@ -24,28 +25,31 @@ const snapToArr = (snap) => snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 // =====================================================================
 const objekteCol = () => collection(db, "objekte");
 
-export async function objektMelden({ adresse, objektTyp, beschreibung, link, gemeldetVon }) {
+export async function objektMelden({ adresse, objektTyp, beschreibung, link, gemeldetVon, kundeId }) {
   return addDoc(objekteCol(), {
     adresse:      adresse || "",
     objektTyp:    objektTyp || "",
     beschreibung: beschreibung || "",
     link:         link || "",
     gemeldetVon:  gemeldetVon,
+    kundeId:      kundeId || null,   // Mandant, zu dem dieses gemeldete Objekt gehört
     status:       OBJEKT_STATUS.EINGEGANGEN,
     erstelltAm:   serverTimestamp()
   });
 }
 
-export async function ladeObjekte() {
-  return snapToArr(await getDocs(query(objekteCol(), orderBy("erstelltAm", "desc"))));
+export async function ladeObjekte(kundeId) {
+  const q = kundeId
+    ? query(objekteCol(), where("kundeId", "==", kundeId))
+    : query(objekteCol(), orderBy("erstelltAm", "desc"));
+  return snapToArr(await getDocs(q));
 }
 
-export function beobachteObjekte(callback, onError) {
-  return onSnapshot(
-    query(objekteCol(), orderBy("erstelltAm", "desc")),
-    (snap) => callback(snapToArr(snap)),
-    onError || (() => {})
-  );
+export function beobachteObjekte(callback, onError, kundeId) {
+  const q = kundeId
+    ? query(objekteCol(), where("kundeId", "==", kundeId))
+    : query(objekteCol(), orderBy("erstelltAm", "desc"));
+  return onSnapshot(q, (snap) => callback(snapToArr(snap)), onError || (() => {}));
 }
 
 export async function setzeObjektStatus(id, status) {
@@ -65,10 +69,12 @@ export async function videoAnlegen(daten) {
   return addDoc(videosCol(), {
     titel:          daten.titel || "",
     typ:            daten.typ || "",
+    kundeId:        daten.kundeId || null,   // Mandant (Kundenprofil), zu dem dieses Video gehört
     objektId:       daten.objektId || null,
     planId:         daten.planId || null,   // Herkunfts-Plan (Video-Edit zeigt dessen volle Details)
     planSnapshot:   daten.planSnapshot || null,  // kundensichtbarer Ausschnitt des Plans (Kunde darf /plaene nicht lesen)
     status:         daten.status || STATUS.IDEE,
+    entwurf:        1,                       // Entwurfs-/Versionsnummer (steigt mit jedem „Neuen Entwurf")
     skriptLink:     daten.skriptLink || "",
     schnittLink:    daten.schnittLink || "",
     freigabeSkript: null,
@@ -93,16 +99,20 @@ export function beobachteVideo(id, callback, onError) {
   );
 }
 
-export async function ladeVideos() {
-  return snapToArr(await getDocs(query(videosCol(), orderBy("erstelltAm", "desc"))));
+// kundeId (optional): auf einen Mandanten filtern (where OHNE orderBy → kein
+// Composite-Index; der Client sortiert). Ohne kundeId: alle Videos (orderBy).
+export async function ladeVideos(kundeId) {
+  const q = kundeId
+    ? query(videosCol(), where("kundeId", "==", kundeId))
+    : query(videosCol(), orderBy("erstelltAm", "desc"));
+  return snapToArr(await getDocs(q));
 }
 
-export function beobachteVideos(callback, onError) {
-  return onSnapshot(
-    query(videosCol(), orderBy("erstelltAm", "desc")),
-    (snap) => callback(snapToArr(snap)),
-    onError || (() => {})
-  );
+export function beobachteVideos(callback, onError, kundeId) {
+  const q = kundeId
+    ? query(videosCol(), where("kundeId", "==", kundeId))
+    : query(videosCol(), orderBy("erstelltAm", "desc"));
+  return onSnapshot(q, (snap) => callback(snapToArr(snap)), onError || (() => {}));
 }
 
 // Admin: beliebige Felder aktualisieren (inkl. freier Statuswahl).
@@ -144,18 +154,43 @@ export async function kundeFordertAenderung(video) {
   });
 }
 
+// Kunde verwirft das Skript („wird nicht gemacht") → Status Verworfen.
+// Optionaler Grund-Kommentar wird separat via kommentarHinzufuegen geschrieben.
+export async function kundeVerwirft(video) {
+  const ziel = kundenVerwerfenZiel(video.status);
+  if (!ziel) throw new Error("Verwerfen in diesem Status nicht möglich.");
+
+  return updateDoc(doc(db, "videos", video.id), {
+    status: ziel,
+    aktualisiertAm: serverTimestamp()
+  });
+}
+
 // =====================================================================
 // KOMMENTARE — Subcollection unter videos/{id}/kommentare
 // =====================================================================
 const kommentareCol = (videoId) => collection(db, "videos", videoId, "kommentare");
 
 export async function kommentarHinzufuegen(videoId, { text, autor, rolle, art }) {
-  return addDoc(kommentareCol(videoId), {
+  const daten = {
     text:       text || "",
     autor:      autor,
     rolle:      rolle,                 // 'kunde' | 'admin'
     art:        art || "kommentar",    // 'kommentar' | 'aenderungswunsch'
     erstelltAm: serverTimestamp()
+  };
+  // Kunden-Nachrichten starten ungelesen; der Admin arbeitet sie ab
+  // (neu → gelesen → in_umsetzung → umgesetzt). Admin-Kommentare bleiben ohne.
+  if (rolle === "kunde") daten.bearbeitung = "neu";
+  return addDoc(kommentareCol(videoId), daten);
+}
+
+// Admin setzt den Bearbeitungs-Status einer Kunden-Nachricht.
+// Erlaubte Werte: 'neu' | 'gelesen' | 'in_umsetzung' | 'umgesetzt' (siehe Rules).
+export async function kommentarSetzeBearbeitung(videoId, kommentarId, status) {
+  return updateDoc(doc(db, "videos", videoId, "kommentare", kommentarId), {
+    bearbeitung:  status,
+    bearbeitetAm: serverTimestamp()
   });
 }
 
@@ -167,6 +202,21 @@ export function beobachteKommentare(videoId, callback, onError) {
   return onSnapshot(
     query(kommentareCol(videoId), orderBy("erstelltAm", "asc")),
     (snap) => callback(snapToArr(snap)),
+    onError || (() => {})
+  );
+}
+
+// Alle Kommentare aller Videos in EINEM Listener (Admin-only, für die Pipeline).
+// Liefert je Kommentar zusätzlich videoId (aus dem Parent-Pfad). Ohne orderBy
+// (kein Composite-Index nötig) — die Sortierung übernimmt der Client.
+export function beobachteAlleKommentare(callback, onError) {
+  return onSnapshot(
+    collectionGroup(db, "kommentare"),
+    (snap) => callback(snap.docs.map((d) => ({
+      id: d.id,
+      videoId: d.ref.parent.parent ? d.ref.parent.parent.id : null,
+      ...d.data()
+    }))),
     onError || (() => {})
   );
 }
@@ -184,6 +234,7 @@ export async function terminAnlegen(daten) {
   return addDoc(termineCol(), {
     kategorie:   daten.kategorie || "besprechung",
     bezeichnung: daten.bezeichnung || "",
+    kundeId:     daten.kundeId || null,   // Mandant, zu dem dieser Termin gehört
     datum:       daten.datum || null,
     uhrzeitVon:  daten.uhrzeitVon || "",
     uhrzeitBis:  daten.uhrzeitBis || "",
@@ -202,16 +253,18 @@ export async function loescheTermin(id) {
   return deleteDoc(doc(db, "termine", id));
 }
 
-export async function ladeTermine() {
-  return snapToArr(await getDocs(query(termineCol(), orderBy("datum", "asc"))));
+export async function ladeTermine(kundeId) {
+  const q = kundeId
+    ? query(termineCol(), where("kundeId", "==", kundeId))
+    : query(termineCol(), orderBy("datum", "asc"));
+  return snapToArr(await getDocs(q));
 }
 
-export function beobachteTermine(callback, onError) {
-  return onSnapshot(
-    query(termineCol(), orderBy("datum", "asc")),
-    (snap) => callback(snapToArr(snap)),
-    onError || (() => {})
-  );
+export function beobachteTermine(callback, onError, kundeId) {
+  const q = kundeId
+    ? query(termineCol(), where("kundeId", "==", kundeId))
+    : query(termineCol(), orderBy("datum", "asc"));
+  return onSnapshot(q, (snap) => callback(snapToArr(snap)), onError || (() => {}));
 }
 
 // =====================================================================
@@ -229,6 +282,7 @@ export async function planAnlegen(daten) {
   return addDoc(plaeneCol(), {
     titel:         daten.titel || "",
     typ:           daten.typ || "",
+    kundeId:       daten.kundeId || null,   // Mandant, zu dem dieser Plan gehört
     objektId:      daten.objektId || null,
     status:        daten.status || "entwurf",
     poststatus:    daten.poststatus || "",   // aus einem Post übernommen: ''|skript|shotlist|geschnitten
@@ -257,16 +311,18 @@ export async function loeschePlan(id) {
   return deleteDoc(doc(db, "plaene", id));
 }
 
-export async function ladePlaene() {
-  return snapToArr(await getDocs(query(plaeneCol(), orderBy("erstelltAm", "desc"))));
+export async function ladePlaene(kundeId) {
+  const q = kundeId
+    ? query(plaeneCol(), where("kundeId", "==", kundeId))
+    : query(plaeneCol(), orderBy("erstelltAm", "desc"));
+  return snapToArr(await getDocs(q));
 }
 
-export function beobachtePlaene(callback, onError) {
-  return onSnapshot(
-    query(plaeneCol(), orderBy("erstelltAm", "desc")),
-    (snap) => callback(snapToArr(snap)),
-    onError || (() => {})
-  );
+export function beobachtePlaene(callback, onError, kundeId) {
+  const q = kundeId
+    ? query(plaeneCol(), where("kundeId", "==", kundeId))
+    : query(plaeneCol(), orderBy("erstelltAm", "desc"));
+  return onSnapshot(q, (snap) => callback(snapToArr(snap)), onError || (() => {}));
 }
 
 // =====================================================================
@@ -336,6 +392,7 @@ export async function gedankeAnlegen(daten) {
     todo:        !!daten.todo,                                 // To-Do-Status (grün / im Filter)
     sticky:      !!daten.sticky,                               // 📌 Sticky Note (gelb; offene Fragestellung, eigener Tab)
     dringend:    !!daten.dringend,                             // ❗ dringliches To-Do (roter Glow, oben fixiert)
+    kundeId:     daten.kundeId || null,                        // Mandant, zu dem dieser Gedanke gehört
     mapId:       daten.mapId || "default",                     // Zugehörigkeit zu einer Mindmap
     verantwortlich: (daten.verantwortlich || "").toLowerCase(),// zuständige E-Mail fürs To-Do ("" = niemand)
     neuVon:      daten.neuVon || null,                         // auf geteilten Maps: E-Mail des Erstellers (NEU-Markierung)
@@ -366,13 +423,18 @@ export async function ladeGedanken() {
   return snapToArr(await getDocs(query(gedankenCol(), orderBy("erstelltAm", "asc"))));
 }
 
-// Admin: ohne nurMapId → alle Gedanken (orderBy erstelltAm).
-// Kollaborator: mit nurMapId → nur diese Map (where mapId; KEIN orderBy, damit
-// kein Composite-Index nötig ist — die Mindmap ordnet ohnehin über x/y).
-export function beobachteGedanken(callback, onError, nurMapId) {
-  const q = nurMapId
-    ? query(gedankenCol(), where("mapId", "==", nurMapId))
-    : query(gedankenCol(), orderBy("erstelltAm", "asc"));
+// Drei Betriebsarten (Priorität kundeId → nurMapId → global):
+//   • kundeId  (Admin/Mindmap): alle Gedanken EINES Kunden (where kundeId).
+//     Die Map-Auswahl filtert der View clientseitig über g.mapId.
+//   • nurMapId (Kollaborator):  nur eine geteilte Map (where mapId).
+//   • keins    (To-Dos/Fokus):  ALLE Gedanken kundenübergreifend (orderBy) —
+//     bewusst global, damit To-Do-/Fokus-Sichten über alle Kunden aggregieren.
+// where OHNE orderBy → kein Composite-Index nötig (die Leinwand ordnet über x/y).
+export function beobachteGedanken(callback, onError, nurMapId, kundeId) {
+  let q;
+  if (kundeId)       q = query(gedankenCol(), where("kundeId", "==", kundeId));
+  else if (nurMapId) q = query(gedankenCol(), where("mapId", "==", nurMapId));
+  else               q = query(gedankenCol(), orderBy("erstelltAm", "asc"));
   return onSnapshot(q, (snap) => callback(snapToArr(snap)), onError || (() => {}));
 }
 
@@ -537,21 +599,23 @@ const mindmapsCol = () => collection(db, "mindmaps");
 
 // besitzer + mitglieder steuern, wer die Map sieht/bearbeitet (siehe Rules):
 // der Besitzer darf sie löschen; Mitglieder sehen sie und ihre Gedanken.
-export async function mindmapAnlegen({ name, besitzer, mitglieder }) {
+export async function mindmapAnlegen({ name, besitzer, mitglieder, kundeId }) {
   return addDoc(mindmapsCol(), {
     name:       name || "Neue Map",
     besitzer:   (besitzer || "").toLowerCase(),
     mitglieder: Array.isArray(mitglieder) ? mitglieder.map((e) => String(e).toLowerCase()) : [],
+    kundeId:    kundeId || null,   // Mandant, zu dem diese Mindmap gehört
     erstelltAm: serverTimestamp()
   });
 }
 
-export function beobachteMindmaps(callback, onError) {
-  return onSnapshot(
-    query(mindmapsCol(), orderBy("erstelltAm", "asc")),
-    (snap) => callback(snapToArr(snap)),
-    onError || (() => {})
-  );
+// kundeId (optional): nur die Mindmaps EINES Kunden (where; kein orderBy →
+// Client sortiert). Ohne kundeId: alle Mindmaps (orderBy) — für globale Sichten.
+export function beobachteMindmaps(callback, onError, kundeId) {
+  const q = kundeId
+    ? query(mindmapsCol(), where("kundeId", "==", kundeId))
+    : query(mindmapsCol(), orderBy("erstelltAm", "asc"));
+  return onSnapshot(q, (snap) => callback(snapToArr(snap)), onError || (() => {}));
 }
 
 // Nur die Maps, in denen diese E-Mail Mitglied ist (Kollaborator-Sicht).
@@ -590,14 +654,24 @@ export async function mindmapAnlegenMitId(id, name) {
 // =====================================================================
 const benachrichtigungenCol = () => collection(db, "benachrichtigungen");
 
-export async function benachrichtigungAnlegen({ fuer, von, text }) {
-  return addDoc(benachrichtigungenCol(), {
+export async function benachrichtigungAnlegen({ fuer, von, text, videoId, art }) {
+  const daten = {
     fuer:       (fuer || "").toLowerCase(),
     von:        (von || "").toLowerCase(),
     text:       text || "",
     gelesen:    false,
     erstelltAm: serverTimestamp()
-  });
+  };
+  // Optionale Verknüpfung → Glocken-Item wird zum Video klickbar.
+  if (videoId) daten.videoId = videoId;
+  if (art)     daten.art = art;
+  return addDoc(benachrichtigungenCol(), daten);
+}
+
+// Meldet eine Kunden-Aktivität an den Admin (Glocke). Fire-and-forget-tauglich.
+// Empfänger ist die (einzige) Admin-Adresse aus roles.js.
+export async function benachrichtigeAdmin({ von, text, videoId, art }) {
+  return benachrichtigungAnlegen({ fuer: ADMIN_EMAILS[0], von, text, videoId, art });
 }
 
 export function beobachteBenachrichtigungen(email, callback, onError) {
@@ -656,4 +730,109 @@ export async function loeseEinladungEin(einladungId, code, email, mapId) {
   // Geteilt-Erkennung fürs Neu-/Akzeptier-System.
   batch.update(doc(db, "mindmaps", mapId), { mitglieder: arrayUnion(e) });
   return batch.commit();
+}
+
+// =====================================================================
+// KUNDEN + KUNDENMITGLIEDER — Mandanten (Kundenprofile) des Arbeitsportals
+//
+// Ein Kunde ist ein echtes Datenobjekt:
+//   kunden/{kundeId}         : { name, emails[], erstelltAm, aktualisiertAm }
+//                              Stammdaten + Quelle für die Admin-UI/Anzeige.
+//   kundenmitglieder/{email} : { kundeId }
+//                              INVERTIERTER Lookup (analog kollaboratoren/{email}).
+//                              Das ist die für die Security Rules AUTORITATIVE
+//                              Mitgliedschaft (Rules können nicht queryen; ein
+//                              O(1)-get per E-Mail liefert den Kunden). MUSS immer
+//                              synchron zu kunden.emails[] bleiben → deshalb wird
+//                              beides ausschließlich über kundeSpeichern() (ein
+//                              writeBatch) geschrieben.
+//
+// Jeder kundenbezogene Datensatz (videos/objekte/termine/plaene/gedanken/
+// mindmaps) trägt ein Feld `kundeId`, das auf kunden/{kundeId} verweist.
+// =====================================================================
+const kundenCol           = () => collection(db, "kunden");
+
+export function beobachteKunden(callback, onError) {
+  return onSnapshot(
+    query(kundenCol(), orderBy("erstelltAm", "asc")),
+    (snap) => callback(snapToArr(snap)),
+    onError || (() => {})
+  );
+}
+
+export async function ladeKunde(id) {
+  const d = await getDoc(doc(db, "kunden", id));
+  return d.exists() ? { id: d.id, ...d.data() } : null;
+}
+
+// Rollen-Lookup: zu welchem Kunden gehört diese E-Mail? (null = keiner)
+// Spiegelbild von ladeKollaborator — von auth.js zur Rollenauflösung genutzt.
+export async function ladeKundenmitglied(email) {
+  const e = (email || "").trim().toLowerCase();
+  if (!e) return null;
+  const d = await getDoc(doc(db, "kundenmitglieder", e));
+  return d.exists() ? { id: d.id, ...d.data() } : null;
+}
+
+// Kunde anlegen ODER bearbeiten. Hält kunden/{id} und kundenmitglieder/{email}
+// in EINEM Batch synchron (Single Source of Truth für die Rules). `altEmails` =
+// die vorher gespeicherten E-Mails, damit entfernte Mitglieds-Docs gelöscht
+// werden. `istNeu` setzt erstelltAm nur bei der Erstanlage.
+export async function kundeSpeichern({ id, name, emails, altEmails, istNeu }) {
+  const kundeId = (id || "").trim().toLowerCase();
+  if (!kundeId) throw new Error("kundeId fehlt");
+  const norm = (arr) => Array.from(new Set(
+    (arr || []).map((e) => String(e).trim().toLowerCase()).filter(Boolean)
+  ));
+  const neu = norm(emails);
+  const alt = norm(altEmails);
+
+  const batch = writeBatch(db);
+  const kundeDaten = { name: name || kundeId, emails: neu, aktualisiertAm: serverTimestamp() };
+  if (istNeu) kundeDaten.erstelltAm = serverTimestamp();
+  batch.set(doc(db, "kunden", kundeId), kundeDaten, { merge: true });
+
+  // Neue/bestehende Mitglieder eintragen …
+  neu.forEach((e) => batch.set(doc(db, "kundenmitglieder", e), { kundeId }, { merge: true }));
+  // … entfernte Mitglieder löschen.
+  alt.filter((e) => !neu.includes(e)).forEach((e) => batch.delete(doc(db, "kundenmitglieder", e)));
+
+  await batch.commit();
+  return kundeId;
+}
+
+// =====================================================================
+// MIGRATION — einmalige Zuordnung des Altbestands zum Kunden „deussen".
+//
+// Läuft im Browser unter Admin-Rechten (kein Admin-SDK nötig). Idempotent:
+// es werden NUR Dokumente ohne gesetzte kundeId angefasst — ein zweiter Lauf
+// ist ein No-op. `seedEmails` = die echten Kunden-Adressen (ohne Test-Zugänge),
+// die dem Kunden deussen als Login-E-Mails zugeordnet werden.
+// =====================================================================
+export async function migriereAltbestand(seedEmails) {
+  // 1) Kunde „deussen" + kundenmitglieder sicherstellen (Name/erstelltAm bei
+  //    Wiederholung bewahren; entfernte Seed-Adressen sauber abräumen).
+  const vorhanden = await ladeKunde("deussen");
+  await kundeSpeichern({
+    id:       "deussen",
+    name:     (vorhanden && vorhanden.name) || "Deussen Immobilien",
+    emails:   seedEmails || [],
+    altEmails: (vorhanden && vorhanden.emails) || [],
+    istNeu:   !vorhanden
+  });
+
+  // 2) Alle kundenbezogenen Collections: Docs OHNE kundeId auf „deussen" setzen.
+  const namen = ["videos", "objekte", "termine", "plaene", "gedanken", "mindmaps"];
+  const bericht = {};
+  for (const name of namen) {
+    const snap = await getDocs(collection(db, name));
+    const ohne = snap.docs.filter((d) => !d.data().kundeId);   // fehlt oder null → migrieren
+    bericht[name] = ohne.length;
+    for (let i = 0; i < ohne.length; i += 450) {   // Firestore-Batch-Limit 500
+      const batch = writeBatch(db);
+      ohne.slice(i, i + 450).forEach((d) => batch.update(d.ref, { kundeId: "deussen" }));
+      await batch.commit();
+    }
+  }
+  return bericht;
 }

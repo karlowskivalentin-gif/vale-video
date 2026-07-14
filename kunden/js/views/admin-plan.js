@@ -38,6 +38,7 @@ function speicherePanelOrder(order) {
 
 export function renderAdminPlan(container, ctx) {
   const id = ctx.id;
+  const kundeId = ctx.kundeId || null;   // aktiver Kunde (Mandant) für neue Pläne/Videos
   const istNeu = !id || id === "neu";
 
   container.innerHTML = `
@@ -49,7 +50,7 @@ export function renderAdminPlan(container, ctx) {
 
   (async function init() {
     let objekte = [];
-    try { objekte = await ladeObjekte(); } catch (e) { console.error(e); }
+    try { objekte = await ladeObjekte(kundeId); } catch (e) { console.error(e); }
 
     let vorlagen = [];
     try { vorlagen = await ladeShotvorlagen(); } catch (e) { console.error("Shot-Vorlagen laden fehlgeschlagen:", e); vorlagen = []; }
@@ -424,7 +425,7 @@ export function renderAdminPlan(container, ctx) {
         save.textContent = istNeu ? "Wird angelegt …" : "Wird gespeichert …";
         try {
           if (istNeu) {
-            const ref = await planAnlegen(datenAusState());
+            const ref = await planAnlegen({ ...datenAusState(), kundeId });
             location.hash = "/admin/plan/" + ref.id;   // → lädt im Bearbeiten-Modus neu
           } else {
             await aktualisierePlan(aktuelleId, datenAusState());
@@ -460,6 +461,7 @@ export function renderAdminPlan(container, ctx) {
             const ref = await videoAnlegen({
               titel: state.titel,
               typ: state.typ,
+              kundeId,   // Mandant vom Plan ans Video übernehmen
               objektId: state.objektId || null,
               planId: aktuelleId,   // Video-Edit zeigt ALLE Plan-Details (Links, Dateien, Shotlist, Notiz)
               planSnapshot: planZuSnapshot(planDaten),   // kundensichtbarer Ausschnitt (Kunde darf /plaene nicht lesen)

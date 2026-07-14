@@ -5,7 +5,8 @@
 //   - Aktionen: „Freigeben" (Auto-Sprung) / „Änderungen anfordern" (Pflicht-Kommentar)
 import {
   beobachteVideo, beobachteKommentare,
-  kommentarHinzufuegen, kundeGibtFrei, kundeFordertAenderung
+  kommentarHinzufuegen, kundeGibtFrei, kundeFordertAenderung, kundeVerwirft,
+  benachrichtigeAdmin
 } from "../db.js";
 import { beiViewWechsel } from "../view-lifecycle.js";
 import { STATUS, kundenStatus, istFreigabeStufe } from "../status.js";
@@ -54,6 +55,11 @@ export function renderVideoDetail(container, ctx) {
   const kSubmit    = container.querySelector("#kSubmit");
 
   let video = null;
+
+  // Kunden-Aktivität an die Admin-Glocke melden (fire-and-forget, still bei Fehler).
+  const meldeAdmin = (art, text, videoId) => {
+    benachrichtigeAdmin({ von: user.email, text, videoId, art }).catch(() => {});
+  };
 
   // --- Video-Subscription: Titel, Media, Aktionen ---------------------
   const unsubV = beobachteVideo(id,
@@ -106,7 +112,9 @@ export function renderVideoDetail(container, ctx) {
     }
   }
 
-  // --- Aktionen (Freigeben / Änderungen) ------------------------------
+  // --- Aktionen (Ampel: freigeben / ändern / verwerfen) ---------------
+  // Skript-Freigabe → 3 Ampel-Buttons (grün/gelb/rot). Schnitt-Freigabe →
+  // 2 Buttons wie bisher (bei einem fertigen Schnitt gibt es kein „nicht machen").
   function renderAction(v) {
     if (!istFreigabeStufe(v.status)) {
       const ks = kundenStatus(v.status);
@@ -121,15 +129,25 @@ export function renderVideoDetail(container, ctx) {
     }
 
     const istSkript = v.status === STATUS.FREIGABE_SKRIPT;
-    const ks = kundenStatus(v.status);
+    const ks    = kundenStatus(v.status);
+    const was   = istSkript ? "das Skript" : "den Schnitt";
+    const titel = v.titel || "Dein Video";
+    const wer   = kurzname(user.email);
+
+    const buttons = istSkript
+      ? `<button class="btn btn--ok"    id="btnFreigeben" type="button">So umsetzen</button>
+         <button class="btn btn--warn"  id="btnAendern"   type="button">Mit Änderungswünschen</button>
+         <button class="btn btn--error" id="btnVerwerfen" type="button">Wird nicht gemacht</button>`
+      : `<button class="btn btn--accent" id="btnFreigeben" type="button">Freigeben</button>
+         <button class="btn btn--ghost"  id="btnAendern"   type="button">Änderungen anfordern</button>`;
+
     elAction.innerHTML = `
       <div class="card card--pad action-card">
         <span class="pill pill--aktion">${escapeHtml(ks.label)}</span>
-        <p class="action-hint muted">Sieh dir ${istSkript ? "das Skript" : "den Schnitt"} oben an und entscheide:</p>
-        <div class="action-btns">
-          <button class="btn btn--accent" id="btnFreigeben" type="button">Freigeben</button>
-          <button class="btn btn--ghost"  id="btnAendern"   type="button">Änderungen anfordern</button>
-        </div>
+        ${(v.entwurf || 1) > 1 ? `<p class="entwurf-hinweis">✓ Deine Änderungswünsche wurden umgesetzt – hier ist der neue Entwurf (Nr.&nbsp;${v.entwurf}).</p>` : ""}
+        <p class="action-hint muted">Sieh dir ${was} oben an und entscheide:</p>
+        <div class="action-btns action-ampel">${buttons}</div>
+
         <div id="aenderPanel" hidden>
           <div class="field" style="margin-top:1rem">
             <label for="aenderText">Was sollen wir ändern? <span class="req">*</span></label>
@@ -140,54 +158,73 @@ export function renderVideoDetail(container, ctx) {
             <button class="btn btn--ghost"  id="btnAenderAbbrechen" type="button">Abbrechen</button>
           </div>
         </div>
+        ${istSkript ? `
+        <div id="verwerfenPanel" hidden>
+          <div class="field" style="margin-top:1rem">
+            <label for="verwerfenText">Warum nicht? <span class="muted">(optional)</span></label>
+            <textarea id="verwerfenText" placeholder="Kurzer Grund, damit Valentin es nachvollziehen kann …"></textarea>
+          </div>
+          <div class="action-btns">
+            <button class="btn btn--error" id="btnVerwerfenSenden"    type="button">Nicht produzieren</button>
+            <button class="btn btn--ghost" id="btnVerwerfenAbbrechen" type="button">Abbrechen</button>
+          </div>
+        </div>` : ``}
         <div class="notice notice--error" id="actionErr" hidden role="alert"></div>
       </div>`;
 
     const btnFreigeben = elAction.querySelector("#btnFreigeben");
     const btnAendern   = elAction.querySelector("#btnAendern");
+    const btnVerwerfen = elAction.querySelector("#btnVerwerfen");   // nur Skript
     const panel        = elAction.querySelector("#aenderPanel");
     const btnSenden    = elAction.querySelector("#btnAenderSenden");
     const btnAbbrechen = elAction.querySelector("#btnAenderAbbrechen");
     const aenderText   = elAction.querySelector("#aenderText");
+    const vPanel       = elAction.querySelector("#verwerfenPanel"); // nur Skript
+    const vSenden      = elAction.querySelector("#btnVerwerfenSenden");
+    const vAbbrechen   = elAction.querySelector("#btnVerwerfenAbbrechen");
+    const vText        = elAction.querySelector("#verwerfenText");
     const actionErr    = elAction.querySelector("#actionErr");
 
     const zeigeFehler = (msg) => { actionErr.textContent = msg; actionErr.hidden = false; };
-    const setBusy = (busy) => {
-      btnFreigeben.disabled = busy;
-      btnAendern.disabled = busy;
-      if (btnSenden) btnSenden.disabled = busy;
+    const alleBtns = [btnFreigeben, btnAendern, btnVerwerfen, btnSenden, vSenden].filter(Boolean);
+    const setBusy = (busy) => alleBtns.forEach((b) => { b.disabled = busy; });
+    // Primär-Buttons ein-/ausblenden (beim Öffnen/Schließen eines Panels).
+    const zeigePrimaer = (sichtbar) => {
+      btnFreigeben.hidden = !sichtbar;
+      btnAendern.hidden = !sichtbar;
+      if (btnVerwerfen) btnVerwerfen.hidden = !sichtbar;
     };
 
+    // 🟢 Freigeben / So umsetzen
     btnFreigeben.addEventListener("click", async () => {
       actionErr.hidden = true;
       setBusy(true);
       btnFreigeben.textContent = "Wird freigegeben …";
       try {
         await kundeGibtFrei(v, user);
+        meldeAdmin("freigabe", `✅ ${wer} hat ${was} freigegeben: „${titel}"`, v.id);
         // onSnapshot rendert die Aktionen neu (Status ist gesprungen).
       } catch (e) {
         console.error(e);
         zeigeFehler("Freigabe fehlgeschlagen. Bitte erneut versuchen.");
         setBusy(false);
-        btnFreigeben.textContent = "Freigeben";
+        btnFreigeben.textContent = istSkript ? "So umsetzen" : "Freigeben";
       }
     });
 
+    // 🟡 Änderungen anfordern (Pflicht-Kommentar)
     btnAendern.addEventListener("click", () => {
       panel.hidden = false;
-      btnAendern.hidden = true;
-      btnFreigeben.hidden = true;
+      if (vPanel) vPanel.hidden = true;
+      zeigePrimaer(false);
       aenderText.focus();
     });
-
     btnAbbrechen.addEventListener("click", () => {
       panel.hidden = true;
-      btnAendern.hidden = false;
-      btnFreigeben.hidden = false;
+      zeigePrimaer(true);
       aenderText.value = "";
       actionErr.hidden = true;
     });
-
     btnSenden.addEventListener("click", async () => {
       actionErr.hidden = true;
       const txt = aenderText.value.trim();
@@ -197,6 +234,7 @@ export function renderVideoDetail(container, ctx) {
       try {
         await kommentarHinzufuegen(v.id, { text: txt, autor: user.email, rolle: "kunde", art: "aenderungswunsch" });
         await kundeFordertAenderung(v);
+        meldeAdmin("aenderung", `✏️ ${wer} wünscht Änderungen an „${titel}": ${kurz(txt)}`, v.id);
         // onSnapshot aktualisiert Status + Kommentare.
       } catch (e) {
         console.error(e);
@@ -205,6 +243,38 @@ export function renderVideoDetail(container, ctx) {
         btnSenden.textContent = "Änderungen senden";
       }
     });
+
+    // 🔴 Wird nicht gemacht (nur Skript; optionaler Grund)
+    if (btnVerwerfen) {
+      btnVerwerfen.addEventListener("click", () => {
+        vPanel.hidden = false;
+        panel.hidden = true;
+        zeigePrimaer(false);
+        vText.focus();
+      });
+      vAbbrechen.addEventListener("click", () => {
+        vPanel.hidden = true;
+        zeigePrimaer(true);
+        vText.value = "";
+        actionErr.hidden = true;
+      });
+      vSenden.addEventListener("click", async () => {
+        actionErr.hidden = true;
+        const txt = vText.value.trim();
+        setBusy(true);
+        vSenden.textContent = "Wird gesendet …";
+        try {
+          if (txt) await kommentarHinzufuegen(v.id, { text: txt, autor: user.email, rolle: "kunde", art: "kommentar" });
+          await kundeVerwirft(v);
+          meldeAdmin("verworfen", `🚫 ${wer} will „${titel}" nicht produzieren${txt ? ": " + kurz(txt) : ""}`, v.id);
+        } catch (e) {
+          console.error(e);
+          zeigeFehler("Senden fehlgeschlagen. Bitte erneut versuchen.");
+          setBusy(false);
+          vSenden.textContent = "Nicht produzieren";
+        }
+      });
+    }
   }
 
   // --- Kommentar-Thread -----------------------------------------------
@@ -240,6 +310,7 @@ export function renderVideoDetail(container, ctx) {
     kSubmit.textContent = "Wird gesendet …";
     try {
       await kommentarHinzufuegen(video.id, { text: txt, autor: user.email, rolle: "kunde", art: "kommentar" });
+      meldeAdmin("kommentar", `💬 ${kurzname(user.email)} hat kommentiert bei „${video.titel || "Video"}": ${kurz(txt)}`, video.id);
       kText.value = "";
     } catch (err) {
       console.error(err);
@@ -294,4 +365,10 @@ function infoCard(text) {
 
 function kurzname(email) {
   return String(email || "").split("@")[0] || "Kunde";
+}
+
+// Kürzt einen Nachrichtentext für die Glocken-Vorschau.
+function kurz(t, max = 80) {
+  const s = String(t || "").trim();
+  return s.length > max ? s.slice(0, max - 1) + "…" : s;
 }

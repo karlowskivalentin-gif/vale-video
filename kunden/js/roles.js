@@ -1,12 +1,17 @@
 // Rollen-Allowlist (Quelle der Wahrheit für die UI).
-// WICHTIG: Diese Liste MUSS mit der Allowlist in firestore.rules übereinstimmen,
-// sonst weicht die UI von der echten Server-Sicherheit ab.
-// E-Mails werden case-insensitive verglichen.
+// WICHTIG: Nur die ADMIN-Liste MUSS mit firestore.rules (adminEmails)
+// übereinstimmen. Die KUNDEN sind seit dem Mandanten-Umbau DYNAMISCH: sie
+// stehen in der Firestore-Collection kundenmitglieder (angelegt über die
+// Kundenverwaltung), NICHT mehr hier. E-Mails werden case-insensitive verglichen.
 
 export const ADMIN_EMAILS = [
   "karlowskivalentin@gmail.com"
 ];
 
+// Nur noch MIGRATIONS-SEED: die ursprünglichen Deussen-/Test-Adressen, die der
+// Migrationslauf (migriereAltbestand) dem Kunden „deussen" als Login-E-Mails
+// zuordnet. Danach ist die Zugehörigkeit allein durch kundenmitglieder bestimmt.
+// NICHT mehr für die Rollenauflösung verwenden (siehe rolleVon/beobachteAuth).
 export const KUNDE_EMAILS = [
   "n.berghaus@deussen-immobilien.de",
   "c.deussen@deussen-immobilien.de",
@@ -25,14 +30,17 @@ function norm(email) {
   return (email || "").trim().toLowerCase();
 }
 
-// Gibt 'admin', 'kunde' oder null (kein Zugang) zurück.
+// Synchrone Rollenauflösung — deckt nur noch den (statischen) Admin ab.
+// Gibt 'admin' oder null zurück. Die Kunden-Rolle ist dynamisch und wird in
+// auth.js (beobachteAuth) per kundenmitglieder-Lookup aufgelöst.
 export function rolleVon(email) {
   const e = norm(email);
   if (ADMIN_EMAILS.map(norm).includes(e)) return "admin";
-  if (KUNDE_EMAILS.map(norm).includes(e)) return "kunde";
   return null;
 }
 
+// Nur noch „ist Admin?" — für „ist irgendein erlaubter Nutzer?" muss zusätzlich
+// der asynchrone kundenmitglieder-Lookup herangezogen werden (siehe auth.js).
 export function istErlaubt(email) {
-  return rolleVon(email) !== null;
+  return rolleVon(email) === "admin";
 }

@@ -9,6 +9,7 @@ const OBJEKT_TYPEN = ["Wohnung", "Haus", "Gewerbe", "Grundstück"];
 
 export function renderObjektMelden(container, ctx) {
   const user = ctx.user;
+  const kundeId = ctx.kundeId || null;   // eigener Mandant des Kunden
 
   container.innerHTML = `
     <h1 class="view-title">Objekt melden</h1>
@@ -80,7 +81,7 @@ export function renderObjektMelden(container, ctx) {
     label.textContent = "Wird gemeldet …";
 
     try {
-      await objektMelden({ adresse, objektTyp, beschreibung, link, gemeldetVon: user.email });
+      await objektMelden({ adresse, objektTyp, beschreibung, link, gemeldetVon: user.email, kundeId });
       // Admin-Mail fire-and-forget (blockiert die Meldung nicht).
       sendAdminNeuesObjekt({ adresse, objektTyp, beschreibung, link, gemeldetVon: user.email });
 

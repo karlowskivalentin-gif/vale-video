@@ -18,7 +18,8 @@ const KAT_LABEL = {
   besprechung: "💬 Besprechung", drehtermin: "🎬 Drehtermin", veroeffentlichung: "📣 Veröffentlichung"
 };
 
-export function renderAdminTermine(container) {
+export function renderAdminTermine(container, opts = {}) {
+  const kundeId = opts.kundeId || null;
   const katOpts = KATEGORIEN
     .map((k) => `<option value="${k.val}">${escapeHtml(k.label)}</option>`).join("");
 
@@ -149,7 +150,7 @@ export function renderAdminTermine(container) {
     save.textContent = editId ? "Wird gespeichert …" : "Wird angelegt …";
     try {
       if (editId) await aktualisiereTermin(editId, daten);
-      else        await terminAnlegen(daten);
+      else        await terminAnlegen({ ...daten, kundeId });
       formLeeren();
       okBox.textContent = "Gespeichert.";
       okBox.hidden = false;
@@ -171,7 +172,8 @@ export function renderAdminTermine(container) {
       console.error(err);
       listEl.innerHTML = `<div class="card card--pad"><p class="notice notice--error" style="margin:0">
         Konnte nicht laden. Sind die Firestore-Rules für „termine" deployed?</p></div>`;
-    }
+    },
+    kundeId
   );
   beiViewWechsel(unsub);
 

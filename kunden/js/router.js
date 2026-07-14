@@ -4,6 +4,7 @@ import { beobachteAuth, logout, abgewieseneAdresse,
          istLoginLink, schliesseLoginLinkAb, setzePasswort } from "./auth.js";
 import { loeseEinladungEin, beobachteBenachrichtigungen, markiereBenachrichtigungenGelesen } from "./db.js";
 import { KOLLAB_MAP_ID, EINLADUNG_ID } from "./roles.js";
+import { getAktiv, setzeAktiv, abonniereKunden } from "./kunde-context.js";
 import { raeumeViewAuf, beiViewWechsel } from "./view-lifecycle.js";
 import { renderLogin } from "./views/login.js";
 import { renderAufgaben } from "./views/kunde-aufgaben.js";
@@ -22,6 +23,7 @@ import { renderAdminGedanken } from "./views/admin-gedanken.js";
 import { renderTodos } from "./views/todos.js";
 import { renderAdminTranskript } from "./views/admin-transkript.js";
 import { renderAdminInspiration } from "./views/admin-inspiration.js";
+import { renderAdminKunden } from "./views/admin-kunden.js";
 
 // --- Zustand -----------------------------------------------------------
 let _user = null;
@@ -56,6 +58,7 @@ const ROUTES = {
   "/admin/stickies": { rolle: "admin", titel: "Sticky Notes",     render: (c, o) => renderTodos(c, { ...o, modus: "sticky" }) },
   "/admin/transkript": { rolle: "admin", titel: "Transkript",     render: renderAdminTranskript },
   "/admin/inspiration": { rolle: "admin", titel: "Inspiration",   render: renderAdminInspiration },
+  "/admin/kunden":   { rolle: "admin", titel: "Kunden",           render: renderAdminKunden },
   // Kollaborator (externer Mitarbeiter: geteilte + eigene Mindmaps)
   "/gedanken":       { rolle: "kollaborator", titel: "Mindmap",   render: renderAdminGedanken },
   "/todos":          { rolle: "kollaborator", titel: "To-Dos",    render: renderTodos },
@@ -79,7 +82,8 @@ const NAV = {
     { href: "#/admin/todos",    label: "To-Dos" },
     { href: "#/admin/stickies", label: "Stickies" },
     { href: "#/admin/transkript", label: "Transkript" },
-    { href: "#/admin/inspiration", label: "Inspiration" }
+    { href: "#/admin/inspiration", label: "Inspiration" },
+    { href: "#/admin/kunden", label: "Kunden" }
   ],
   kollaborator: [
     { href: "#/gedanken", label: "Mindmap" },
@@ -119,6 +123,11 @@ function renderShell(aktiverPfad) {
       <a class="brand" href="#${startRoute(_rolle)}">vale<span>—</span>video</a>
       <nav class="topnav">${links}</nav>
       <div class="topbar-right">
+        ${_rolle === "admin" ? `
+        <span class="kunde-switch">
+          <select id="kundeSwitch" class="kunde-switch-sel field-inline" title="Aktiver Kunde" aria-label="Aktiver Kunde"></select>
+          <a class="btn btn--ghost btn--sm" href="#/admin/kunden" title="Kunden verwalten / neuen anlegen">＋</a>
+        </span>` : ``}
         <span class="topbar-user" title="${_user.email}">
           <span class="role-pill">${rollenLabel}</span>
           <span class="user-email">${_user.email}</span>
@@ -156,7 +165,32 @@ function renderShell(aktiverPfad) {
   document.getElementById("logoutBtn").addEventListener("click", () => logout());
   wirePasswortPanel();
   wireGlocke();
+  wireKundenSwitch();
   return document.getElementById("view");
+}
+
+// --- Kunden-Umschalter (nur Admin) -------------------------------------
+// Füllt das Dropdown live aus der Kunden-Collection und setzt beim Wechsel den
+// aktiven Kunden (kunde-context) → render() baut die aktuelle View mit dem neuen
+// kundeId-Filter neu auf. Beim Erststart wählt abonniereKunden automatisch den
+// ersten Kunden; weicht der dann vom Bau-Zustand ab, wird einmalig neu gebaut.
+function wireKundenSwitch() {
+  const sel = document.getElementById("kundeSwitch");
+  if (!sel || _rolle !== "admin") return;
+  const gebautMit = getAktiv();
+
+  const unsub = abonniereKunden((kunden) => {
+    const aktiv = getAktiv();
+    sel.innerHTML = kunden.length
+      ? kunden.map((k) =>
+          `<option value="${escapeHtmlR(k.id)}"${k.id === aktiv ? " selected" : ""}>${escapeHtmlR(k.name || k.id)}</option>`).join("")
+      : `<option value="">— noch kein Kunde —</option>`;
+    sel.value = aktiv || "";
+    if (aktiv !== gebautMit) render();   // Default-Kunde gerade gesetzt → mit Filter neu bauen
+  }, () => {});
+  beiViewWechsel(unsub);
+
+  sel.addEventListener("change", () => { setzeAktiv(sel.value || null); render(); });
 }
 
 // --- Benachrichtigungs-Glocke (Admin + Kollaborator) --------------------
@@ -176,9 +210,20 @@ function wireGlocke() {
   let alle = [];
   function renderPanel() {
     panel.innerHTML = alle.length
-      ? alle.slice(0, 30).map((n) => `<div class="glocke-item${n.gelesen ? "" : " is-neu"}">${escapeHtmlR(n.text || "")}</div>`).join("")
+      ? alle.slice(0, 30).map((n) => {
+          const inhalt = escapeHtmlR(n.text || "");
+          const klasse = `glocke-item${n.gelesen ? "" : " is-neu"}`;
+          // Mit videoId → klickbar direkt zum betreffenden Video.
+          return n.videoId
+            ? `<a class="${klasse} glocke-item--link" href="#/admin/video/${encodeURIComponent(n.videoId)}">${inhalt}</a>`
+            : `<div class="${klasse}">${inhalt}</div>`;
+        }).join("")
       : `<div class="glocke-leer">Keine Benachrichtigungen.</div>`;
   }
+  // Klick auf einen verlinkten Eintrag → Panel schließen (Navigation läuft via href).
+  panel.addEventListener("click", (e) => {
+    if (e.target.closest("a.glocke-item")) panel.hidden = true;
+  });
   const unsub = beobachteBenachrichtigungen(_user.email, (liste) => {
     alle = liste.sort((a, b) => {
       const ta = (a.erstelltAm && a.erstelltAm.seconds) || 0;
@@ -298,7 +343,10 @@ function render() {
   }
 
   const viewContainer = renderShell(location.hash.replace(/^#/, "").replace(/^(\/video|\/admin\/video).*/, "$1"));
-  route.render(viewContainer, { id, user: _user, rolle: _rolle, kollabMapId: (_info && _info.mapId) || null });
+  // Aktiver Kunde (kundeId): Admin wählt ihn über den Umschalter; der Kunde
+  // bekommt seinen eigenen fest aus der Auth (kundenmitglieder-Lookup).
+  const kundeId = _rolle === "admin" ? getAktiv() : ((_info && _info.kundeId) || null);
+  route.render(viewContainer, { id, user: _user, rolle: _rolle, kollabMapId: (_info && _info.mapId) || null, kundeId });
 }
 
 // Eingeloggt, aber keine Rolle: Zugangscode einlösen (Kollaborator freischalten)

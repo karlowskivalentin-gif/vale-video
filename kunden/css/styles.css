@@ -21,6 +21,9 @@
   --error: #c0392b;
   --error-bg: #fdecea;
   --ok: #2e7d4f;
+  --ok-bg: #eaf5ee;
+  --warn: #b8860b;         /* Ampel-Gelb (dunkel genug für Text auf Weiß) */
+  --warn-bg: #fefce8;
   --font: 'Inter', system-ui, -apple-system, sans-serif;
   --radius: 6px;
   --radius-lg: 10px;
@@ -147,6 +150,15 @@ a { color: inherit; text-decoration: none; }
 .btn--ghost:hover:not(:disabled) { border-color: var(--black); }
 .btn--sm { padding: 0.55rem 1rem; font-size: 0.68rem; }
 .btn--block { width: 100%; }
+
+/* Ampel-Buttons (Kunden-Freigabe: grün = so umsetzen, gelb = mit Änderungen,
+   rot = wird nicht gemacht). */
+.btn--ok    { background: var(--ok);    color: #fff; }
+.btn--ok:hover:not(:disabled)    { background: #256b41; transform: translateY(-1px); }
+.btn--warn  { background: var(--warn);  color: #fff; }
+.btn--warn:hover:not(:disabled)  { background: #9c7209; transform: translateY(-1px); }
+.btn--error { background: var(--error); color: #fff; }
+.btn--error:hover:not(:disabled) { background: #a5271b; transform: translateY(-1px); }
 
 /* --- Karten ---------------------------------------------------------- */
 .card {
@@ -304,6 +316,7 @@ a { color: inherit; text-decoration: none; }
 .pill--neutral { background: var(--off-white); color: var(--muted); border: 1px solid var(--mid); }
 .pill--ok      { background: #eaf5ee; color: var(--ok); border: 1px solid #bfe0cb; }
 .pill--aktion  { background: rgba(226,98,44,0.10); color: var(--accent-dim); border: 1px solid rgba(226,98,44,0.25); }
+.pill--rot     { background: var(--error-bg); color: var(--error); border: 1px solid rgba(192,57,43,0.30); }
 
 /* --- Aufgaben-Karten ------------------------------------------------- */
 .task-list { display: flex; flex-direction: column; gap: 0.75rem; }
@@ -362,6 +375,9 @@ a.row-item:hover { background: var(--off-white); }
 /* --- Aktionen (Freigeben / Änderungen) ------------------------------- */
 .action-card .action-hint { margin: 0.7rem 0 1rem; }
 .action-btns { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+.action-ampel .btn { flex: 1 1 auto; }
+.entwurf-hinweis { margin: 0.55rem 0 0; color: var(--ok); font-weight: 600; font-size: 0.9rem; }
+.entwurf-box { margin-top: 1.25rem; padding-top: 1.1rem; border-top: 1px dashed var(--mid); }
 
 /* --- Kommentar-Thread ------------------------------------------------ */
 .vd-komm { margin-top: 1rem; }
@@ -371,6 +387,8 @@ a.row-item:hover { background: var(--off-white); }
   padding: 0.8rem 1rem; background: var(--surface);
 }
 .komm--admin { border-left: 3px solid var(--accent); background: var(--off-white); }
+.komm--neu { border-left: 3px solid var(--error); }
+.komm-btns { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.6rem; }
 .komm-head { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.3rem; flex-wrap: wrap; }
 .komm-autor { font-weight: 600; font-size: 0.85rem; }
 .komm-zeit { font-size: 0.72rem; margin-left: auto; }
@@ -408,6 +426,67 @@ a.row-item:hover { background: var(--off-white); }
 .pl-main .row-name { color: var(--black); }
 .pl-main .row-name:hover { color: var(--accent); }
 .pl-status { flex: 0 0 auto; }
+
+/* Pipeline-Zeile ist jetzt in .pl-item gewrappt (Zeile + Nachrichten-Block).
+   Trenner wandert auf den Wrapper, damit die Zeile selbst randlos bleibt. */
+.pl-item { border-bottom: 1px solid var(--mid); }
+.pl-item:last-child { border-bottom: none; }
+.pl-item .pl-row { border-bottom: none; }
+.pl-item--verworfen { background: var(--error-bg); }
+.pl-item--verworfen .row-name { color: var(--error); }
+
+/* 💬-Button + ungelesen-Badge in der Zeile */
+.pl-msg-btn {
+  position: relative; flex: 0 0 auto; border: 1px solid var(--mid);
+  background: var(--surface); border-radius: 999px; cursor: pointer;
+  font-size: 0.95rem; line-height: 1; padding: 0.35rem 0.5rem;
+}
+.pl-msg-btn:hover { border-color: var(--black); }
+.pl-msg-btn.has-neu { border-color: rgba(192,57,43,0.35); }
+.pl-msg-badge {
+  position: absolute; top: -5px; right: -5px; min-width: 16px; height: 16px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--error); color: #fff; font-size: 10px; font-weight: 700;
+  border-radius: 999px; padding: 0 4px;
+}
+
+/* Aufklappbarer Nachrichten-Block unter der Zeile */
+.pl-msgs {
+  display: flex; flex-direction: column; gap: 0.6rem;
+  padding: 0.25rem 1.25rem 1rem;
+}
+.pl-msg {
+  border: 1px solid var(--mid); border-radius: var(--radius);
+  padding: 0.65rem 0.85rem; background: var(--off-white);
+}
+.pl-msg.is-neu { border-left: 3px solid var(--error); background: var(--surface); }
+.pl-msg-head { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.3rem; }
+.pl-msg-autor { font-weight: 600; font-size: 0.82rem; }
+.pl-msg-zeit { font-size: 0.7rem; margin-left: auto; }
+.pl-msg-text { font-size: 0.88rem; white-space: pre-wrap; line-height: 1.5; }
+.pl-msg-btns { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.55rem; }
+
+/* Bearbeitungs-Status: kleine Toggle-Buttons (Pipeline + Video-Edit) */
+.pl-msg-set, .ave-msg-set {
+  border: 1px solid var(--mid); background: var(--surface); color: var(--muted);
+  font: inherit; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.02em;
+  padding: 0.3rem 0.6rem; border-radius: 999px; cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+.pl-msg-set:hover, .ave-msg-set:hover { border-color: var(--black); color: var(--black); }
+.pl-msg-set.is-active, .ave-msg-set.is-active {
+  background: var(--black); color: #fff; border-color: var(--black);
+}
+
+/* Bearbeitungs-Status-Pillen (Pipeline .pl-msg-status--* + Video-Edit .komm-status--*) */
+.pl-msg-status, .komm-status {
+  font-size: 0.68rem; font-weight: 700; letter-spacing: 0.02em;
+  padding: 0.12rem 0.5rem; border-radius: 999px; border: 1px solid transparent;
+}
+.pl-msg-status--neu,          .komm-status--neu          { background: var(--error-bg); color: var(--error); border-color: rgba(192,57,43,0.25); }
+.pl-msg-status--gelesen,      .komm-status--gelesen      { background: var(--off-white); color: var(--muted); border-color: var(--mid); }
+.pl-msg-status--in_umsetzung, .komm-status--in_umsetzung { background: var(--warn-bg); color: var(--warn); border-color: rgba(184,134,11,0.30); }
+.pl-msg-status--umgesetzt,    .komm-status--umgesetzt    { background: var(--ok-bg); color: var(--ok); border-color: #bfe0cb; }
 
 /* --- Video-Edit-Formular -------------------------------------------- */
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 1.25rem; }
@@ -972,8 +1051,24 @@ a.row-item:hover { background: var(--off-white); }
   .grid-2 { grid-template-columns: 1fr; gap: 0; }
   .shotbib-col { border-left: none; border-top: 1px solid var(--mid); padding-left: 0; padding-top: 1.25rem; margin-top: 0.5rem; }
   .pw-panel { right: 0.5rem; left: 0.5rem; width: auto; }
-  .pl-row { flex-direction: column; align-items: stretch; gap: 0.6rem; }
-  .pl-status { width: 100%; }
+  /* Pipeline-Zeile: Titel oben (volle Breite), Steuerelemente in zweiter Reihe */
+  .pl-row { flex-wrap: wrap; align-items: center; gap: 0.55rem 0.6rem; }
+  .pl-main { flex: 1 1 100%; min-width: 0; }
+  .pl-status { flex: 1 1 auto; width: auto; }
+  .pl-msg-btn, .pl-del { flex: 0 0 auto; }
+
+  /* Kunden-Ampel + Entwurf-Button: lange Buttons untereinander, volle Breite */
+  .action-ampel { flex-direction: column; }
+  .action-ampel .btn { width: 100%; }
+  .entwurf-box .btn { width: 100%; }
+
+  /* Pipeline-Nachrichten: schmaler, Text/Zeit sauber umbrechen */
+  .pl-msgs { padding: 0.2rem 0.85rem 0.85rem; }
+  .pl-msg { padding: 0.6rem 0.7rem; }
+  .pl-msg-text { overflow-wrap: anywhere; }
+  .pl-msg-zeit { margin-left: 0; flex-basis: 100%; order: 3; }
+  .pl-msg-set, .ave-msg-set { flex: 1 1 auto; text-align: center; }
+
   .tm-row { flex-direction: column; }
   .kal-tag { min-height: 60px; }
   .kal-chip { font-size: 0.62rem; }
@@ -1439,6 +1534,8 @@ a.row-item:hover { background: var(--off-white); }
 .glocke-item { padding: .5rem .6rem; font-size: .84rem; line-height: 1.4; border-radius: var(--radius); color: var(--black); word-break: break-word; }
 .glocke-item + .glocke-item { border-top: 1px solid var(--dark); }
 .glocke-item.is-neu { background: rgba(226,98,44,.07); font-weight: 600; }
+.glocke-item--link { display: block; text-decoration: none; cursor: pointer; }
+.glocke-item--link:hover { background: var(--off-white); }
 .glocke-leer { padding: .6rem; font-size: .84rem; color: var(--muted); }
 
 /* ---- To-Do-Liste (①, map-übergreifend) ---- */

@@ -6,7 +6,8 @@ import { beiViewWechsel } from "../view-lifecycle.js";
 import { OBJEKT_STATUS, OBJEKT_STATUS_LISTE } from "../status.js";
 import { escapeHtml, formatDatum } from "../util.js";
 
-export function renderAdminObjekte(container) {
+export function renderAdminObjekte(container, opts = {}) {
+  const kundeId = opts.kundeId || null;
   container.innerHTML = `
     <div class="admin-head">
       <h1 class="view-title" style="margin:0">Gemeldete Objekte</h1>
@@ -22,7 +23,8 @@ export function renderAdminObjekte(container) {
       console.error(err);
       obList.innerHTML = `<div class="card card--pad"><p class="notice notice--error" style="margin:0">
         Konnte nicht laden. Ist die Firestore-Datenbank eingerichtet?</p></div>`;
-    }
+    },
+    kundeId
   );
   beiViewWechsel(unsub);
 }
