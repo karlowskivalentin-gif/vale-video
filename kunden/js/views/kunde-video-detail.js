@@ -6,17 +6,20 @@
 import {
   beobachteVideo, beobachteKommentare,
   kommentarHinzufuegen, kundeGibtFrei, kundeFordertAenderung, kundeVerwirft,
-  benachrichtigeAdmin
+  benachrichtigeAdmin, skriptUploadAnlegen, beobachteSkriptUploads, erledigeFreigabeNews
 } from "../db.js";
 import { beiViewWechsel } from "../view-lifecycle.js";
 import { STATUS, kundenStatus, istFreigabeStufe } from "../status.js";
-import { drivePreviewUrl, youtubeEmbedUrl } from "../drive.js";
+import { drivePreviewUrl } from "../drive.js";
 import { escapeHtml, formatDatum } from "../util.js";
 import { renderPlanDetails, planHatDetails } from "../plan-ansicht.js";
+import { embedHtml, erkennePlattform, verarbeiteEmbeds } from "../embeds.js";
+import { dateiZuBase64, extrahiereText } from "../docparse.js";
 
 export function renderVideoDetail(container, ctx) {
   const user = ctx.user;
   const id = ctx.id;
+  const kundeId = ctx.kundeId || null;
 
   if (!id) {
     container.innerHTML = `<div class="card card--pad"><p class="notice notice--error" style="margin:0">
@@ -30,6 +33,20 @@ export function renderVideoDetail(container, ctx) {
     <div id="vdMedia" class="vd-media"><div class="card card--pad"><p class="muted">Wird geladen …</p></div></div>
     <div id="vdPlan" class="vd-plan"></div>
     <div id="vdAction" class="vd-action"></div>
+
+    <section class="vd-skript-upload card card--pad">
+      <h2 class="section-title" style="margin:0 0 .4rem">📄 Skript überarbeitet?</h2>
+      <p class="muted" style="margin:0 0 .8rem">Zieh dein überarbeitetes Skript (Word oder PDF) hier rein — Valentin bekommt sofort Bescheid.</p>
+      <div class="skript-drop" id="skDrop" tabindex="0" role="button" aria-label="Skript-Datei ablegen oder auswählen">
+        <span class="skript-drop-icon" aria-hidden="true">⬆️</span>
+        <span class="skript-drop-text">Datei hierher ziehen oder <span class="skript-drop-link">auswählen</span></span>
+        <span class="muted skript-drop-hint">.docx oder .pdf · max ~700 KB</span>
+      </div>
+      <input type="file" id="skFile" accept=".docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden />
+      <div class="notice notice--ok"    id="skOk"  hidden role="status"></div>
+      <div class="notice notice--error" id="skErr" hidden role="alert"></div>
+      <div class="skript-upload-liste" id="skListe"></div>
+    </section>
 
     <section class="vd-komm">
       <h2 class="section-title">Kommentare</h2>
@@ -61,6 +78,12 @@ export function renderVideoDetail(container, ctx) {
     benachrichtigeAdmin({ von: user.email, text, videoId, art }).catch(() => {});
   };
 
+  // Nach einer Reaktion die eigene(n) Freigabe-Neuigkeit(en) zu diesem Video als
+  // erledigt markieren (grün/durchgestrichen im News-Feed & in der Glocke).
+  const erledigeNews = (videoId) => {
+    erledigeFreigabeNews(user.email, videoId).catch(() => {});
+  };
+
   // --- Video-Subscription: Titel, Media, Aktionen ---------------------
   const unsubV = beobachteVideo(id,
     (v) => {
@@ -77,6 +100,7 @@ export function renderVideoDetail(container, ctx) {
       kForm.style.display = "";
       elTitel.textContent = v.titel || "Unbenanntes Video";
       elMedia.innerHTML = mediaHtml(v);
+      verarbeiteEmbeds(elMedia);   // TikTok/Instagram-Embeds aktivieren
       renderPlan(v);
       renderAction(v);
     },
@@ -95,6 +119,78 @@ export function renderVideoDetail(container, ctx) {
 
   beiViewWechsel(unsubV);
   beiViewWechsel(unsubK);
+
+  // --- Skript-Upload (Drag & Drop) ------------------------------------
+  initSkriptUpload();
+
+  function initSkriptUpload() {
+    const drop  = container.querySelector("#skDrop");
+    const input = container.querySelector("#skFile");
+    const okB   = container.querySelector("#skOk");
+    const errB  = container.querySelector("#skErr");
+    const liste = container.querySelector("#skListe");
+    if (!drop || !input) return;
+
+    // Eigene Uploads dieses Videos anzeigen (Bestätigung, dass es ankam).
+    const unsubU = beobachteSkriptUploads(id, (uploads) => {
+      const meine = uploads
+        .filter((u) => String(u.gemeldetVon || "").toLowerCase() === String(user.email).toLowerCase())
+        .sort((a, b) => ((b.erstelltAm && b.erstelltAm.seconds) || 0) - ((a.erstelltAm && a.erstelltAm.seconds) || 0));
+      liste.innerHTML = meine.length
+        ? `<div class="skript-upload-head muted">Deine hochgeladenen Skripte:</div>` + meine.map((u) => `
+            <div class="skript-upload-item">
+              <span>📄 ${escapeHtml(u.dateiName || "Skript")}</span>
+              <span class="muted">${escapeHtml(formatDatum(u.erstelltAm, true))}${u.erledigt ? " · ✅ übernommen" : ""}</span>
+            </div>`).join("")
+        : "";
+    }, () => {});
+    beiViewWechsel(unsubU);
+
+    const verarbeite = async (file) => {
+      if (!file) return;
+      okB.hidden = true; errB.hidden = true;
+      drop.classList.add("is-busy");
+      const alt = drop.querySelector(".skript-drop-text").textContent;
+      drop.querySelector(".skript-drop-text").textContent = "Wird hochgeladen …";
+      try {
+        const { base64, name, typ } = await dateiZuBase64(file);
+        // Textextraktion best-effort (offline) — scheitert sie, wird trotzdem hochgeladen.
+        let text = "";
+        try { text = await extrahiereText(file); } catch (_) { /* ohne Text weiter */ }
+        await skriptUploadAnlegen({
+          videoId: id, kundeId, gemeldetVon: user.email,
+          dateiName: name, dateiTyp: typ, base64, text
+        });
+        const titel = (video && video.titel) || "dein Video";
+        benachrichtigeAdmin({
+          von: user.email,
+          text: `📝 ${kurzname(user.email)} hat das Skript für „${titel}" angepasst (${escapeHtml(name)})`,
+          videoId: id, art: "skript"
+        }).catch(() => {});
+        okB.textContent = "Danke! Dein überarbeitetes Skript ist bei Valentin eingegangen.";
+        okB.hidden = false;
+      } catch (e) {
+        console.error(e);
+        errB.textContent = (e && e.message) ? e.message : "Upload fehlgeschlagen. Bitte erneut versuchen.";
+        errB.hidden = false;
+      } finally {
+        drop.classList.remove("is-busy");
+        drop.querySelector(".skript-drop-text").textContent = alt;
+        input.value = "";
+      }
+    };
+
+    drop.addEventListener("click", () => input.click());
+    drop.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); input.click(); } });
+    input.addEventListener("change", () => verarbeite(input.files && input.files[0]));
+    ["dragenter", "dragover"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("is-over"); }));
+    ["dragleave", "dragend"].forEach((ev) => drop.addEventListener(ev, () => drop.classList.remove("is-over")));
+    drop.addEventListener("drop", (e) => {
+      e.preventDefault();
+      drop.classList.remove("is-over");
+      verarbeite(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]);
+    });
+  }
 
   // --- Plan-Details (das Skript & ALLES, was deployt wurde) -----------
   // Bei aus einem Plan deployten Videos steckt das Skript nicht in einem
@@ -203,6 +299,7 @@ export function renderVideoDetail(container, ctx) {
       try {
         await kundeGibtFrei(v, user);
         meldeAdmin("freigabe", `✅ ${wer} hat ${was} freigegeben: „${titel}"`, v.id);
+        erledigeNews(v.id);
         // onSnapshot rendert die Aktionen neu (Status ist gesprungen).
       } catch (e) {
         console.error(e);
@@ -235,6 +332,7 @@ export function renderVideoDetail(container, ctx) {
         await kommentarHinzufuegen(v.id, { text: txt, autor: user.email, rolle: "kunde", art: "aenderungswunsch" });
         await kundeFordertAenderung(v);
         meldeAdmin("aenderung", `✏️ ${wer} wünscht Änderungen an „${titel}": ${kurz(txt)}`, v.id);
+        erledigeNews(v.id);
         // onSnapshot aktualisiert Status + Kommentare.
       } catch (e) {
         console.error(e);
@@ -267,6 +365,7 @@ export function renderVideoDetail(container, ctx) {
           if (txt) await kommentarHinzufuegen(v.id, { text: txt, autor: user.email, rolle: "kunde", art: "kommentar" });
           await kundeVerwirft(v);
           meldeAdmin("verworfen", `🚫 ${wer} will „${titel}" nicht produzieren${txt ? ": " + kurz(txt) : ""}`, v.id);
+          erledigeNews(v.id);
         } catch (e) {
           console.error(e);
           zeigeFehler("Senden fehlgeschlagen. Bitte erneut versuchen.");
@@ -328,7 +427,7 @@ function mediaHtml(v) {
   let art = null;
   if (v.status === STATUS.FREIGABE_SKRIPT) art = "skript";
   else if (v.status === STATUS.FREIGABE_SCHNITT) art = "schnitt";
-  else if (v.schnittLink && youtubeEmbedUrl(v.schnittLink)) art = "schnitt";
+  else if (v.schnittLink && erkennePlattform(v.schnittLink) !== "andere") art = "schnitt";
   else if (v.skriptLink && drivePreviewUrl(v.skriptLink)) art = "skript";
 
   // Skript aus einem Plan deployt? Dann steckt der Inhalt im planSnapshot
@@ -346,14 +445,12 @@ function mediaHtml(v) {
       </div>`;
   }
   if (art === "schnitt") {
-    const url = youtubeEmbedUrl(v.schnittLink);
-    if (!url) return infoCard("Der Schnitt liegt noch nicht vor.");
+    if (!v.schnittLink || erkennePlattform(v.schnittLink) === "andere") return infoCard("Der Schnitt liegt noch nicht vor.");
+    // Universelles Embed: YouTube / TikTok / Instagram / Vimeo / Drive.
     return `
       <div class="card media-card">
         <div class="media-label">🎬 Schnitt</div>
-        <div class="embed-wrap"><iframe src="${escapeHtml(url)}" title="Schnitt"
-          allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-          allowfullscreen></iframe></div>
+        ${embedHtml(v.schnittLink)}
       </div>`;
   }
   return hatPlan ? "" : infoCard("Hier erscheinen Skript und Schnitt, sobald sie bereitstehen.");

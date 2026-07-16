@@ -116,6 +116,33 @@ export function istFreigabeStufe(status) {
 }
 
 // =====================================================================
+// „Gebongt" — intern fixiert, dass dieses Video wirklich kommt
+// (Umgangssprache vom Kassen-„Bon": abgehakt/beschlossen). Rein Admin-
+// intern, der Kunde sieht das nie.
+// =====================================================================
+
+// Ab dieser Stufe gilt ein Video AUTOMATISCH als gebongt: sobald es gedreht
+// ist (oder weiter — Schnitt/Freigabe/Geplant/Gepostet), ist die Produktion
+// faktisch beschlossen.
+export const GEBONGT_AB_STATUS = STATUS.GEDREHT;
+
+// Automatisch gebongt = allein wegen des Status (ohne manuelles Flag).
+// „Verworfen" steht am Listenende und hat einen hohen Reihenfolge-Index —
+// darf aber NIE als gebongt gelten, daher explizit ausgeschlossen.
+export function autoGebongt(video) {
+  return !!video
+      && video.status !== STATUS.VERWORFEN
+      && statusIndex(video.status) >= statusIndex(GEBONGT_AB_STATUS);
+}
+
+// Gebongt = manuell markiert (Flag) ODER automatisch per Status.
+export function istGebongt(video) {
+  return !!video
+      && video.status !== STATUS.VERWORFEN
+      && (video.gebongt === true || autoGebongt(video));
+}
+
+// =====================================================================
 // Die erlaubten Kunden-Übergänge (= Sicherheitskern, gespiegelt in Rules)
 // =====================================================================
 

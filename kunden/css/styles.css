@@ -34,6 +34,11 @@
 html, body {
   margin: 0;
   padding: 0;
+  /* Seite seitlich fixieren: kein horizontales Scrollen des ganzen Layouts.
+     `clip` (statt `hidden`) verhindert Overflow, OHNE einen Scroll-Container zu
+     erzeugen — der sticky-Header bleibt dadurch funktionsfähig. */
+  overflow-x: clip;
+  max-width: 100%;
 }
 
 body {
@@ -88,8 +93,17 @@ a { color: inherit; text-decoration: none; }
   display: flex;
   gap: 0.35rem;
   flex: 1 1 auto;
+  /* min-width:0 erlaubt dem Flex-Item, unter seine Inhaltsbreite zu schrumpfen,
+     statt die Seite horizontal zu sprengen. Läuft die Nav über, scrollt sie
+     INTERN (nur der Header „bewegt sich") — die Seite bleibt seitlich fixiert. */
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;            /* Firefox: keine Scrollleiste im Header */
 }
+.topnav::-webkit-scrollbar { display: none; }   /* WebKit/Blink: dito */
 .topnav-link {
+  flex: 0 0 auto;                   /* Links bleiben in einer Reihe (kein Umbruch/Schrumpf) */
+  white-space: nowrap;
   padding: 0.5rem 0.85rem;
   border-radius: 999px;
   font-size: 0.85rem;
@@ -435,6 +449,17 @@ a.row-item:hover { background: var(--off-white); }
 .pl-item--verworfen { background: var(--error-bg); }
 .pl-item--verworfen .row-name { color: var(--error); }
 
+/* Status-Dashboard: Fortschritts-Kacheln über der Pipeline-Liste */
+.pl-dash { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem; }
+.pl-dash-kachel { border: 1px solid var(--mid); border-radius: var(--radius-lg); padding: 0.85rem 1rem; background: var(--white); }
+.pl-dash-top { display: flex; align-items: baseline; justify-content: space-between; gap: 0.4rem; }
+.pl-dash-emoji { font-size: 1.05rem; }
+.pl-dash-wert { font-size: 1.5rem; font-weight: 700; color: var(--black); line-height: 1; }
+.pl-dash-von { font-size: 0.95rem; font-weight: 600; color: var(--muted); }
+.pl-dash-label { font-size: 0.78rem; color: var(--muted); margin: 0.35rem 0 0.55rem; }
+.pl-dash-bar { height: 5px; border-radius: 999px; background: var(--mid); overflow: hidden; }
+.pl-dash-bar > span { display: block; height: 100%; background: var(--accent); border-radius: 999px; transition: width 0.3s ease; }
+
 /* 💬-Button + ungelesen-Badge in der Zeile */
 .pl-msg-btn {
   position: relative; flex: 0 0 auto; border: 1px solid var(--mid);
@@ -645,10 +670,119 @@ a.row-item:hover { background: var(--off-white); }
 .pl-del.is-bestaetigen { background: var(--error); color: #fff; font-weight: 600; }
 .pl-del:disabled { opacity: .5; cursor: default; }
 
-/* Plan: Anhänge aus dem Post (read-only Galerie) */
+/* „🔁 Neue Version"-Button in der Pipeline-Zeile */
+.pl-version {
+  flex: 0 0 auto; border: 1px solid var(--mid); background: var(--surface);
+  border-radius: 999px; cursor: pointer; font-size: 0.8rem; line-height: 1;
+  padding: 0.4rem 0.75rem; white-space: nowrap; color: var(--black);
+}
+.pl-version-txt { font-weight: 500; }
+.pl-version:hover { border-color: var(--accent); color: var(--accent); }
+.pl-version:disabled { opacity: .5; cursor: default; }
+
+/* --- „Gebongt" ------------------------------------------------------- */
+/* Umschalter Alle | Gebongt (über der Liste) */
+.pl-filter { display: flex; gap: 0.4rem; margin: 0 0 1rem; }
+.pl-filter-btn {
+  border: 1px solid var(--mid); background: var(--surface); color: var(--muted);
+  font: inherit; font-size: 0.85rem; font-weight: 600; cursor: pointer;
+  padding: 0.4rem 0.9rem; border-radius: 999px;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+.pl-filter-btn:hover { border-color: var(--black); color: var(--black); }
+.pl-filter-btn.is-active { background: var(--black); color: #fff; border-color: var(--black); }
+.pl-filter-n { opacity: 0.7; font-weight: 700; margin-left: 0.15rem; }
+
+/* „Video ist gebongt"-Button/-Anzeige in der Zeile */
+.pl-bong {
+  flex: 0 0 auto; border: 1px solid var(--mid); background: var(--surface);
+  color: var(--black); border-radius: 999px; cursor: pointer;
+  font: inherit; font-size: 0.8rem; font-weight: 600; line-height: 1;
+  padding: 0.4rem 0.75rem; white-space: nowrap;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+.pl-bong:hover { border-color: var(--ok); color: var(--ok); }
+.pl-bong.is-on { background: var(--ok-bg); color: var(--ok); border-color: #bfe0cb; }
+.pl-bong.is-auto { cursor: default; }   /* automatisch — nicht klickbar */
+.pl-bong:disabled { opacity: .5; cursor: default; }
+
+/* 📝-Notiz-Button (wie 💬), Badge nutzt .pl-msg-badge in Ok-Farbe */
+.pl-notes-btn {
+  position: relative; flex: 0 0 auto; border: 1px solid var(--mid);
+  background: var(--surface); border-radius: 999px; cursor: pointer;
+  font-size: 0.95rem; line-height: 1; padding: 0.35rem 0.5rem;
+}
+.pl-notes-btn:hover { border-color: var(--black); }
+.pl-notes-btn.has-notes { border-color: #bfe0cb; }
+.pl-notes-badge { background: var(--ok); }
+
+/* Aufklappbarer Notiz-Block unter der Zeile */
+.pl-notes {
+  display: flex; flex-direction: column; gap: 0.6rem;
+  padding: 0.25rem 1.25rem 1rem;
+}
+/* display:flex darf das hidden-Attribut nicht überschreiben (gilt auch für den
+   bestehenden Kommentar-Block .pl-msgs, dem die Regel bisher fehlte). */
+.pl-msgs[hidden], .pl-notes[hidden] { display: none; }
+.pl-note {
+  border: 1px solid var(--mid); border-left: 3px solid var(--ok);
+  border-radius: var(--radius); padding: 0.6rem 0.85rem; background: var(--off-white);
+}
+.pl-note-text { font-size: 0.9rem; white-space: pre-wrap; line-height: 1.5; }
+.pl-note-foot { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.4rem; }
+.pl-note-zeit { font-size: 0.7rem; margin-right: auto; }
+.pl-note-del {
+  border: none; background: transparent; color: var(--muted);
+  font: inherit; font-size: 0.8rem; line-height: 1; cursor: pointer;
+  padding: 0.2rem 0.4rem; border-radius: var(--radius);
+}
+.pl-note-del:hover { color: var(--error); background: var(--dark); }
+.pl-note-add { display: flex; flex-direction: column; gap: 0.5rem; align-items: flex-start; }
+.pl-note-input {
+  width: 100%; resize: vertical; min-height: 3rem; font: inherit; font-size: 0.9rem;
+  padding: 0.6rem 0.8rem; border: 1px solid var(--mid); border-radius: var(--radius);
+  background: var(--surface); color: var(--black);
+}
+
+/* --- Termine (Dreh / Veröffentlichung) direkt in der Pipeline -------- */
+/* Klickbare Status-Chips in der Zeile — öffnen den Editor darunter. */
+.pl-termine { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.45rem; }
+.pl-termin-chip {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  border: 1px solid var(--mid); background: var(--surface); color: var(--black);
+  font: inherit; font-size: 0.74rem; font-weight: 600; line-height: 1;
+  padding: 0.28rem 0.6rem; border-radius: 999px; cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease, color 0.12s ease;
+}
+.pl-termin-chip:hover { border-color: var(--black); }
+.pl-termin-chip.is-set { background: var(--ok-bg); color: var(--ok); border-color: #bfe0cb; }
+.pl-termin-chip.is-offen { color: var(--muted); border-style: dashed; }
+.pl-termin-chip.is-offen:hover { color: var(--accent); border-color: var(--accent); }
+
+/* Aufklappbarer Termin-Editor unter der Zeile */
+.pl-termine-edit {
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.75rem 1.25rem;
+  padding: 0.5rem 1.25rem 1rem;
+}
+.pl-termine-edit[hidden] { display: none; }   /* display:flex darf hidden nicht überschreiben */
+.pl-termin-feld { display: flex; flex-direction: column; gap: 0.3rem; }
+.pl-termin-feld label { font-size: 0.78rem; font-weight: 600; color: var(--muted); }
+.pl-termin-feld input[type=date] {
+  font: inherit; font-size: 0.9rem; padding: 0.5rem 0.7rem;
+  border: 1px solid var(--mid); border-radius: var(--radius);
+  background: var(--surface); color: var(--black);
+}
+.pl-termin-actions { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+.pl-termin-hint { font-size: 0.72rem; }
+
+/* Plan: Anhänge (Plan ⇄ Post synchron, bearbeitbar) */
 .plan-anh-liste { display: flex; flex-direction: column; gap: 1rem; }
 .plan-anh { border: 1px solid var(--mid); border-radius: var(--radius); padding: 0.75rem; background: var(--off-white); }
-.plan-anh-name { font-size: 0.82rem; font-weight: 600; color: var(--black); margin-bottom: 0.5rem; overflow-wrap: anywhere; }
+.plan-anh-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.5rem; }
+.plan-anh-actions { display: flex; gap: 0.25rem; flex-shrink: 0; }
+.plan-anh-name { font-size: 0.82rem; font-weight: 600; color: var(--black); overflow-wrap: anywhere; }
+.plan-anh-add { display: flex; align-items: center; gap: 0.5rem; margin-top: 1rem; flex-wrap: wrap; }
+.plan-anh-linkform { flex: 1; min-width: 12rem; }
 .plan-anh-media { display: flex; }
 .plan-anh-img, .plan-anh-vid { max-width: 100%; max-height: 360px; border-radius: var(--radius); }
 .plan-anh-fehler { color: var(--error); font-size: 0.82rem; }
@@ -1055,7 +1189,9 @@ a.row-item:hover { background: var(--off-white); }
   .pl-row { flex-wrap: wrap; align-items: center; gap: 0.55rem 0.6rem; }
   .pl-main { flex: 1 1 100%; min-width: 0; }
   .pl-status { flex: 1 1 auto; width: auto; }
-  .pl-msg-btn, .pl-del { flex: 0 0 auto; }
+  .pl-msg-btn, .pl-del, .pl-version, .pl-bong, .pl-notes-btn { flex: 0 0 auto; }
+  .pl-version-txt { display: none; }   /* mobil nur 🔁, spart Platz in der Steuerleiste */
+  .pl-notes { padding-left: 0.75rem; padding-right: 0.75rem; }
 
   /* Kunden-Ampel + Entwurf-Button: lange Buttons untereinander, volle Breite */
   .action-ampel { flex-direction: column; }
@@ -1538,6 +1674,25 @@ a.row-item:hover { background: var(--off-white); }
 .glocke-item--link:hover { background: var(--off-white); }
 .glocke-leer { padding: .6rem; font-size: .84rem; color: var(--muted); }
 
+/* Kunden-Dashboard: Neuigkeiten-Feed */
+.news-list { overflow: hidden; padding: 0; }
+.news-item {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem;
+  padding: 0.7rem 1rem; text-decoration: none; color: var(--black); font-size: 0.9rem; line-height: 1.4;
+}
+.news-item + .news-item { border-top: 1px solid var(--mid); }
+a.news-item:hover { background: var(--off-white); }
+.news-item--neu { background: rgba(226,98,44,.06); font-weight: 600; }
+.news-text { overflow-wrap: anywhere; flex: 1 1 auto; }
+.news-zeit { flex: 0 0 auto; font-size: 0.76rem; white-space: nowrap; }
+
+/* Erledigt (Freigabe erfolgt): grün, durchgestrichen, Haken. Vorrang vor „neu". */
+.news-item--erledigt { background: var(--ok-bg); }
+.news-item--erledigt .news-text { color: var(--ok); text-decoration: line-through; font-weight: 500; }
+.news-item--erledigt .news-zeit { color: var(--ok); }
+.news-check { flex: 0 0 auto; color: var(--ok); font-weight: 700; }
+.glocke-item.is-erledigt { background: var(--ok-bg); color: var(--ok); }
+
 /* ---- To-Do-Liste (①, map-übergreifend) ---- */
 .todo-uebersicht { margin-bottom: 1.5rem; }
 .todo-h2 { font-size: 1.05rem; margin: 0 0 .7rem; }
@@ -1822,7 +1977,7 @@ a.row-item:hover { background: var(--off-white); }
 .gd-invite-hint { font-size: 0.78rem; margin: 0.5rem 0 0; }
 
 /* ---- Gedanken: Post → Pipeline-Deploy (🚀) ---- */
-.gd-post-deploy { display: flex; }
+.gd-post-deploy { display: flex; gap: .4rem; flex-wrap: wrap; }
 .gd-post-deploybtn {
   flex: 1 1 auto; font: inherit; font-size: .78rem; font-weight: 600; cursor: pointer;
   padding: .38rem .6rem; border: 1px solid #e255a1; border-radius: var(--radius);
@@ -1832,6 +1987,9 @@ a.row-item:hover { background: var(--off-white); }
 .gd-post-deploybtn:disabled { opacity: .6; cursor: default; }
 .gd-post-deploybtn.is-deployt { border-color: #2f9e44; background: #f2fbf5; color: #2f9e44; }
 .gd-post-deploybtn.is-deployt:hover { background: #2f9e44; color: #fff; }
+/* Pipeline-Deploy = Hauptaktion (gefüllt, Accent) — hebt sich vom Plan-Deploy ab. */
+.gd-post-deploybtn--pipe { border-color: var(--accent); background: var(--accent); color: #fff; }
+.gd-post-deploybtn--pipe:hover:not(:disabled) { background: var(--accent-dim); border-color: var(--accent-dim); color: #fff; }
 
 /* ---- Fokus: volle Ausführung am To-Do im Session-Panel ---- */
 .fokus-todo-detail {
@@ -2007,3 +2165,190 @@ a.row-item:hover { background: var(--off-white); }
   .fokus-todos-card { max-width: none; }
   .fokus-todo-detail { margin-left: 0.9rem; }
 }
+
+/* =====================================================================
+   Ausbau: Skript-Upload, Drehplan/Beats, Exposé-OCR, Feedback-Box,
+   Fokus-Modi/Vollbild, Datei-Viewer, Kunden-Feed  (2026-07)
+   ===================================================================== */
+
+/* --- Drei-Spalten-Grid (analog .grid-2) ----------------------------- */
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0 1rem; }
+
+/* --- Drop-Zonen (Skript-Upload, Beats, Exposé-OCR) ------------------ */
+.skript-drop {
+  display: flex; flex-direction: column; align-items: center; gap: 0.3rem;
+  padding: 1.4rem 1rem; text-align: center; cursor: pointer;
+  border: 2px dashed var(--mid); border-radius: var(--radius-lg);
+  background: var(--surface-2); color: var(--muted);
+  transition: border-color .15s ease, background .15s ease;
+}
+.skript-drop:hover, .skript-drop:focus-visible { border-color: var(--accent); outline: none; }
+.skript-drop.is-over { border-color: var(--accent); background: rgba(226,98,44,0.06); color: var(--black); }
+.skript-drop.is-busy { opacity: 0.7; pointer-events: none; }
+.skript-drop-icon { font-size: 1.5rem; }
+.skript-drop-text { font-size: 0.92rem; color: var(--black); }
+.skript-drop-link { color: var(--accent-dim); text-decoration: underline; }
+.skript-drop-hint { font-size: 0.75rem; }
+
+/* --- Kunde: eigene Skript-Uploads ----------------------------------- */
+.vd-skript-upload { margin-top: 1.5rem; }
+.skript-upload-liste { margin-top: 0.7rem; }
+.skript-upload-head { font-size: 0.78rem; margin-bottom: 0.3rem; }
+.skript-upload-item {
+  display: flex; justify-content: space-between; gap: 0.6rem;
+  padding: 0.35rem 0; border-top: 1px solid var(--mid); font-size: 0.85rem;
+}
+
+/* --- Admin: Drehplan / Beats ---------------------------------------- */
+.ave-drehplan { margin-top: 1.5rem; }
+.ave-embed-vorschau { margin-top: 0.7rem; }
+.ave-embed-vorschau:empty { display: none; }
+.dreh-uploads { margin-bottom: 1rem; }
+.dreh-upload { border: 1px solid var(--mid); border-radius: var(--radius); padding: 0.6rem 0.8rem; margin-top: 0.5rem; }
+.dreh-upload-kopf { display: flex; justify-content: space-between; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.dreh-upload-btns { display: flex; gap: 0.3rem; flex-wrap: wrap; }
+.dreh-upload-view { margin-top: 0.6rem; }
+.dreh-check-kopf { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem; }
+.dreh-fortschritt { font-weight: 700; color: var(--accent-dim); }
+.dreh-oder { text-align: center; font-size: 0.78rem; margin: 0.7rem 0; }
+.dreh-textarea { width: 100%; min-height: 120px; padding: 0.7rem; border: 1px solid var(--mid); border-radius: var(--radius); font: inherit; resize: vertical; }
+.dreh-vorschau .action-btns { margin-top: 0.8rem; }
+
+.dreh-beats { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+.dreh-beat { border: 1px solid var(--mid); border-radius: var(--radius); padding: 0.55rem 0.75rem; background: var(--surface); }
+.dreh-beat.is-done { background: var(--ok-bg); border-color: #bfe0cb; }
+.dreh-beat-haupt { display: flex; align-items: flex-start; gap: 0.55rem; cursor: pointer; margin: 0; }
+.dreh-beat-haupt input { margin-top: 0.25rem; }
+.dreh-beat-titel { font-weight: 600; }
+.dreh-beat.is-done .dreh-beat-titel { text-decoration: line-through; color: var(--muted); }
+.dreh-beat-text { margin: 0.35rem 0 0 1.6rem; font-size: 0.88rem; color: var(--muted); white-space: pre-wrap; }
+
+/* Drehtag (On-Set): große, tap-freundliche Checkliste */
+.dreh-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 0.8rem; }
+.dreh-head .dreh-fortschritt { font-size: 1.2rem; }
+.dreh-beats--gross { gap: 0.6rem; }
+.dreh-beat--gross { padding: 1rem 1.1rem; cursor: pointer; user-select: none; }
+.dreh-beat--gross .dreh-beat-box { font-size: 1.4rem; line-height: 1; }
+.dreh-beat--gross .dreh-beat-titel { font-size: 1.05rem; }
+.dreh-beat--gross .dreh-beat-text { margin-left: 2.1rem; }
+
+/* --- Exposé-OCR ----------------------------------------------------- */
+.ocr-card { margin-bottom: 1.25rem; }
+.ocr-progress { margin-top: 0.7rem; height: 6px; border-radius: 999px; background: var(--mid); overflow: hidden; }
+.ocr-progress-bar { height: 100%; width: 0; background: var(--accent); transition: width .2s ease; }
+
+/* --- Datei-Viewer (Blob-basiert, portal-eigen) ---------------------- */
+.datei-pdf { display: flex; flex-direction: column; gap: 0.4rem; }
+.datei-pdf-frame { width: 100%; height: 65vh; min-height: 420px; border: 1px solid var(--mid); border-radius: var(--radius); background: var(--off-white); }
+.datei-img { max-width: 100%; border-radius: var(--radius); }
+.datei-vid { width: 100%; border-radius: var(--radius); }
+.datei-word { max-height: 60vh; overflow: auto; border: 1px solid var(--mid); border-radius: var(--radius); padding: 0.8rem 1rem; background: var(--surface); }
+.datei-word-text { white-space: pre-wrap; word-break: break-word; font: inherit; font-size: 0.9rem; margin: 0 0 0.6rem; }
+
+/* --- Schwebende Feedback-Box (Kunde) -------------------------------- */
+.fb-widget { position: fixed; right: 1.1rem; bottom: 1.1rem; z-index: 1200; }
+.fb-bubble {
+  width: 52px; height: 52px; border-radius: 50%; border: none; cursor: grab;
+  background: var(--accent); color: #fff; font-size: 1.4rem; box-shadow: var(--shadow-card);
+  display: flex; align-items: center; justify-content: center; touch-action: none;
+}
+.fb-bubble:active { cursor: grabbing; }
+.fb-panel {
+  position: absolute; right: 0; bottom: 62px; width: 300px; max-width: 78vw;
+  background: var(--surface); border: 1px solid var(--mid); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card); padding: 0.9rem;
+}
+.fb-panel-head { display: flex; justify-content: space-between; align-items: center; }
+.fb-panel-titel { font-weight: 700; }
+.fb-close { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 1rem; }
+.fb-hint { font-size: 0.78rem; margin: 0.2rem 0 0.5rem; }
+.fb-text { width: 100%; min-height: 70px; padding: 0.55rem; border: 1px solid var(--mid); border-radius: var(--radius); font: inherit; resize: vertical; }
+.fb-send { margin-top: 0.5rem; width: 100%; }
+.fb-liste { margin-top: 0.7rem; max-height: 200px; overflow: auto; }
+.fb-liste-head { font-size: 0.75rem; margin-bottom: 0.3rem; }
+.fb-liste-item { border-top: 1px solid var(--mid); padding: 0.4rem 0; }
+.fb-liste-item.is-done { opacity: 0.6; }
+.fb-liste-text { font-size: 0.85rem; }
+.fb-liste-meta { font-size: 0.72rem; }
+
+/* --- Fokus: Modi, Pomodoro, Phase, Nachtragen ----------------------- */
+.fokus-modi { display: flex; gap: 0.35rem; justify-content: center; margin: 0.2rem 0 0.6rem; }
+.fokus-modus.is-active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.fokus-pomo-conf { display: flex; gap: 1rem; justify-content: center; margin-bottom: 0.6rem; font-size: 0.85rem; color: var(--muted); }
+.fokus-pomo-conf input { width: 56px; margin: 0 0.2rem; padding: 0.25rem; border: 1px solid var(--mid); border-radius: var(--radius); font: inherit; }
+.fokus-stop-hint { text-align: center; margin: 0.2rem 0 0.6rem; }
+.fokus-phase { font-weight: 700; color: var(--accent-dim); margin-bottom: 0.3rem; }
+.fokus-nachtrag { margin-bottom: 1rem; }
+.fokus-nachtrag-form { margin-top: 0.6rem; }
+
+/* --- Fokus: Vollbild-Overlay ---------------------------------------- */
+.fokus-voll {
+  position: fixed; inset: 0; z-index: 2000; background: var(--white);
+  display: flex; align-items: center; justify-content: center;
+}
+.fokus-voll[hidden] { display: none; }
+.fokus-voll-inner { display: flex; flex-direction: column; align-items: center; gap: 0.8rem; text-align: center; }
+.fokus-voll-name { font-size: 1.3rem; font-weight: 700; }
+.fokus-voll-phase { font-weight: 600; color: var(--accent-dim); min-height: 1.2em; }
+.fokus-voll-ringwrap { position: relative; width: min(60vh, 420px); aspect-ratio: 1; }
+.fokus-voll-ring { width: 100%; height: 100%; transform: rotate(-90deg); }
+.fokus-voll-zeit {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: clamp(2.5rem, 9vh, 5rem); font-weight: 800; font-variant-numeric: tabular-nums;
+}
+
+/* --- Wartungs-Box (ausblendbar) ------------------------------------- */
+.kd-wartung-kopf { display: flex; justify-content: space-between; align-items: center; }
+.kd-wartung-ein {
+  background: none; border: none; cursor: pointer; color: var(--muted);
+  font: inherit; font-size: 0.82rem; text-decoration: underline; margin-top: 0.4rem;
+}
+.kd-wartung-ein:hover { color: var(--accent); }
+
+@media (max-width: 640px) {
+  .grid-3 { grid-template-columns: 1fr; gap: 0; }
+  .fb-panel { width: 260px; }
+  .datei-pdf-frame { height: 55vh; min-height: 320px; }
+}
+
+/* --- Kunden-View „Meine Videos": Fortschritts-Timeline -------------- */
+.mv-card {
+  display: block; text-decoration: none; color: inherit;
+  margin-bottom: 0.85rem; transition: border-color 0.15s ease, transform 0.15s ease;
+}
+a.mv-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+.mv-card--offen { border-color: rgba(226,98,44,0.35); box-shadow: 0 0 0 1px rgba(226,98,44,0.12) inset, var(--shadow-card); }
+.mv-card--verworfen { opacity: 0.72; }
+
+.mv-head { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; flex-wrap: wrap; }
+.mv-titel { font-weight: 600; color: var(--black); }
+.mv-sub { font-size: 0.8rem; margin-top: 0.15rem; }
+
+/* Vertikaler Stepper */
+.mv-timeline { list-style: none; margin: 0.9rem 0 0; padding: 0; position: relative; }
+.mv-step { position: relative; display: flex; align-items: center; gap: 0.65rem; min-height: 2.1rem; }
+.mv-step:not(:last-child)::before {
+  content: ""; position: absolute; left: 8px; top: 50%;
+  width: 2px; height: 100%; background: var(--mid); z-index: 0;
+}
+.mv-step.is-done:not(:last-child)::before { background: var(--ok); }
+
+.mv-dot {
+  position: relative; z-index: 1; flex: 0 0 18px; width: 18px; height: 18px;
+  box-sizing: border-box; border-radius: 50%; border: 2px solid var(--mid);
+  background: var(--surface); display: grid; place-items: center;
+  font-size: 10px; line-height: 1; font-weight: 700; color: transparent;
+}
+.mv-step.is-done  .mv-dot { background: var(--ok); border-color: var(--ok); color: #fff; }
+.mv-step.is-current .mv-dot { border-color: var(--accent); background: var(--accent); box-shadow: 0 0 0 3px rgba(226,98,44,0.15); }
+.mv-step.is-warten  .mv-dot { border-color: var(--warn); background: var(--warn-bg); color: var(--warn); font-size: 9px; }
+
+.mv-step-label { font-size: 0.9rem; color: var(--light); }
+.mv-step.is-done    .mv-step-label { color: var(--muted); }
+.mv-step.is-current .mv-step-label { color: var(--accent-dim); font-weight: 600; }
+.mv-step.is-warten  .mv-step-label { color: var(--warn); font-weight: 600; }
+.mv-step-hint { margin-left: 0.45rem; font-size: 0.74rem; font-weight: 600; color: var(--warn); }
+
+.mv-foot { margin-top: 0.9rem; text-align: right; }
+.mv-cta-link { font-size: 0.82rem; color: var(--muted); }
+a.mv-card:hover .mv-cta-link { color: var(--accent); }

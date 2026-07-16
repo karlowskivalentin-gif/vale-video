@@ -8,16 +8,18 @@
 // Schlägt ein Embed fehl (kein parsebarer Link), kommt eine Fallback-Karte.
 // In der View ist der Original-Link ZUSÄTZLICH immer separat anklickbar.
 // =====================================================================
-import { youtubeEmbedUrl } from "./drive.js";
+import { youtubeEmbedUrl, vimeoEmbedUrl, drivePreviewUrl } from "./drive.js";
 import { escapeHtml } from "./util.js";
 
-// URL → 'youtube' | 'tiktok' | 'instagram' | 'andere'
+// URL → 'youtube' | 'tiktok' | 'instagram' | 'vimeo' | 'drive' | 'andere'
 export function erkennePlattform(url) {
   const s = String(url || "").toLowerCase();
   if (!s) return "andere";
   if (/youtube\.com|youtu\.be/.test(s)) return "youtube";
   if (/tiktok\.com/.test(s))            return "tiktok";
   if (/instagram\.com/.test(s))         return "instagram";
+  if (/vimeo\.com/.test(s))             return "vimeo";
+  if (/drive\.google\.com/.test(s))     return "drive";
   return "andere";
 }
 
@@ -68,11 +70,32 @@ export function embedHtml(url) {
     </blockquote>`;
   }
 
+  if (plattform === "vimeo") {
+    const embed = vimeoEmbedUrl(url);
+    if (embed) {
+      return `<div class="embed-wrap"><iframe src="${escapeHtml(embed)}"
+        title="Vimeo-Vorschau" loading="lazy"
+        allow="autoplay; fullscreen; picture-in-picture" allowfullscreen
+        referrerpolicy="strict-origin-when-cross-origin"></iframe></div>`;
+    }
+    return fallbackHtml(url, "vimeo");
+  }
+
+  if (plattform === "drive") {
+    const embed = drivePreviewUrl(url);
+    if (embed) {
+      return `<div class="embed-wrap"><iframe src="${escapeHtml(embed)}"
+        title="Google-Drive-Vorschau" loading="lazy"
+        allow="autoplay" allowfullscreen></iframe></div>`;
+    }
+    return fallbackHtml(url, "drive");
+  }
+
   return fallbackHtml(url, "andere");
 }
 
 function fallbackHtml(url, plattform) {
-  const labelMap = { youtube: "YouTube", tiktok: "TikTok", instagram: "Instagram", andere: "Link" };
+  const labelMap = { youtube: "YouTube", tiktok: "TikTok", instagram: "Instagram", vimeo: "Vimeo", drive: "Google Drive", andere: "Link" };
   const label = labelMap[plattform] || "Link";
   return `<div class="embed-fallback">
     <span class="embed-fallback-label">${escapeHtml(label)}-Vorschau nicht verfügbar</span>

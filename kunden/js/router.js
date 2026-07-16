@@ -5,14 +5,18 @@ import { beobachteAuth, logout, abgewieseneAdresse,
 import { loeseEinladungEin, beobachteBenachrichtigungen, markiereBenachrichtigungenGelesen } from "./db.js";
 import { KOLLAB_MAP_ID, EINLADUNG_ID } from "./roles.js";
 import { getAktiv, setzeAktiv, abonniereKunden } from "./kunde-context.js";
+import { mountFeedbackWidget, unmountFeedbackWidget } from "./feedback-widget.js";
 import { raeumeViewAuf, beiViewWechsel } from "./view-lifecycle.js";
 import { renderLogin } from "./views/login.js";
 import { renderAufgaben } from "./views/kunde-aufgaben.js";
+import { renderMeineVideos } from "./views/kunde-videos.js";
 import { renderObjektMelden } from "./views/kunde-objekt-melden.js";
 import { renderVideoDetail } from "./views/kunde-video-detail.js";
 import { renderKundeKalender } from "./views/kunde-kalender.js";
 import { renderAdminPipeline } from "./views/admin-pipeline.js";
+import { renderAdminArchiv } from "./views/admin-archiv.js";
 import { renderAdminVideoEdit } from "./views/admin-video-edit.js";
+import { renderAdminDrehtag } from "./views/admin-drehtag.js";
 import { renderAdminObjekte } from "./views/admin-objekte.js";
 import { renderAdminKalender } from "./views/admin-kalender.js";
 import { renderAdminTermine } from "./views/admin-termine.js";
@@ -24,6 +28,7 @@ import { renderTodos } from "./views/todos.js";
 import { renderAdminTranskript } from "./views/admin-transkript.js";
 import { renderAdminInspiration } from "./views/admin-inspiration.js";
 import { renderAdminKunden } from "./views/admin-kunden.js";
+import { renderAdminKundeFeed } from "./views/admin-kunde-feed.js";
 
 // --- Zustand -----------------------------------------------------------
 let _user = null;
@@ -41,12 +46,15 @@ function appEl() {
 const ROUTES = {
   // Kunde
   "/aufgaben":       { rolle: "kunde", titel: "Aufgaben",        render: renderAufgaben },
+  "/meine-videos":   { rolle: "kunde", titel: "Meine Videos",    render: renderMeineVideos },
   "/objekt-melden":  { rolle: "kunde", titel: "Objekt melden",   render: renderObjektMelden },
   "/kalender":       { rolle: "kunde", titel: "Kalender",        render: renderKundeKalender },
   "/video":          { rolle: "kunde", titel: "Video",           render: renderVideoDetail, param: true },
   // Admin
   "/admin/pipeline": { rolle: "admin", titel: "Pipeline",         render: renderAdminPipeline },
+  "/admin/archiv":   { rolle: "admin", titel: "Archiv",           render: renderAdminArchiv },
   "/admin/video":    { rolle: "admin", titel: "Video bearbeiten", render: renderAdminVideoEdit, param: true },
+  "/admin/drehtag":  { rolle: "admin", titel: "Drehtag",          render: renderAdminDrehtag, param: true },
   "/admin/objekte":  { rolle: "admin", titel: "Objekte",          render: renderAdminObjekte },
   "/admin/kalender": { rolle: "admin", titel: "Kalender",         render: renderAdminKalender },
   "/admin/termine":  { rolle: "admin", titel: "Termine",          render: renderAdminTermine },
@@ -59,6 +67,7 @@ const ROUTES = {
   "/admin/transkript": { rolle: "admin", titel: "Transkript",     render: renderAdminTranskript },
   "/admin/inspiration": { rolle: "admin", titel: "Inspiration",   render: renderAdminInspiration },
   "/admin/kunden":   { rolle: "admin", titel: "Kunden",           render: renderAdminKunden },
+  "/admin/kunde-feed": { rolle: "admin", titel: "Kunden-Feed",     render: renderAdminKundeFeed },
   // Kollaborator (externer Mitarbeiter: geteilte + eigene Mindmaps)
   "/gedanken":       { rolle: "kollaborator", titel: "Mindmap",   render: renderAdminGedanken },
   "/todos":          { rolle: "kollaborator", titel: "To-Dos",    render: renderTodos },
@@ -68,11 +77,13 @@ const ROUTES = {
 const NAV = {
   kunde: [
     { href: "#/aufgaben",      label: "Aufgaben" },
+    { href: "#/meine-videos",  label: "Meine Videos" },
     { href: "#/objekt-melden", label: "Objekt melden" },
     { href: "#/kalender",      label: "Kalender" }
   ],
   admin: [
     { href: "#/admin/pipeline", label: "Pipeline" },
+    { href: "#/admin/archiv",   label: "Archiv" },
     { href: "#/admin/objekte",  label: "Objekte" },
     { href: "#/admin/kalender", label: "Kalender" },
     { href: "#/admin/termine",  label: "Termine" },
@@ -83,7 +94,8 @@ const NAV = {
     { href: "#/admin/stickies", label: "Stickies" },
     { href: "#/admin/transkript", label: "Transkript" },
     { href: "#/admin/inspiration", label: "Inspiration" },
-    { href: "#/admin/kunden", label: "Kunden" }
+    { href: "#/admin/kunden", label: "Kunden" },
+    { href: "#/admin/kunde-feed", label: "Kunden-Feed" }
   ],
   kollaborator: [
     { href: "#/gedanken", label: "Mindmap" },
@@ -103,6 +115,7 @@ function resolve(hash) {
   const path = (hash || "").replace(/^#/, "");
   if (path.startsWith("/video/"))       return { route: ROUTES["/video"],       id: decodeURIComponent(path.slice("/video/".length)) };
   if (path.startsWith("/admin/video/")) return { route: ROUTES["/admin/video"], id: decodeURIComponent(path.slice("/admin/video/".length)) };
+  if (path.startsWith("/admin/drehtag/")) return { route: ROUTES["/admin/drehtag"], id: decodeURIComponent(path.slice("/admin/drehtag/".length)) };
   if (path.startsWith("/admin/plan/"))  return { route: ROUTES["/admin/plan"],  id: decodeURIComponent(path.slice("/admin/plan/".length)) };
   return { route: ROUTES[path] || null, id: null };
 }
@@ -132,7 +145,7 @@ function renderShell(aktiverPfad) {
           <span class="role-pill">${rollenLabel}</span>
           <span class="user-email">${_user.email}</span>
         </span>
-        ${(_rolle === "admin" || _rolle === "kollaborator") ? `<button class="btn btn--ghost btn--sm glocke-btn" id="glockeBtn" type="button" title="Benachrichtigungen">🔔<span class="glocke-zahl" id="glockeZahl" hidden></span></button>` : ``}
+        <button class="btn btn--ghost btn--sm glocke-btn" id="glockeBtn" type="button" title="Benachrichtigungen">🔔<span class="glocke-zahl" id="glockeZahl" hidden></span></button>
         <button class="btn btn--ghost btn--sm" id="pwBtn" type="button">Passwort</button>
         <button class="btn btn--ghost btn--sm" id="logoutBtn">Abmelden</button>
       </div>
@@ -212,11 +225,16 @@ function wireGlocke() {
     panel.innerHTML = alle.length
       ? alle.slice(0, 30).map((n) => {
           const inhalt = escapeHtmlR(n.text || "");
-          const klasse = `glocke-item${n.gelesen ? "" : " is-neu"}`;
-          // Mit videoId → klickbar direkt zum betreffenden Video.
+          // Erledigte Freigabe-News (grün/durchgestrichen) haben Vorrang vor „neu".
+          const zustand = n.erledigt ? " is-erledigt" : (n.gelesen ? "" : " is-neu");
+          const klasse = `glocke-item${zustand}`;
+          const haken = n.erledigt ? "✓ " : "";
+          // Mit videoId → klickbar direkt zum betreffenden Video. Der Kunde landet
+          // in seiner eigenen Video-Ansicht (#/video/…), Admin/Kollaborator im Backoffice.
+          const videoBasis = _rolle === "kunde" ? "#/video/" : "#/admin/video/";
           return n.videoId
-            ? `<a class="${klasse} glocke-item--link" href="#/admin/video/${encodeURIComponent(n.videoId)}">${inhalt}</a>`
-            : `<div class="${klasse}">${inhalt}</div>`;
+            ? `<a class="${klasse} glocke-item--link" href="${videoBasis}${encodeURIComponent(n.videoId)}">${haken}${inhalt}</a>`
+            : `<div class="${klasse}">${haken}${inhalt}</div>`;
         }).join("")
       : `<div class="glocke-leer">Keine Benachrichtigungen.</div>`;
   }
@@ -314,6 +332,7 @@ function render() {
 
   // Nicht eingeloggt -> Login-Screen
   if (!_user) {
+    unmountFeedbackWidget();
     renderLogin(appEl(), {
       abgewiesen: abgewieseneAdresse(),
       linkEmailNoetig: _linkEmailNoetig,
@@ -347,6 +366,10 @@ function render() {
   // bekommt seinen eigenen fest aus der Auth (kundenmitglieder-Lookup).
   const kundeId = _rolle === "admin" ? getAktiv() : ((_info && _info.kundeId) || null);
   route.render(viewContainer, { id, user: _user, rolle: _rolle, kollabMapId: (_info && _info.mapId) || null, kundeId });
+
+  // Schwebende Feedback-Box nur für Kunden (Singleton, überlebt Routenwechsel).
+  if (_rolle === "kunde") mountFeedbackWidget({ user: _user, kundeId });
+  else unmountFeedbackWidget();
 }
 
 // Eingeloggt, aber keine Rolle: Zugangscode einlösen (Kollaborator freischalten)

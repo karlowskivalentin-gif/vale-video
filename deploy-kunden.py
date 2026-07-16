@@ -33,10 +33,11 @@ SECRETS = os.path.join(HERE, "config", "secrets.php")
 # Nur das Kundenportal. Rekursiv.
 INCLUDE_DIRS = ["kunden"]
 
-# Niemals hochladen (Geheimnisse/Repo/Rohmaterial). firestore.rules gehoert
-# in die Firebase-Console, nicht aufs Hosting.
+# Niemals hochladen (Geheimnisse/Repo/Rohmaterial). firestore.rules +
+# firebase.json/.firebaserc gehoeren zu Firebase-CLI-Deploys, nicht aufs Hosting.
 EXCLUDE_NAMES = {".git", ".gitignore", "config", "node_modules",
-                 ".vscode", ".idea", "__pycache__", "firestore.rules"}
+                 ".vscode", ".idea", "__pycache__", "firestore.rules",
+                 "firebase.json", ".firebaserc", ".firebase"}
 EXCLUDE_EXT = (".mp4", ".mov", ".avi", ".mkv", ".prproj", ".drp",
                ".py", ".php", ".log", ".tmp", ".rules")
 

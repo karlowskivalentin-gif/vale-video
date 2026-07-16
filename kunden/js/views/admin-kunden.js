@@ -63,12 +63,16 @@ export function renderAdminKunden(container) {
 
     <div id="kdList"><div class="card card--pad"><p class="muted">Wird geladen …</p></div></div>
 
-    <section class="card card--pad kd-wartung">
-      <h2 class="kd-form-titel">Wartung</h2>
+    <section class="card card--pad kd-wartung" id="kdWartung">
+      <div class="kd-wartung-kopf">
+        <h2 class="kd-form-titel" style="margin:0">Wartung</h2>
+        <button class="btn btn--ghost btn--sm" id="kdWartungAus" type="button" title="Diese Box ausblenden">Ausblenden</button>
+      </div>
       <p class="muted" style="margin:.2rem 0 .7rem">Einmalig: ordnet allen bestehenden Videos, Mindmaps, Objekten, Plänen und Terminen (ohne Kundenzuordnung) dem Kunden <strong>Deussen</strong> zu. Mehrfaches Ausführen ist unschädlich.</p>
       <div class="notice notice--ok" id="kdMigOk" hidden role="status"></div>
       <button class="btn btn--ghost btn--sm" id="kdMig" type="button">Altbestand zu „Deussen" migrieren</button>
-    </section>`;
+    </section>
+    <button class="kd-wartung-ein" id="kdWartungEin" type="button" hidden>⚙ Wartung einblenden</button>`;
 
   const listEl   = container.querySelector("#kdList");
   const formWrap = container.querySelector("#kdFormWrap");
@@ -150,6 +154,19 @@ export function renderAdminKunden(container) {
     }
   });
 
+  // Wartungs-Box aus-/einblenden (localStorage; nach Migration automatisch aus).
+  const LS_WARTUNG_AUS = "vv_wartung_aus";
+  const wartungSec = container.querySelector("#kdWartung");
+  const wartungEin = container.querySelector("#kdWartungEin");
+  function setWartung(aus) {
+    wartungSec.hidden = aus;
+    wartungEin.hidden = !aus;
+    try { localStorage.setItem(LS_WARTUNG_AUS, aus ? "1" : "0"); } catch (_) { /* egal */ }
+  }
+  setWartung(localStorage.getItem(LS_WARTUNG_AUS) === "1");
+  container.querySelector("#kdWartungAus").addEventListener("click", () => setWartung(true));
+  wartungEin.addEventListener("click", () => setWartung(false));
+
   // Migration.
   const migBtn = container.querySelector("#kdMig");
   const migOk  = container.querySelector("#kdMigOk");
@@ -159,8 +176,9 @@ export function renderAdminKunden(container) {
     try {
       const bericht = await migriereAltbestand(KUNDE_EMAILS);
       const zeilen = Object.entries(bericht).map(([k, n]) => `${k}: ${n}`).join(" · ");
-      migOk.textContent = `Fertig. Zugeordnet — ${zeilen}.`;
+      migOk.textContent = `Fertig. Zugeordnet — ${zeilen}. Die Wartungs-Box wird jetzt ausgeblendet.`;
       migOk.hidden = false;
+      setTimeout(() => setWartung(true), 1500);   // nach Erfolg automatisch ausblenden
     } catch (ex) {
       console.error(ex);
       alert("Migration fehlgeschlagen: " + (ex && ex.message ? ex.message : ex));

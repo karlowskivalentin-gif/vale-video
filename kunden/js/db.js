@@ -7,7 +7,7 @@
 //   { status, freigabeSkript, freigabeSchnitt, aktualisiertAm }
 // und nur die 4 erlaubten Status-Übergänge.
 // =====================================================================
-import { db } from "./firebase-init.js";
+import { db, auth } from "./firebase-init.js";
 import {
   collection, collectionGroup, doc, addDoc, setDoc, getDoc, getDocs, updateDoc, deleteDoc,
   query, where, orderBy, onSnapshot, serverTimestamp, writeBatch, arrayUnion
@@ -222,6 +222,37 @@ export function beobachteAlleKommentare(callback, onError) {
 }
 
 // =====================================================================
+// BONG-NOTIZEN — private Admin-Notizen zu „gebongten" Videos (Admin-only)
+// Ein Doc = eine Notiz { videoId, text, erstelltAm }. BEWUSST eine eigene
+// Top-Level-Collection und NICHT die videos/.../kommentare-Subcollection:
+// letztere darf der Eigentümer-Kunde mitlesen (siehe firestore.rules). Diese
+// Notizen sind rein intern — der Kunde sieht sie NIE (Rules: nur Admin).
+// =====================================================================
+const bongNotizenCol = () => collection(db, "bongnotizen");
+
+export async function bongNotizAnlegen(videoId, text) {
+  return addDoc(bongNotizenCol(), {
+    videoId:    videoId,
+    text:       text || "",
+    erstelltAm: serverTimestamp()
+  });
+}
+
+export async function loescheBongNotiz(id) {
+  return deleteDoc(doc(db, "bongnotizen", id));
+}
+
+// Alle Bong-Notizen in EINEM Listener (Admin-only, für die Pipeline). Ohne
+// orderBy (kein Index nötig) — der Client gruppiert nach videoId und sortiert.
+export function beobachteBongNotizen(callback, onError) {
+  return onSnapshot(
+    bongNotizenCol(),
+    (snap) => callback(snapToArr(snap)),
+    onError || (() => {})
+  );
+}
+
+// =====================================================================
 // TERMINE — manuelle, frei stehende Kalender-Einträge (ohne Pipeline-Video)
 // Felder: kategorie ('besprechung'|'drehtermin'|'veroeffentlichung'),
 //         bezeichnung, datum (Date), uhrzeitVon, uhrzeitBis (opt. "HH:MM"),
@@ -291,6 +322,7 @@ export async function planAnlegen(daten) {
     shotlist:      Array.isArray(daten.shotlist) ? daten.shotlist : [],
     notiz:         daten.notiz || "",
     dateien:       Array.isArray(daten.dateien) ? daten.dateien : [],   // Anhänge aus dem Post (Bilder/Links/Dateien)
+    gedankeId:     daten.gedankeId || null,   // Rück-Verknüpfung zum Ursprungs-Post (Gedanke) → Anhänge bleiben beidseitig synchron
     geplanterDrehtermin: daten.geplanterDrehtermin || null,
     geplantesDatum:      daten.geplantesDatum || null,
     erstelltAm:     serverTimestamp(),
@@ -654,7 +686,7 @@ export async function mindmapAnlegenMitId(id, name) {
 // =====================================================================
 const benachrichtigungenCol = () => collection(db, "benachrichtigungen");
 
-export async function benachrichtigungAnlegen({ fuer, von, text, videoId, art }) {
+export async function benachrichtigungAnlegen({ fuer, von, text, videoId, art, gruppe }) {
   const daten = {
     fuer:       (fuer || "").toLowerCase(),
     von:        (von || "").toLowerCase(),
@@ -665,6 +697,9 @@ export async function benachrichtigungAnlegen({ fuer, von, text, videoId, art })
   // Optionale Verknüpfung → Glocken-Item wird zum Video klickbar.
   if (videoId) daten.videoId = videoId;
   if (art)     daten.art = art;
+  // gruppe: verbindet die pro-E-Mail-Kopien EINER Kunden-News, damit der Admin
+  // sie als ein Item ansehen/löschen kann (siehe admin-kunde-feed.js).
+  if (gruppe)  daten.gruppe = gruppe;
   return addDoc(benachrichtigungenCol(), daten);
 }
 
@@ -672,6 +707,46 @@ export async function benachrichtigungAnlegen({ fuer, von, text, videoId, art })
 // Empfänger ist die (einzige) Admin-Adresse aus roles.js.
 export async function benachrichtigeAdmin({ von, text, videoId, art }) {
   return benachrichtigungAnlegen({ fuer: ADMIN_EMAILS[0], von, text, videoId, art });
+}
+
+// Benachrichtigt ALLE Login-Adressen eines Kunden (Glocke + News-Dashboard).
+// Ein Kunde kann mehrere E-Mails haben (kunden/{id}.emails[]) → pro Adresse ein
+// Doc. `von` = die eingeloggte Admin-Adresse (Rules verlangen von == auth-email).
+// Fire-and-forget-tauglich; wirft nicht, wenn Kunde/Emails fehlen.
+export async function benachrichtigeKunde(kundeId, { text, videoId, art } = {}) {
+  if (!kundeId) return;
+  const von = (auth.currentUser && auth.currentUser.email) || ADMIN_EMAILS[0];
+  let kunde = null;
+  try { kunde = await ladeKunde(kundeId); } catch (_) { return; }
+  const emails = (kunde && Array.isArray(kunde.emails)) ? kunde.emails : [];
+  // Gemeinsame Gruppen-ID über alle E-Mail-Kopien dieser einen News.
+  const gruppe = (self.crypto && crypto.randomUUID) ? crypto.randomUUID() : `g${Date.now()}-${emails.length}`;
+  await Promise.all(emails.map((email) =>
+    benachrichtigungAnlegen({ fuer: email, von, text, videoId, art, gruppe }).catch(() => {})
+  ));
+}
+
+// Admin: die Neuigkeiten EINES Kunden (alle E-Mail-Kopien) live beobachten —
+// für die per-Kunde-News-Verwaltung. `in`-Query über die (wenigen) Login-Mails;
+// der Aufrufer dedupliziert über `gruppe`. Kein orderBy → Client sortiert.
+export function beobachteBenachrichtigungenFuerKunde(kunde, callback, onError) {
+  const emails = (kunde && Array.isArray(kunde.emails))
+    ? kunde.emails.map((e) => String(e).toLowerCase()).filter(Boolean).slice(0, 30)
+    : [];
+  if (!emails.length) { callback([]); return () => {}; }
+  return onSnapshot(
+    query(benachrichtigungenCol(), where("fuer", "in", emails)),
+    (snap) => callback(snapToArr(snap)),
+    onError || (() => {})
+  );
+}
+
+// Admin löscht eine News (alle übergebenen Kopie-IDs) in einem Batch.
+export async function loescheBenachrichtigungen(ids) {
+  if (!Array.isArray(ids) || !ids.length) return;
+  const batch = writeBatch(db);
+  ids.forEach((id) => batch.delete(doc(db, "benachrichtigungen", id)));
+  return batch.commit();
 }
 
 export function beobachteBenachrichtigungen(email, callback, onError) {
@@ -688,6 +763,123 @@ export async function markiereBenachrichtigungenGelesen(ids) {
   const batch = writeBatch(db);
   ids.forEach((id) => batch.update(doc(db, "benachrichtigungen", id), { gelesen: true }));
   return batch.commit();
+}
+
+// Arten von Kunden-News, die eine HANDLUNG (Freigabe) einfordern und damit
+// „erledigt" werden können — im Gegensatz zu reinen Infos (z.B. 'gepostet').
+const FREIGABE_ARTEN = ["version", "freigabe"];
+
+// Eine Kunden-News gilt als erledigbare Freigabe-Aufforderung, wenn ihre `art`
+// dazu passt ODER (Fallback für ältere/untypisierte News) der Text auf eine
+// Freigabe hindeutet. Reine Infos ('gepostet') sind explizit ausgenommen.
+export function istFreigabeAufforderung(n) {
+  if (!n || !n.videoId) return false;
+  if (n.art === "gepostet") return false;
+  if (FREIGABE_ARTEN.includes(n.art)) return true;
+  const t = String(n.text || "").toLowerCase();
+  return t.includes("freigabe") || t.includes("freigeben");
+}
+
+// Nach einer Kunden-Reaktion (freigeben / ändern / verwerfen) alle offenen
+// Freigabe-Aufforderungen dieses Kunden zu genau diesem Video als erledigt
+// markieren. Persistenter Flag → bleibt auch korrekt, wenn später eine neue
+// Version dasselbe Video wieder in Freigabe schickt (die alte News bleibt
+// erledigt, nur die neue ist offen). Fire-and-forget-tauglich; still bei Fehler.
+export async function erledigeFreigabeNews(email, videoId) {
+  const e = (email || "").trim().toLowerCase();
+  if (!e || !videoId) return;
+  const snap = await getDocs(query(
+    benachrichtigungenCol(),
+    where("fuer", "==", e),
+    where("videoId", "==", videoId)
+  ));
+  const offen = snap.docs.filter((d) => {
+    const n = d.data();
+    return istFreigabeAufforderung({ ...n, videoId }) && n.erledigt !== true;
+  });
+  if (!offen.length) return;
+  const batch = writeBatch(db);
+  offen.forEach((d) => batch.update(d.ref, { erledigt: true }));
+  return batch.commit();
+}
+
+// =====================================================================
+// SKRIPTUPLOADS — vom Kunden hochgeladene überarbeitete Skripte (Word/PDF)
+// Eigene Collection (NICHT dateiblobs — dort darf der Kunde nicht schreiben;
+// NICHT als Kommentar — sonst zöge der pipeline-weite collectionGroup-Listener
+// das Base64 mit). Ein Doc = eine hochgeladene Skript-Datei:
+//   { videoId, kundeId, gemeldetVon, dateiName, dateiTyp, base64,
+//     text (offline extrahiert), erledigt, erstelltAm }
+// Rechte: Kunde legt im eigenen Namen an; Admin liest/erledigt/löscht.
+// =====================================================================
+const skriptUploadsCol = () => collection(db, "skriptuploads");
+
+export async function skriptUploadAnlegen({ videoId, kundeId, gemeldetVon, dateiName, dateiTyp, base64, text }) {
+  return addDoc(skriptUploadsCol(), {
+    videoId:     videoId || null,
+    kundeId:     kundeId || null,
+    gemeldetVon: (gemeldetVon || "").toLowerCase(),
+    dateiName:   dateiName || "skript",
+    dateiTyp:    dateiTyp || "application/octet-stream",
+    base64:      base64 || "",
+    text:        text || "",
+    erledigt:    false,
+    erstelltAm:  serverTimestamp()
+  });
+}
+
+// Uploads eines Videos live beobachten (Admin + Eigentümer-Kunde). Kein orderBy
+// → Client sortiert.
+export function beobachteSkriptUploads(videoId, callback, onError) {
+  return onSnapshot(
+    query(skriptUploadsCol(), where("videoId", "==", videoId)),
+    (snap) => callback(snapToArr(snap)),
+    onError || (() => {})
+  );
+}
+
+export async function setzeSkriptUploadErledigt(id, erledigt) {
+  return updateDoc(doc(db, "skriptuploads", id), { erledigt: !!erledigt });
+}
+
+export async function loescheSkriptUpload(id) {
+  return deleteDoc(doc(db, "skriptuploads", id));
+}
+
+// =====================================================================
+// FEEDBACK — Mini-Feedback-Box des Kunden (schwebend, seiten-bewusst)
+// Ein Doc = ein Feedback-Eintrag:
+//   { kundeId, gemeldetVon, text, seite (Hash-Route), seiteLabel,
+//     erledigt, erstelltAm }
+// Rechte: Kunde legt im eigenen Namen an; Admin liest/erledigt/löscht.
+// =====================================================================
+const feedbackCol = () => collection(db, "feedback");
+
+export async function feedbackAnlegen({ kundeId, gemeldetVon, text, seite, seiteLabel }) {
+  return addDoc(feedbackCol(), {
+    kundeId:     kundeId || null,
+    gemeldetVon: (gemeldetVon || "").toLowerCase(),
+    text:        text || "",
+    seite:       seite || "",
+    seiteLabel:  seiteLabel || "",
+    erledigt:    false,
+    erstelltAm:  serverTimestamp()
+  });
+}
+
+export function beobachteFeedback(kundeId, callback, onError) {
+  const q = kundeId
+    ? query(feedbackCol(), where("kundeId", "==", kundeId))
+    : query(feedbackCol(), orderBy("erstelltAm", "desc"));
+  return onSnapshot(q, (snap) => callback(snapToArr(snap)), onError || (() => {}));
+}
+
+export async function setzeFeedbackErledigt(id, erledigt) {
+  return updateDoc(doc(db, "feedback", id), { erledigt: !!erledigt });
+}
+
+export async function loescheFeedback(id) {
+  return deleteDoc(doc(db, "feedback", id));
 }
 
 // =====================================================================

@@ -85,6 +85,9 @@ export function renderAdminFokus(container) {
   let ticker = null;        // Timer: setInterval-Handle
   let audioCtx = null;      // Timer: WebAudio (erst bei Start → User-Geste)
   let gewaehltMin = 25;     // Timer: aktuell gewählte Dauer im Idle-Zustand
+  let gewaehlterModus = "fokus"; // 'fokus' | 'pomodoro' | 'stoppuhr'
+  let pomoWork = 25, pomoBreak = 5;  // Pomodoro-Konfiguration (Minuten)
+  let vollEl = null;        // Vollbild-Overlay (Singleton an document.body)
 
   let videoUnsub = null;    // Videos: Firestore-onSnapshot-Abbestellung
   let videos = [];          // Videos: zuletzt bekannte Liste
@@ -288,9 +291,13 @@ export function renderAdminFokus(container) {
   function zeichneIdle() {
     if (ticker) { clearInterval(ticker); ticker = null; }
     const stats = ladeStats();
+    const istFokus = gewaehlterModus === "fokus";
+    const istPomo  = gewaehlterModus === "pomodoro";
+    const istStop  = gewaehlterModus === "stoppuhr";
+    const MODI = [["fokus", "Fokus"], ["pomodoro", "Pomodoro"], ["stoppuhr", "Stoppuhr"]];
     body.innerHTML = `
       <section class="card card--pad fokus-card">
-        <div class="fokus-ring-wrap">${ringSvg(0, "🌱", "--:--")}</div>
+        <div class="fokus-ring-wrap">${ringSvg(0, "🌱", istStop ? "00:00" : "--:--")}</div>
         <input id="fokusName" class="fokus-name" type="text" maxlength="60"
           placeholder="Woran arbeitest du? (z. B. Deussen-Schnitt)" value="${escapeHtml(gewaehlterName)}"
           aria-label="Name der Fokus-Session" />
@@ -298,11 +305,21 @@ export function renderAdminFokus(container) {
           <option value="">Ohne Kategorie</option>
           ${subKategorien().map((s) => `<option value="${escapeHtml(s.id)}"${s.id === gewaehlteKat ? " selected" : ""}>${escapeHtml(s.name)}</option>`).join("")}
         </select>
+        <div class="fokus-modi" role="tablist">
+          ${MODI.map(([v, l]) => `<button class="btn btn--ghost btn--sm fokus-modus${v === gewaehlterModus ? " is-active" : ""}" data-modus="${v}" type="button">${l}</button>`).join("")}
+        </div>
+        ${istFokus ? `
         <div class="fokus-presets">
           ${PRESETS.map((m) => `<button class="btn btn--ghost btn--sm fokus-preset${m === gewaehltMin ? " is-active" : ""}" data-min="${m}" type="button">${m} Min</button>`).join("")}
           <span class="fokus-custom"><input id="fokusCustom" type="number" min="1" max="180" value="${gewaehltMin}" aria-label="Dauer in Minuten" /> Min</span>
-        </div>
-        <button class="btn btn--accent btn--block" id="fokusStart" type="button">Fokus starten</button>
+        </div>` : ""}
+        ${istPomo ? `
+        <div class="fokus-pomo-conf">
+          <label>Arbeit <input id="pomoWork" type="number" min="1" max="120" value="${pomoWork}" /> Min</label>
+          <label>Pause <input id="pomoBreak" type="number" min="1" max="60" value="${pomoBreak}" /> Min</label>
+        </div>` : ""}
+        ${istStop ? `<p class="muted fokus-stop-hint">Stoppuhr läuft offen — beende sie, wenn du fertig bist.</p>` : ""}
+        <button class="btn btn--accent btn--block" id="fokusStart" type="button">${istStop ? "Stoppuhr starten" : "Fokus starten"}</button>
         <p class="fokus-stats muted">Heute: ${stats.sessions} Session${stats.sessions === 1 ? "" : "s"} · ${stats.minuten} Min fokussiert</p>
       </section>`;
 
@@ -310,6 +327,10 @@ export function renderAdminFokus(container) {
     if (nameEl) nameEl.addEventListener("input", () => { gewaehlterName = nameEl.value; });
     const katEl = body.querySelector("#fokusKat");
     if (katEl) katEl.addEventListener("change", () => { gewaehlteKat = katEl.value; });
+
+    body.querySelectorAll(".fokus-modus").forEach((b) => {
+      b.addEventListener("click", () => { gewaehlterModus = b.getAttribute("data-modus"); zeichneIdle(); });
+    });
 
     body.querySelectorAll(".fokus-preset").forEach((b) => {
       b.addEventListener("click", () => {
@@ -324,28 +345,43 @@ export function renderAdminFokus(container) {
       gewaehltMin = custom.value;
       body.querySelectorAll(".fokus-preset").forEach((x) => x.classList.remove("is-active"));
     });
+    const pw = body.querySelector("#pomoWork");  if (pw) pw.addEventListener("input", () => { pomoWork = pw.value; });
+    const pb = body.querySelector("#pomoBreak"); if (pb) pb.addEventListener("input", () => { pomoBreak = pb.value; });
     body.querySelector("#fokusStart").addEventListener("click", starte);
   }
 
+  function phaseLabel(sess) {
+    if (sess.modus === "pomodoro") return sess.phase === "break" ? `☕ Pause · Runde ${sess.runde || 1}` : `🍅 Fokus · Runde ${sess.runde || 1}`;
+    if (sess.modus === "stoppuhr") return "⏱ Stoppuhr";
+    return "";
+  }
+
   function zeichneLauf(sess) {
-    const rest = aktuellerRest(sess);
-    const f = sess.dauerSek > 0 ? (sess.dauerSek - rest) / sess.dauerSek : 0;
+    const istStop = sess.modus === "stoppuhr";
+    const rest = istStop ? 0 : aktuellerRest(sess);
+    const verg = istStop ? verstrichenStoppuhr(sess) : 0;
+    const f = istStop ? ((verg % 60) / 60) : (sess.dauerSek > 0 ? (sess.dauerSek - rest) / sess.dauerSek : 0);
+    const zeitTxt = istStop ? mmss(Math.round(verg)) : mmss(rest);
     const paused = sess.status === "paused";
+    const lbl = phaseLabel(sess);
     body.innerHTML = `
       <section class="card card--pad fokus-card">
         ${sess.name ? `<div class="fokus-laufname">${escapeHtml(sess.name)}</div>` : ""}
-        <div class="fokus-ring-wrap${paused ? " is-paused" : ""}">${ringSvg(f, pflanze(f), mmss(rest))}</div>
-        <div class="fokus-laufzeit muted">${paused ? "Pausiert" : "Bleib dran — du fokussierst gerade"} · ${Math.round(sess.dauerSek / 60)} Min Session</div>
+        ${lbl ? `<div class="fokus-phase">${lbl}</div>` : ""}
+        <div class="fokus-ring-wrap${paused ? " is-paused" : ""}">${ringSvg(f, pflanze(f), zeitTxt)}</div>
+        <div class="fokus-laufzeit muted">${paused ? "Pausiert" : "Bleib dran — du fokussierst gerade"}${istStop ? "" : ` · ${Math.round(sess.dauerSek / 60)} Min`}</div>
         <div class="action-btns fokus-actions">
           <button class="btn btn--ghost" id="fokusToggle" type="button">${paused ? "Fortsetzen" : "Pause"}</button>
           <button class="btn btn--accent" id="fokusEnde" type="button">Beenden</button>
           <button class="btn btn--ghost fokus-abbrechen" id="fokusStop" type="button">Abbrechen</button>
+          <button class="btn btn--ghost" id="fokusVoll" type="button" title="Vollbild">⛶ Vollbild</button>
         </div>
       </section>
       ${sess.kategorie ? `<section class="card card--pad fokus-todos-card"><div id="fokusTodos"></div></section>` : ""}`;
     body.querySelector("#fokusToggle").addEventListener("click", toggle);
     body.querySelector("#fokusEnde").addEventListener("click", beende);
     body.querySelector("#fokusStop").addEventListener("click", stoppe);
+    body.querySelector("#fokusVoll").addEventListener("click", oeffneVollbild);
     aktualisiereTodoPanel();   // To-Dos der Kategorie (falls gesetzt)
   }
 
@@ -382,6 +418,7 @@ export function renderAdminFokus(container) {
     loescheSession();
     piep();
     benachrichtige(min);
+    schliesseVollbild();
     zeichneDone(min);
   }
 
@@ -390,25 +427,71 @@ export function renderAdminFokus(container) {
     const sess = ladeSession();
     if (!sess) { zeichne(); return; }
     if (ticker) { clearInterval(ticker); ticker = null; }
-    const fokussiertSek = Math.max(0, sess.dauerSek - aktuellerRest(sess));
-    const min = Math.round(fokussiertSek / 60);
+    let min;
+    if (sess.modus === "stoppuhr") {
+      min = Math.round(verstrichenStoppuhr(sess) / 60);
+    } else if (sess.modus === "pomodoro") {
+      // Nur die aktuell laufende Arbeitsphase zählt (frühere Runden wurden je
+      // Phasenende schon protokolliert). In der Pause zählt nichts mehr.
+      min = sess.phase === "work" ? Math.round(Math.max(0, sess.dauerSek - aktuellerRest(sess)) / 60) : 0;
+    } else {
+      min = Math.round(Math.max(0, sess.dauerSek - aktuellerRest(sess)) / 60);
+    }
     addStat(min);
     protokolliere(sess, min);
     loescheSession();
     piep();
+    schliesseVollbild();
     zeichneDone(min);
+  }
+
+  // Stoppuhr: verstrichene Sekunden (basisSek + laufendes Segment).
+  function verstrichenStoppuhr(sess) {
+    const basis = Number.isFinite(sess.basisSek) ? sess.basisSek : 0;
+    return sess.status === "running" ? basis + Math.max(0, (Date.now() - sess.segStart) / 1000) : basis;
+  }
+
+  function aktualisiereStoppuhr(sess) {
+    const verg = verstrichenStoppuhr(sess);
+    const t = body.querySelector("#fokusZeit"); if (t) t.textContent = mmss(Math.round(verg));
+    const f = (verg % 60) / 60;
+    const ring = body.querySelector("#fokusRingFill"); if (ring) ring.style.strokeDashoffset = String((C * (1 - f)).toFixed(2));
+    const pl = body.querySelector("#fokusPflanze"); if (pl) pl.textContent = pflanze(Math.min(1, verg / (25 * 60)));
+  }
+
+  // Pomodoro: Phasenende → Arbeit protokollieren + Pause starten, bzw. Pause
+  // vorbei → nächste Arbeitsrunde.
+  function pomodoroPhaseEnde(sess) {
+    piep();
+    if (sess.phase === "work") {
+      const min = Math.round(sess.dauerSek / 60);
+      addStat(min);
+      protokolliere(sess, min);
+      const brk = Math.min(60, Math.max(1, parseInt(sess.conf && sess.conf.brk, 10) || 5));
+      const dauerSek = brk * 60;
+      speichereSession({ ...sess, phase: "break", dauerSek, endeAt: Date.now() + dauerSek * 1000 });
+    } else {
+      const work = Math.min(120, Math.max(1, parseInt(sess.conf && sess.conf.work, 10) || 25));
+      const dauerSek = work * 60;
+      speichereSession({ ...sess, phase: "work", runde: (sess.runde || 1) + 1, dauerSek, endeAt: Date.now() + dauerSek * 1000 });
+    }
+    zeichne();   // baut den Lauf-Screen für die neue Phase neu auf
   }
 
   function tick() {
     const sess = ladeSession();
     if (!sess || sess.status !== "running") { if (ticker) { clearInterval(ticker); ticker = null; } return; }
+    if (sess.modus === "stoppuhr") { aktualisiereStoppuhr(sess); aktualisiereVollbild(sess); return; }
     const rest = aktuellerRest(sess);
-    if (rest <= 0) { finalisiere(sess); return; }
+    if (rest <= 0) {
+      if (sess.modus === "pomodoro") pomodoroPhaseEnde(sess); else finalisiere(sess);
+      return;
+    }
     aktualisiereRing(rest, sess.dauerSek);
+    aktualisiereVollbild(sess);
   }
 
   function starte() {
-    const min = Math.min(180, Math.max(1, parseInt(gewaehltMin, 10) || 25));
     // User-Geste: AudioContext anlegen/aufwecken + Benachrichtigung anfragen.
     try {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -417,29 +500,44 @@ export function renderAdminFokus(container) {
     if ("Notification" in window && Notification.permission === "default") {
       try { Notification.requestPermission(); } catch (_) { /* egal */ }
     }
-    const dauerSek = min * 60;
-    const name = (gewaehlterName || "").trim() || "Fokus";
     const kategorie = gewaehlteKat || "";
     const kategorieName = kategorie ? (subKategorien().find((s) => s.id === kategorie)?.name || "") : "";
-    speichereSession({ status: "running", dauerSek, endeAt: Date.now() + dauerSek * 1000, name, startAt: Date.now(), kategorie, kategorieName });
+    const basis = { name: (gewaehlterName || "").trim() || (gewaehlterModus === "stoppuhr" ? "Stoppuhr" : "Fokus"),
+      startAt: Date.now(), kategorie, kategorieName, modus: gewaehlterModus };
+
+    if (gewaehlterModus === "stoppuhr") {
+      speichereSession({ ...basis, status: "running", basisSek: 0, segStart: Date.now() });
+    } else if (gewaehlterModus === "pomodoro") {
+      const work = Math.min(120, Math.max(1, parseInt(pomoWork, 10) || 25));
+      const brk  = Math.min(60,  Math.max(1, parseInt(pomoBreak, 10) || 5));
+      const dauerSek = work * 60;
+      speichereSession({ ...basis, status: "running", phase: "work", runde: 1, conf: { work, brk }, dauerSek, endeAt: Date.now() + dauerSek * 1000 });
+    } else {
+      const min = Math.min(180, Math.max(1, parseInt(gewaehltMin, 10) || 25));
+      const dauerSek = min * 60;
+      speichereSession({ ...basis, status: "running", dauerSek, endeAt: Date.now() + dauerSek * 1000 });
+    }
     zeichne();
   }
 
   function toggle() {
     const sess = ladeSession();
     if (!sess) { zeichne(); return; }
-    const meta = { name: sess.name, startAt: sess.startAt, kategorie: sess.kategorie, kategorieName: sess.kategorieName };  // über Pause hinweg erhalten
-    if (sess.status === "running") {
-      speichereSession({ status: "paused", dauerSek: sess.dauerSek, restSek: aktuellerRest(sess), ...meta });
-    } else {
-      speichereSession({ status: "running", dauerSek: sess.dauerSek, endeAt: Date.now() + sess.restSek * 1000, ...meta });
+    if (sess.modus === "stoppuhr") {
+      if (sess.status === "running") speichereSession({ ...sess, status: "paused", basisSek: verstrichenStoppuhr(sess) });
+      else                           speichereSession({ ...sess, status: "running", segStart: Date.now() });
+      zeichne(); return;
     }
+    // Countdown (Fokus + Pomodoro): alle Felder erhalten, nur Status/Restzeit ändern.
+    if (sess.status === "running") speichereSession({ ...sess, status: "paused", restSek: aktuellerRest(sess) });
+    else                           speichereSession({ ...sess, status: "running", endeAt: Date.now() + sess.restSek * 1000 });
     zeichne();
   }
 
   function stoppe() {
-    if (!confirm("Fokus-Session abbrechen? Sie wird nicht gezählt.")) return;
+    if (!confirm("Session abbrechen? Sie wird nicht gezählt.")) return;
     loescheSession();
+    schliesseVollbild();
     zeichneIdle();
   }
 
@@ -448,9 +546,69 @@ export function renderAdminFokus(container) {
     if (ticker) { clearInterval(ticker); ticker = null; }
     const sess = ladeSession();
     if (!sess) { zeichneIdle(); return; }
-    if (sess.status === "running" && aktuellerRest(sess) <= 0) { finalisiere(sess); return; }
+    // Countdown-Modi: beim Laden abgelaufen? Fokus finalisiert, Pomodoro wechselt Phase.
+    if (sess.modus !== "stoppuhr" && sess.status === "running" && aktuellerRest(sess) <= 0) {
+      if (sess.modus === "pomodoro") { pomodoroPhaseEnde(sess); return; }
+      finalisiere(sess); return;
+    }
     zeichneLauf(sess);
     if (sess.status === "running") ticker = setInterval(tick, 250);
+  }
+
+  // --- Vollbild-Overlay (großer Ring/Zeit über die ganze Seite) --------
+  function ensureVollbild() {
+    if (vollEl) return vollEl;
+    vollEl = document.createElement("div");
+    vollEl.className = "fokus-voll";
+    vollEl.hidden = true;
+    vollEl.innerHTML = `
+      <div class="fokus-voll-inner">
+        <div class="fokus-voll-name" id="fvName"></div>
+        <div class="fokus-voll-phase" id="fvPhase"></div>
+        <div class="fokus-voll-ringwrap">
+          <svg class="fokus-ring fokus-voll-ring" viewBox="0 0 280 280" aria-hidden="true">
+            <circle class="fokus-ring-track" cx="140" cy="140" r="${R}"></circle>
+            <circle id="fvRing" class="fokus-ring-fill" cx="140" cy="140" r="${R}" stroke-dasharray="${C.toFixed(2)}"></circle>
+          </svg>
+          <div class="fokus-voll-zeit" id="fvZeit">--:--</div>
+        </div>
+        <div class="action-btns">
+          <button class="btn btn--ghost" id="fvToggle" type="button">Pause</button>
+          <button class="btn btn--accent" id="fvEnde" type="button">Beenden</button>
+          <button class="btn btn--ghost" id="fvClose" type="button">Schließen</button>
+        </div>
+      </div>`;
+    document.body.appendChild(vollEl);
+    vollEl.querySelector("#fvToggle").addEventListener("click", () => { toggle(); const s = ladeSession(); if (s) aktualisiereVollbild(s); });
+    vollEl.querySelector("#fvEnde").addEventListener("click", () => { schliesseVollbild(); beende(); });
+    vollEl.querySelector("#fvClose").addEventListener("click", schliesseVollbild);
+    document.addEventListener("fullscreenchange", () => {
+      if (!document.fullscreenElement && vollEl && !vollEl.hidden) vollEl.hidden = true;
+    });
+    return vollEl;
+  }
+  function oeffneVollbild() {
+    const el = ensureVollbild();
+    el.hidden = false;
+    const sess = ladeSession(); if (sess) aktualisiereVollbild(sess);
+    const req = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (req) { try { req.call(el); } catch (_) { /* egal */ } }
+  }
+  function schliesseVollbild() {
+    try { if (document.fullscreenElement) document.exitFullscreen(); } catch (_) { /* egal */ }
+    if (vollEl) vollEl.hidden = true;
+  }
+  function aktualisiereVollbild(sess) {
+    if (!vollEl || vollEl.hidden || !sess) return;
+    const istStop = sess.modus === "stoppuhr";
+    const rest = istStop ? 0 : aktuellerRest(sess);
+    const verg = istStop ? verstrichenStoppuhr(sess) : 0;
+    const f = istStop ? ((verg % 60) / 60) : (sess.dauerSek > 0 ? (sess.dauerSek - rest) / sess.dauerSek : 0);
+    vollEl.querySelector("#fvName").textContent  = sess.name || "";
+    vollEl.querySelector("#fvPhase").textContent = phaseLabel(sess);
+    vollEl.querySelector("#fvZeit").textContent  = istStop ? mmss(Math.round(verg)) : mmss(rest);
+    const ring = vollEl.querySelector("#fvRing"); if (ring) ring.style.strokeDashoffset = String((C * (1 - f)).toFixed(2));
+    const tg = vollEl.querySelector("#fvToggle"); if (tg) tg.textContent = sess.status === "paused" ? "Fortsetzen" : "Pause";
   }
 
   // ===================================================================
@@ -692,10 +850,36 @@ export function renderAdminFokus(container) {
   }
 
   function zeichneVerlauf() {
+    const heuteStr = new Date().toISOString().slice(0, 10);
     body.innerHTML = `
       <p class="muted view-intro">Dein Fokus-Verlauf — jede abgeschlossene Session (voll durchgelaufen oder per „Beenden"). „Abbrechen" zählt nicht. Zahlen und Diagramme findest du im Tab „Statistik". Nur du siehst das.</p>
+      <div class="fokus-nachtrag">
+        <button class="btn btn--ghost btn--sm" id="fnToggle" type="button">＋ Session nachtragen</button>
+        <div class="fokus-nachtrag-form card card--pad" id="fnForm" hidden>
+          <div class="grid-2">
+            <div class="field"><label for="fnName">Name</label>
+              <input id="fnName" type="text" maxlength="60" placeholder="z. B. Deussen-Schnitt" /></div>
+            <div class="field"><label for="fnKat">Kategorie (optional)</label>
+              <input id="fnKat" type="text" maxlength="40" placeholder="frei, z. B. vale-video" /></div>
+          </div>
+          <div class="grid-3">
+            <div class="field"><label for="fnDatum">Datum</label>
+              <input id="fnDatum" type="date" value="${heuteStr}" /></div>
+            <div class="field"><label for="fnVon">Von</label>
+              <input id="fnVon" type="time" /></div>
+            <div class="field"><label for="fnBis">Bis</label>
+              <input id="fnBis" type="time" /></div>
+          </div>
+          <div class="notice notice--error" id="fnErr" hidden role="alert"></div>
+          <div class="action-btns">
+            <button class="btn btn--accent btn--sm" id="fnSave" type="button">Eintragen</button>
+            <button class="btn btn--ghost btn--sm" id="fnCancel" type="button">Abbrechen</button>
+          </div>
+        </div>
+      </div>
       <div id="fokusVerlauf"><p class="muted">Lädt…</p></div>`;
 
+    wireNachtrag();
     stoppeSessions();
     sessionUnsub = beobachteFokusSessions(
       (liste) => { sessions = liste; zeichneVerlaufInhalt(); },
@@ -705,6 +889,47 @@ export function renderAdminFokus(container) {
         if (el) el.innerHTML = `<p class="muted">Konnte den Verlauf nicht laden.</p>`;
       }
     );
+  }
+
+  // Session nachtragen: Datum + Von/Bis → Dauer, in den Firestore-Verlauf.
+  function wireNachtrag() {
+    const toggle = body.querySelector("#fnToggle");
+    const form   = body.querySelector("#fnForm");
+    if (!toggle || !form) return;
+    const err = form.querySelector("#fnErr");
+    toggle.addEventListener("click", () => {
+      form.hidden = !form.hidden;
+      if (!form.hidden) form.querySelector("#fnName").focus();
+    });
+    form.querySelector("#fnCancel").addEventListener("click", () => { form.hidden = true; err.hidden = true; });
+    form.querySelector("#fnSave").addEventListener("click", async () => {
+      err.hidden = true;
+      const name  = form.querySelector("#fnName").value.trim() || "Fokus";
+      const kat   = form.querySelector("#fnKat").value.trim();
+      const datum = form.querySelector("#fnDatum").value;
+      const von   = form.querySelector("#fnVon").value;
+      const bis   = form.querySelector("#fnBis").value;
+      if (!datum || !von || !bis) { err.textContent = "Bitte Datum, Von und Bis angeben."; err.hidden = false; return; }
+      const startAt = new Date(`${datum}T${von}`);
+      let endeAt    = new Date(`${datum}T${bis}`);
+      if (isNaN(startAt) || isNaN(endeAt)) { err.textContent = "Ungültige Zeitangabe."; err.hidden = false; return; }
+      // Über Mitternacht: Ende am Folgetag.
+      if (endeAt <= startAt) endeAt = new Date(endeAt.getTime() + 24 * 3600 * 1000);
+      const dauerMin = Math.round((endeAt - startAt) / 60000);
+      if (dauerMin <= 0) { err.textContent = "Die Dauer muss größer als 0 sein."; err.hidden = false; return; }
+      const btn = form.querySelector("#fnSave");
+      btn.disabled = true; btn.textContent = "Wird eingetragen …";
+      try {
+        await fokusSessionAnlegen({ name, dauerMin, startAt, endeAt, kategorie: kat });
+        form.hidden = true;
+        form.querySelector("#fnName").value = ""; form.querySelector("#fnKat").value = "";
+        form.querySelector("#fnVon").value = ""; form.querySelector("#fnBis").value = "";
+      } catch (e) {
+        console.error(e); err.textContent = "Konnte die Session nicht eintragen."; err.hidden = false;
+      } finally {
+        btn.disabled = false; btn.textContent = "Eintragen";
+      }
+    });
   }
 
   // Verlauf = reine Session-Liste (alle Auswertungen liegen im Statistik-Tab).
@@ -1068,5 +1293,8 @@ export function renderAdminFokus(container) {
     stoppeTimer(); stoppeVideos(); stoppeSessions();
     if (gedankenUnsub) { try { gedankenUnsub(); } catch (_) { /* egal */ } gedankenUnsub = null; }
     document.removeEventListener("fokusfloat:change", onFloatChange);
+    // Vollbild-Overlay entfernen (der Fokus-Mini-Player bleibt bewusst bestehen).
+    schliesseVollbild();
+    if (vollEl) { try { vollEl.remove(); } catch (_) { /* egal */ } vollEl = null; }
   });
 }

@@ -51,3 +51,28 @@ export function youtubeEmbedUrl(link) {
   // youtube-nocookie + modestbranding: dezent, datenschutzfreundlicher.
   return id ? `https://www.youtube-nocookie.com/embed/${id}?rel=0&modestbranding=1` : null;
 }
+
+// --- Vimeo -----------------------------------------------------------
+// Holt die Vimeo-Video-ID aus den gängigen Formaten:
+//   https://vimeo.com/<ID>            https://player.vimeo.com/video/<ID>
+//   https://vimeo.com/channels/x/<ID> https://vimeo.com/<ID>/<hash>
+export function vimeoId(link) {
+  if (!link) return null;
+  const s = String(link).trim();
+  const m =
+    s.match(/player\.vimeo\.com\/video\/(\d+)/) ||
+    s.match(/vimeo\.com\/(?:channels\/[^/]+\/|groups\/[^/]+\/videos\/|album\/\d+\/video\/)?(\d+)/);
+  return m ? m[1] : null;
+}
+
+// Liefert die einbettbare Vimeo-/player-URL oder null.
+export function vimeoEmbedUrl(link) {
+  const id = vimeoId(link);
+  return id ? `https://player.vimeo.com/video/${id}` : null;
+}
+
+// Google-Drive-Video: dieselbe /preview-URL wie beim Skript-PDF spielt auch
+// hochgeladene Videos ab. Alias für drivePreviewUrl (semantisch klarer).
+export function driveVideoPreview(link) {
+  return drivePreviewUrl(link);
+}

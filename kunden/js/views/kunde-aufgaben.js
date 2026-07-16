@@ -1,28 +1,43 @@
 // Kunden-Startseite: oben Videos, die auf eine Freigabe warten (= Aktionen),
 // darunter eine Übersicht aller Videos und die gemeldeten Objekte.
 // Interne Pipeline-Stufen werden NIE gezeigt – nur das Kunden-Mapping.
-import { beobachteVideos, beobachteObjekte } from "../db.js";
+import { beobachteVideos, beobachteObjekte, beobachteBenachrichtigungen } from "../db.js";
 import { beiViewWechsel } from "../view-lifecycle.js";
 import { kundenStatus, istFreigabeStufe, OBJEKT_STATUS } from "../status.js";
 import { escapeHtml, formatDatum } from "../util.js";
 
 export function renderAufgaben(container, opts = {}) {
   const kundeId = opts.kundeId || null;   // eigener Mandant des eingeloggten Kunden
+  const user = opts.user || null;
   container.innerHTML = `
     <h1 class="view-title">Aufgaben</h1>
-    <p class="muted view-intro">Dein Überblick: offene Freigaben, deine Videos und gemeldete Objekte.</p>
+    <p class="muted view-intro">Dein Überblick: Neuigkeiten, offene Freigaben, deine Videos und gemeldete Objekte.</p>
 
+    <section id="secNews"     class="stack"></section>
     <section id="secAufgaben" class="stack"></section>
     <section id="secVideos"   class="stack"></section>
     <section id="secObjekte"  class="stack"></section>`;
 
+  const secNews     = container.querySelector("#secNews");
   const secAufgaben = container.querySelector("#secAufgaben");
   const secVideos   = container.querySelector("#secVideos");
   const secObjekte  = container.querySelector("#secObjekte");
 
+  secNews.innerHTML     = "";
   secAufgaben.innerHTML = ladeBlock("Wird geladen …");
   secVideos.innerHTML   = "";
   secObjekte.innerHTML  = "";
+
+  // Neuigkeiten-Feed (Benachrichtigungen an die eigene Login-Adresse). Die
+  // 🔔-Glocke oben markiert sie als gelesen; hier bleibt es reine Anzeige.
+  if (user && user.email) {
+    const unsubN = beobachteBenachrichtigungen(
+      user.email,
+      (liste) => zeichneNews(secNews, liste),
+      (err) => { console.error(err); }
+    );
+    beiViewWechsel(unsubN);
+  }
 
   let videos = null;
   let objekte = null;
@@ -48,6 +63,29 @@ export function renderAufgaben(container, opts = {}) {
   beiViewWechsel(unsubV);
   beiViewWechsel(unsubO);
 }
+
+// --- Block: Neuigkeiten (Benachrichtigungs-Feed) ----------------------
+function zeichneNews(el, liste) {
+  const news = (liste || []).slice()
+    .sort((a, b) => tsSek(b.erstelltAm) - tsSek(a.erstelltAm))
+    .slice(0, 8);
+  if (!news.length) { el.innerHTML = ""; return; }
+  el.innerHTML = `
+    <h2 class="section-title">📰 Neuigkeiten</h2>
+    <div class="card news-list">
+      ${news.map((n) => {
+        const inhalt = escapeHtml(n.text || "");
+        const zeit = n.erstelltAm ? `<span class="news-zeit muted">${escapeHtml(formatDatum(n.erstelltAm, true))}</span>` : "";
+        // Erledigt (Freigabe erfolgt) hat Vorrang vor „neu/ungelesen": grün + durchgestrichen.
+        const zustand = n.erledigt ? " news-item--erledigt" : (n.gelesen ? "" : " news-item--neu");
+        const haken = n.erledigt ? `<span class="news-check" aria-hidden="true">✓</span>` : "";
+        return n.videoId
+          ? `<a class="news-item${zustand}" href="#/video/${encodeURIComponent(n.videoId)}">${haken}<span class="news-text">${inhalt}</span>${zeit}</a>`
+          : `<div class="news-item${zustand}">${haken}<span class="news-text">${inhalt}</span>${zeit}</div>`;
+      }).join("")}
+    </div>`;
+}
+function tsSek(t) { return (t && t.seconds) || 0; }
 
 // --- Block: offene Freigaben ------------------------------------------
 function zeichneAufgaben(el, videos) {

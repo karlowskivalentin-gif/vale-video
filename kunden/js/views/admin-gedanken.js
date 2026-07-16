@@ -27,11 +27,14 @@ import {
   beobachteGedanken, gedankeAnlegen, aktualisiereGedanke, loescheGedanke,
   dateiblobAnlegen, ladeDateiblob, loescheDateiblob,
   beobachteMindmaps, beobachteMeineMindmaps, mindmapAnlegen, loescheMindmap,
-  ladeMindmap, benachrichtigungAnlegen, einladungAnlegen, planAnlegen
+  ladeMindmap, benachrichtigungAnlegen, einladungAnlegen, planAnlegen,
+  ladePlan, aktualisierePlan, videoAnlegen, benachrichtigeKunde
 } from "../db.js";
 import { beiViewWechsel } from "../view-lifecycle.js";
 import { escapeHtml, mdZuHtml } from "../util.js";
 import { embedHtml, erkennePlattform, verarbeiteEmbeds } from "../embeds.js";
+import { planZuSnapshot } from "../plan-ansicht.js";
+import { STATUS } from "../status.js";
 
 const SVGNS = "http://www.w3.org/2000/svg";
 const KNOTEN_B = 220;        // Knotenbreite (px) — Platzierung/Mittelpunkt-Fallback
@@ -632,55 +635,131 @@ export function renderAdminGedanken(container, opts) {
     // im Pipeline-Format an (Titel/Typ/Inspirationen/Notiz) — genau das Format
     // der Content-Pipeline (#/admin/plaene). Einmal deployt → Link zum Plan.
     if (!istKollab) {
+      const gAkt = daten.get(id) || {};
+
+      // Post → Plan-Daten (Titel/Typ/Anhänge/Inspirationen/Notiz). ALLE Anhänge
+      // 1:1, Nicht-Bild-Links zusätzlich als Inspirationen (Vorschau).
+      const postZuPlanDaten = () => {
+        const g = daten.get(id) || {};
+        const dateien = (g.dateien || []).map((a) => ({ ...a }));
+        const links = dateien.filter((a) => a.art === "link" && !istBildAnhang(a));
+        return {
+          titel: (g.text || "").trim() || "Post aus Mindmap",
+          typ: "Post",
+          kundeId,   // Mandant des Gedankens übernehmen
+          status: "entwurf",
+          poststatus: g.poststatus || "",
+          inspirationen: links.map((a) => ({ url: a.url, plattform: erkennePlattform(a.url) })),
+          sound: { name: "", link: "" },
+          shotlist: [],
+          notiz: g.detail || "",
+          dateien,
+          gedankeId: id   // Rück-Verknüpfung → Anhänge bleiben Plan ⇄ Post synchron
+        };
+      };
+
+      // Sorgt dafür, dass ein Plan existiert (legt ihn sonst an). Liefert
+      // { planId, planDaten } — planDaten treibt den kundensichtbaren Snapshot.
+      const stellePlanSicher = async () => {
+        const g = daten.get(id) || {};
+        if (g.planId) {
+          const p = await ladePlan(g.planId);
+          if (p) return { planId: g.planId, planDaten: p };
+        }
+        const planDaten = postZuPlanDaten();
+        const ref = await planAnlegen(planDaten);
+        await aktualisiereGedanke(id, { planId: ref.id });
+        if (daten.get(id)) daten.get(id).planId = ref.id;
+        return { planId: ref.id, planDaten };
+      };
+
       const dep = document.createElement("div");
       dep.className = "gd-post-deploy";
-      const gAkt = daten.get(id) || {};
-      if (gAkt.planId) {
-        const offen = document.createElement("button");
-        offen.type = "button"; offen.className = "gd-post-deploybtn is-deployt";
-        offen.textContent = "✓ In Pipeline — Plan öffnen";
-        offen.title = "Dieser Post liegt als Plan in der Pipeline";
-        offen.addEventListener("click", (e) => { e.stopPropagation(); location.hash = "/admin/plan/" + gAkt.planId; });
-        dep.appendChild(offen);
+
+      // --- 🚀 Pipeline deployen: direkt ein Video in der Produktions-Pipeline
+      // anlegen (legt den Plan bei Bedarf gleich mit an — kein Umweg mehr). ---
+      const pipeBtn = document.createElement("button");
+      pipeBtn.type = "button";
+      if (gAkt.videoId) {
+        pipeBtn.className = "gd-post-deploybtn is-deployt";
+        pipeBtn.textContent = "✓ In Pipeline — Video öffnen";
+        pipeBtn.title = "Dieser Post liegt als Video in der Produktions-Pipeline";
+        pipeBtn.addEventListener("click", (e) => { e.stopPropagation(); location.hash = "/admin/video/" + gAkt.videoId; });
       } else {
-        const btn = document.createElement("button");
-        btn.type = "button"; btn.className = "gd-post-deploybtn";
-        btn.textContent = "🚀 In Pipeline deployen";
-        btn.title = "Als Plan in der Content-Pipeline anlegen (Format wie #/admin/plaene)";
-        btn.addEventListener("click", async (e) => {
+        pipeBtn.className = "gd-post-deploybtn gd-post-deploybtn--pipe";
+        pipeBtn.textContent = "🚀 Pipeline deployen";
+        pipeBtn.title = "Direkt ein Video in der Produktions-Pipeline anlegen (legt bei Bedarf den Plan mit an)";
+        pipeBtn.addEventListener("click", async (e) => {
           e.stopPropagation();
-          btn.disabled = true; btn.textContent = "Wird angelegt …";
+          pipeBtn.disabled = true; pipeBtn.textContent = "Wird angelegt …";
           try {
-            const g = daten.get(id) || {};
-            // ALLE Anhänge (Bilder, Videos, Links, Dateien) 1:1 in den Plan —
-            // damit in der Pipeline genau das Material des Posts erscheint.
-            const dateien = (g.dateien || []).map((a) => ({ ...a }));
-            // Nicht-Bild-Links zusätzlich als Inspirationen (bestehende Vorschau).
-            const links = dateien.filter((a) => a.art === "link" && !istBildAnhang(a));
-            const ref = await planAnlegen({
-              titel: (g.text || "").trim() || "Post aus Mindmap",
-              typ: "Post",
-              kundeId,   // Mandant des Gedankens an den Plan übernehmen
-              status: "entwurf",
-              poststatus: g.poststatus || "",
-              inspirationen: links.map((a) => ({ url: a.url, plattform: erkennePlattform(a.url) })),
-              sound: { name: "", link: "" },
-              shotlist: [],
-              notiz: g.detail || "",
-              dateien
+            const { planId, planDaten } = await stellePlanSicher();
+            // Hat der Plan schon ein Video (z. B. übers Plan-Edit deployt)? Dann
+            // dieses verknüpfen/öffnen statt ein Duplikat anzulegen.
+            if (planDaten.videoId) {
+              await aktualisiereGedanke(id, { videoId: planDaten.videoId });
+              if (daten.get(id)) daten.get(id).videoId = planDaten.videoId;
+              toast("Bereits in der Pipeline — Video geöffnet. 🎬");
+              location.hash = "/admin/video/" + planDaten.videoId;
+              return;
+            }
+            const vref = await videoAnlegen({
+              titel: planDaten.titel,
+              typ: planDaten.typ,
+              kundeId,
+              objektId: planDaten.objektId || null,
+              planId,   // Video-Edit zeigt ALLE Plan-Details (Links, Dateien, Shotlist, Notiz)
+              planSnapshot: planZuSnapshot(planDaten),   // kundensichtbarer Ausschnitt
+              status: STATUS.IDEE,
+              geplanterDrehtermin: planDaten.geplanterDrehtermin || null,
+              geplantesDatum: planDaten.geplantesDatum || null
             });
-            await aktualisiereGedanke(id, { planId: ref.id });
-            if (daten.get(id)) daten.get(id).planId = ref.id;
-            toast("Post als Plan in der Pipeline angelegt. 🚀");
-            zeichnePostMedia(el, id);
+            await aktualisierePlan(planId, { videoId: vref.id });
+            await aktualisiereGedanke(id, { videoId: vref.id });
+            if (daten.get(id)) daten.get(id).videoId = vref.id;
+            if (kundeId) benachrichtigeKunde(kundeId, {
+              text: `🎬 Ein neues Video wurde für dich angelegt: „${planDaten.titel}".`,
+              videoId: vref.id, art: "neu"
+            }).catch(() => {});
+            toast("Post als Video in der Pipeline angelegt. 🚀");
+            location.hash = "/admin/video/" + vref.id;   // → Status direkt setzbar
           } catch (err) {
             console.warn("Pipeline-Deploy fehlgeschlagen:", err);
-            btn.disabled = false; btn.textContent = "🚀 In Pipeline deployen";
+            pipeBtn.disabled = false; pipeBtn.textContent = "🚀 Pipeline deployen";
+            toast("Konnte das Video nicht anlegen.");
+          }
+        });
+      }
+      dep.appendChild(pipeBtn);
+
+      // --- 📋 Plan deployen: nur einen Plan in den Plänen anlegen (ohne Video).
+      const planBtn = document.createElement("button");
+      planBtn.type = "button";
+      if (gAkt.planId) {
+        planBtn.className = "gd-post-deploybtn is-deployt";
+        planBtn.textContent = "✓ Plan öffnen";
+        planBtn.title = "Dieser Post liegt als Plan in den Plänen (#/admin/plaene)";
+        planBtn.addEventListener("click", (e) => { e.stopPropagation(); location.hash = "/admin/plan/" + gAkt.planId; });
+      } else {
+        planBtn.className = "gd-post-deploybtn";
+        planBtn.textContent = "📋 Plan deployen";
+        planBtn.title = "Als Plan in den Plänen anlegen (#/admin/plaene) — ohne Video";
+        planBtn.addEventListener("click", async (e) => {
+          e.stopPropagation();
+          planBtn.disabled = true; planBtn.textContent = "Wird angelegt …";
+          try {
+            await stellePlanSicher();
+            toast("Post als Plan angelegt. 📋");
+            zeichnePostMedia(el, id);   // Buttons aktualisieren (→ „Plan öffnen")
+          } catch (err) {
+            console.warn("Plan-Deploy fehlgeschlagen:", err);
+            planBtn.disabled = false; planBtn.textContent = "📋 Plan deployen";
             toast("Konnte den Plan nicht anlegen.");
           }
         });
-        dep.appendChild(btn);
       }
+      dep.appendChild(planBtn);
+
       wrap.appendChild(dep);
     }
   }

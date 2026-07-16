@@ -275,7 +275,7 @@ service cloud.firestore {
                     && request.resource.data.fuer is string;
       allow update: if istAdmin()
                     || (istEingeloggt() && resource.data.fuer == email()
-                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['gelesen']));
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['gelesen', 'erledigt']));
       allow delete: if istAdmin() || (istEingeloggt() && resource.data.fuer == email());
     }
 
@@ -329,6 +329,40 @@ service cloud.firestore {
       allow get:   if istAdmin() || (istEingeloggt() && kEmail == email());
       allow list:  if istAdmin();
       allow write: if istAdmin();
+    }
+
+    // ---- bongnotizen (private Admin-Notizen zu gebongten Videos) ----
+    // Rein interne Notizen zu „gebongten" Videos. Der Kunde sieht das NIE —
+    // anders als videos/.../kommentare, die der Eigentümer-Kunde mitliest.
+    // Gleiche Vertrauensgrenze wie plaene/gedanken/inspirationen.
+    match /bongnotizen/{id} {
+      allow read, write: if istAdmin();
+    }
+
+    // ---- skriptuploads (vom Kunden hochgeladene überarbeitete Skripte) ---
+    // Kundengetrennt. Der Kunde lädt ein überarbeitetes Skript (Word/PDF, als
+    // Base64) zu einem seiner Videos hoch; nur er (im eigenen Namen) und der
+    // Admin sehen es. Bearbeiten/Löschen ausschließlich Admin.
+    match /skriptuploads/{id} {
+      allow read:   if gehoertMir(resource);
+      allow create: if istErlaubt()
+                    && request.resource.data.gemeldetVon.lower() == email()
+                    && (istAdmin()
+                        || request.resource.data.get('kundeId', 'deussen') == kundeVon());
+      allow update, delete: if istAdmin();
+    }
+
+    // ---- feedback (schwebende Mini-Feedback-Box des Kunden) --------------
+    // Kundengetrennt. Der Kunde hinterlässt beliebig viel Feedback (mit der
+    // Seite/Route, auf der er war); nur er (im eigenen Namen) und der Admin
+    // sehen es. Erledigt-Setzen/Löschen ausschließlich Admin.
+    match /feedback/{id} {
+      allow read:   if gehoertMir(resource);
+      allow create: if istErlaubt()
+                    && request.resource.data.gemeldetVon.lower() == email()
+                    && (istAdmin()
+                        || request.resource.data.get('kundeId', 'deussen') == kundeVon());
+      allow update, delete: if istAdmin();
     }
 
     // ---- Alles andere: zu ------------------------------------------

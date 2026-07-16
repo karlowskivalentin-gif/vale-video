@@ -16,6 +16,8 @@
 import { embedHtml, verarbeiteEmbeds } from "./embeds.js";
 import { escapeHtml, mdZuHtml } from "./util.js";
 import { ladeDateiblob } from "./db.js";
+import { zeigeDateiInline } from "./docparse.js";
+import { beiViewWechsel } from "./view-lifecycle.js";
 
 const POST_STATUS_LABEL = { skript: "📝 Skript", shotlist: "🎬 Shotlist", geschnitten: "✂️ Geschnitten" };
 
@@ -109,12 +111,10 @@ export function renderPlanDetails(ziel, plan, opts = {}) {
       el.innerHTML = `<span class="muted" style="font-size:.8rem">lädt …</span>`;
       ladeDateiblob(att.blobId).then((b) => {
         if (!b) { el.innerHTML = `<span class="plan-anh-fehler">Datei nicht gefunden</span>`; return; }
-        const url = `data:${b.typ};base64,${b.base64}`;
-        const typ = b.typ || att.typ || "";
-        if (typ.startsWith("image/"))      el.innerHTML = `<img class="plan-anh-img" src="${url}" alt="">`;
-        else if (typ.startsWith("video/")) el.innerHTML = `<video class="plan-anh-vid" controls src="${url}"></video>`;
-        else if (typ.startsWith("audio/")) el.innerHTML = `<audio style="width:100%" controls src="${url}"></audio>`;
-        else el.innerHTML = `<a class="btn btn--ghost btn--sm" href="${url}" download="${escapeHtml(att.name || "datei")}">Herunterladen ↓</a>`;
+        // Portal-eigen anzeigen (Blob-URL, PDF im iframe, Word als HTML-Vorschau).
+        // data:-URLs blockt Chrome bei großen PDFs → deshalb blob:.
+        const cleanup = zeigeDateiInline(el, { base64: b.base64, typ: b.typ || att.typ || "", name: att.name || b.name });
+        beiViewWechsel(cleanup);
       }).catch(() => { el.innerHTML = `<span class="plan-anh-fehler">Fehler beim Laden</span>`; });
     });
   }

@@ -5,7 +5,9 @@
 import {
   ladePlan, planAnlegen, aktualisierePlan, loeschePlan, ladeObjekte,
   ladeShotvorlagen, shotvorlageAnlegen, aktualisiereShotvorlage, loescheShotvorlage,
-  ladeDateiblob, videoAnlegen, ladeVideo
+  ladeDateiblob, videoAnlegen, ladeVideo,
+  dateiblobAnlegen, loescheDateiblob, aktualisiereGedanke, ladeGedanken,
+  benachrichtigeKunde
 } from "../db.js";
 import { beiViewWechsel } from "../view-lifecycle.js";
 import { escapeHtml, tsZuDateInput, dateInputZuDate } from "../util.js";
@@ -14,9 +16,14 @@ import { planZuSnapshot } from "../plan-ansicht.js";
 import { STATUS } from "../status.js";
 
 // Reihenfolge der Panels — global (alle Pläne), pro Browser in localStorage.
-// „anhaenge" erscheint nur, wenn der Plan Anhänge aus einem Post trägt.
+// „anhaenge" erscheint bei jedem gespeicherten Plan (auch ohne Post-Anhänge),
+// weil man dort jetzt selbst Dateien/Links hinzufügen kann.
 const PANEL_KEYS    = ["eckdaten", "anhaenge", "inspiration", "sound", "shotlist", "notizen"];
 const LS_PANELORDER = "vale_plan_panelorder";
+
+// Upload-Cap für Anhänge (Firestore-Doc-Limit ~1 MiB, Base64-Aufschlag) —
+// identisch zur Mindmap (admin-gedanken.js), damit Blobs kompatibel bleiben.
+const MAX_DATEI = 700 * 1024;
 
 // Post-Produktionsphase (aus dem Post übernommen) → Badge im Plan.
 const POST_STATUS_LABEL = { skript: "📝 Skript", shotlist: "🎬 Shotlist", geschnitten: "✂️ Geschnitten" };
@@ -76,7 +83,8 @@ export function renderAdminPlan(container, ctx) {
       sound:    plan && plan.sound ? { name: plan.sound.name || "", link: plan.sound.link || "" } : { name: "", link: "" },
       shotlist: plan && Array.isArray(plan.shotlist) ? plan.shotlist.map((s) => ({ text: s.text || "", erledigt: !!s.erledigt, notiz: s.notiz || "" })) : [],
       notiz:    plan ? (plan.notiz || "") : "",
-      dateien:  plan && Array.isArray(plan.dateien) ? plan.dateien : [],   // Anhänge aus dem Post (read-only Anzeige)
+      dateien:  plan && Array.isArray(plan.dateien) ? plan.dateien : [],   // Anhänge (Plan ⇄ Post synchron)
+      gedankeId: plan ? (plan.gedankeId || null) : null,   // Ursprungs-Post (Gedanke) für Anhang-Sync
       poststatus: plan ? (plan.poststatus || "") : "",
       videoId:  plan ? (plan.videoId || null) : null,   // Verknüpfung zum Pipeline-Video (nach Deploy)
       drehInput: plan ? tsZuDateInput(plan.geplanterDrehtermin) : "",
@@ -94,6 +102,20 @@ export function renderAdminPlan(container, ctx) {
           aktualisierePlan(id, { videoId: null }).catch(() => {});
         }
       } catch (_) { /* egal — im Zweifel Button so lassen */ }
+    }
+
+    // Rück-Verknüpfung zum Ursprungs-Post (Gedanke) nachtragen, falls dieser Plan
+    // vor Einführung von gedankeId aus einem Post deployt wurde — damit Anhang-
+    // Änderungen beidseitig (Plan ⇄ Post) synchron bleiben. Über planId gefunden.
+    if (!istNeu && !state.gedankeId) {
+      try {
+        const alle = await ladeGedanken();
+        const g = alle.find((x) => x.planId === id);
+        if (g) {
+          state.gedankeId = g.id;
+          aktualisierePlan(id, { gedankeId: g.id }).catch(() => {});
+        }
+      } catch (_) { /* egal — Anhänge bleiben dann nur plan-lokal */ }
     }
 
     // Transiente UI-Zustände (nicht persistiert).
@@ -115,24 +137,130 @@ export function renderAdminPlan(container, ctx) {
       renderAnhaenge();
     }
 
-    // Anhänge aus dem Post (read-only): Bilder/Videos/Audio aus Blobs, Links als
+    // Anhänge (Plan ⇄ Post synchron): Bilder/Videos/Audio aus Blobs, Links als
     // Embed (YouTube/Insta/TikTok) bzw. Bild/Video-URL, sonstige zum Download.
+    // Pro Anhang: Umbenennen (✏️) und Löschen (✕) — Änderungen wirken beidseitig.
     function renderAnhaenge() {
       const ziel = body.querySelector("#plAnhListe");
       if (!ziel) return;
       ziel.innerHTML = "";
-      (state.dateien || []).forEach((att) => {
+      if (!(state.dateien || []).length) {
+        ziel.innerHTML = `<p class="muted" style="margin:0">Noch keine Anhänge. Füge unten eine Datei oder einen Link hinzu.</p>`;
+        return;
+      }
+      state.dateien.forEach((att, i) => {
         const box = document.createElement("div");
         box.className = "plan-anh";
+
+        const head = document.createElement("div");
+        head.className = "plan-anh-head";
         const name = document.createElement("div");
         name.className = "plan-anh-name";
         name.textContent = (att.art === "link" ? "🔗 " : "📄 ") + (att.name || att.url || "Datei");
+        const actions = document.createElement("div");
+        actions.className = "plan-anh-actions";
+        const renBtn = document.createElement("button");
+        renBtn.type = "button"; renBtn.className = "btn btn--ghost btn--sm plan-anh-ren";
+        renBtn.textContent = "✏️"; renBtn.title = "Umbenennen";
+        renBtn.addEventListener("click", () => benenneAnhangUm(i));
+        const delBtn = document.createElement("button");
+        delBtn.type = "button"; delBtn.className = "btn btn--ghost btn--sm plan-anh-del";
+        delBtn.textContent = "✕"; delBtn.title = "Löschen";
+        delBtn.addEventListener("click", () => loescheAnhang(i));
+        actions.append(renBtn, delBtn);
+        head.append(name, actions);
+
         const media = document.createElement("div");
         media.className = "plan-anh-media";
-        box.append(name, media);
+        box.append(head, media);
         ziel.appendChild(box);
         fuelleAnhang(media, att);
       });
+    }
+
+    // Anhänge sind beidseitig synchron: Plan UND Ursprungs-Post (Gedanke) teilen
+    // dieselbe dateien-Liste (und dieselben Blobs). Jede Änderung schreibt in
+    // beide, damit Mindmap-Post und Pipeline-Plan nie auseinanderlaufen.
+    async function persistDateien() {
+      const arr = state.dateien;
+      const jobs = [];
+      if (!istNeu && aktuelleId) jobs.push(aktualisierePlan(aktuelleId, { dateien: arr }));
+      if (state.gedankeId)       jobs.push(aktualisiereGedanke(state.gedankeId, { dateien: arr }));
+      await Promise.all(jobs);
+    }
+
+    function leseDateiAlsDataUrl(file) {
+      return new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload = () => res(String(r.result || ""));
+        r.onerror = rej;
+        r.readAsDataURL(file);
+      });
+    }
+
+    async function fuegeDateiAn(file) {
+      if (file.size > MAX_DATEI) {
+        alert(`„${file.name}" ist ${Math.round(file.size / 1024)} KB — max. ~700 KB. Für große Videos lieber einen Link anhängen.`);
+        return;
+      }
+      try {
+        const durl = await leseDateiAlsDataUrl(file);
+        const komma = durl.indexOf(",");
+        const base64 = komma >= 0 ? durl.slice(komma + 1) : durl;
+        const typ = file.type || "application/octet-stream";
+        const ref = await dateiblobAnlegen({ base64, name: file.name, typ });
+        state.dateien = state.dateien.concat([{ art: "datei", blobId: ref.id, name: file.name, typ }]);
+        renderAnhaenge();
+        await persistDateien();
+      } catch (err) {
+        console.error("Datei anhängen fehlgeschlagen:", err);
+        alert("Datei konnte nicht gespeichert werden.");
+      }
+    }
+
+    async function fuegeLinkAn(urlRoh) {
+      let url = String(urlRoh || "").trim();
+      if (!url) return;
+      if (!/^https?:\/\//i.test(url)) url = "https://" + url;
+      const backup = state.dateien.slice();
+      state.dateien = state.dateien.concat([{ art: "link", url, name: url, typ: "link" }]);
+      renderAnhaenge();
+      try { await persistDateien(); }
+      catch (_) { state.dateien = backup; renderAnhaenge(); alert("Link konnte nicht gespeichert werden."); }
+    }
+
+    async function benenneAnhangUm(i) {
+      const att = state.dateien[i];
+      if (!att) return;
+      const eingabe = prompt("Neuer Name für den Anhang:", att.name || att.url || "");
+      if (eingabe === null) return;
+      const neu = eingabe.trim();
+      if (!neu || neu === att.name) return;
+      const backup = att.name;
+      att.name = neu;
+      renderAnhaenge();
+      try { await persistDateien(); }
+      catch (_) { att.name = backup; renderAnhaenge(); alert("Umbenennen fehlgeschlagen."); }
+    }
+
+    async function loescheAnhang(i) {
+      const att = state.dateien[i];
+      if (!att) return;
+      const label = att.name || att.url || "dieser Anhang";
+      if (!confirm(`„${label}" wirklich löschen?\nDas entfernt den Anhang auch im ursprünglichen Post.`)) return;
+      const backup = state.dateien.slice();
+      state.dateien = backup.slice(0, i).concat(backup.slice(i + 1));
+      renderAnhaenge();
+      try {
+        await persistDateien();
+        // Blob erst nach erfolgreichem Speichern löschen — Plan und Post teilen
+        // ihn 1:1, und beide Listen sind eben synchron aktualisiert worden.
+        if (att.art === "datei" && att.blobId) loescheDateiblob(att.blobId).catch(() => {});
+      } catch (_) {
+        state.dateien = backup;   // Rollback
+        renderAnhaenge();
+        alert("Löschen fehlgeschlagen.");
+      }
     }
     function fuelleAnhang(el, att) {
       if (att.art === "link") {
@@ -198,6 +326,27 @@ export function renderAdminPlan(container, ctx) {
     function wire() {
       const okBox  = body.querySelector("#planOk");
       const errBox = body.querySelector("#planErr");
+
+      // Anhänge: Datei hochladen / Link anhängen
+      const anhFileBtn = body.querySelector("#plAnhFileBtn");
+      const anhFile    = body.querySelector("#plAnhFile");
+      if (anhFileBtn && anhFile) {
+        anhFileBtn.addEventListener("click", () => anhFile.click());
+        anhFile.addEventListener("change", async () => {
+          const file = anhFile.files && anhFile.files[0];
+          anhFile.value = "";
+          if (file) await fuegeDateiAn(file);
+        });
+      }
+      const anhLinkForm = body.querySelector("#plAnhLinkForm");
+      if (anhLinkForm) anhLinkForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const inp = body.querySelector("#plAnhLinkUrl");
+        const url = inp ? inp.value.trim() : "";
+        if (!url) return;
+        inp.value = "";
+        await fuegeLinkAn(url);
+      });
 
       // Panels umsortieren (↑↓, global, localStorage)
       body.querySelectorAll(".panel-move").forEach((btn) => {
@@ -471,6 +620,11 @@ export function renderAdminPlan(container, ctx) {
             });
             state.videoId = ref.id;
             await aktualisierePlan(aktuelleId, { videoId: ref.id });
+            // Kunden-News: neues Video in der Pipeline.
+            if (kundeId) benachrichtigeKunde(kundeId, {
+              text: `🎬 Ein neues Video wurde für dich angelegt: „${state.titel}".`,
+              videoId: ref.id, art: "neu"
+            }).catch(() => {});
             location.hash = "/admin/video/" + ref.id;   // → Status direkt setzbar
           } catch (err) {
             console.error("Pipeline-Übernahme fehlgeschlagen:", err);
@@ -672,11 +826,19 @@ function formHtml(state, objekte, istNeu, opts) {
       </form>
     </section>`,
 
-    anhaenge: state.dateien.length ? `
+    anhaenge: !istNeu ? `
     <section class="card card--pad form-card">
-      ${panelKopf("anhaenge", "Anhänge aus dem Post", panelOrder)}
-      <p class="field-hint muted" style="margin-top:-0.4rem">Alle Bilder, Videos, Links und Dateien, die am Post hingen — automatisch übernommen.</p>
+      ${panelKopf("anhaenge", "Anhänge", panelOrder)}
+      <p class="field-hint muted" style="margin-top:-0.4rem">Bilder, Videos, Links und Dateien — synchron mit dem Post in der Mindmap.</p>
       <div id="plAnhListe" class="plan-anh-liste"></div>
+      <div class="plan-anh-add">
+        <button class="btn btn--ghost btn--sm" id="plAnhFileBtn" type="button">+ Datei</button>
+        <input id="plAnhFile" type="file" hidden />
+        <form id="plAnhLinkForm" class="field-inline-form plan-anh-linkform">
+          <input id="plAnhLinkUrl" type="url" placeholder="Link anhängen (https://…)" />
+          <button class="btn btn--accent btn--sm" type="submit">+ Link</button>
+        </form>
+      </div>
     </section>` : "",
 
     inspiration: `
