@@ -1,12 +1,13 @@
-// Kunden-View: Immobilie / Objekt melden.
-// Schreibt nach `objekte` und benachrichtigt den Admin per EmailJS.
+// Kunden-View: Immobilie / Objekt melden — bei Gastro-Kunden: Filiale melden.
+// Schreibt nach `objekte` und benachrichtigt den Admin per EmailJS. Dieselbe
+// Collection/Mechanik für beide Kundenarten, nur Typen/Wording unterscheiden
+// sich; die Exposé-OCR gibt es nur für Immobilien.
 import { objektMelden } from "../db.js";
 import { sendAdminNeuesObjekt } from "../email.js";
-import { OBJEKT_STATUS } from "../status.js";
+import { OBJEKT_STATUS, objektTypenFuer } from "../status.js";
 import { escapeHtml } from "../util.js";
 import { ocrBild } from "../docparse.js";
 
-const OBJEKT_TYPEN = ["Wohnung", "Haus", "Gewerbe", "Grundstück"];
 
 // Rohen OCR-Text → Formularvorschläge (Adresse / Typ / Beschreibung).
 // Best-effort: alles ist danach vom Kunden editierbar.
@@ -44,14 +45,20 @@ function parseExpose(text) {
 export function renderObjektMelden(container, ctx) {
   const user = ctx.user;
   const kundeId = ctx.kundeId || null;   // eigener Mandant des Kunden
+  const istGastro = ctx.kundenart === "gastro";
+
+  const wortEinheit = istGastro ? "Filiale" : "Objekt";
+  const typen = objektTypenFuer(ctx.kundenart);
 
   container.innerHTML = `
-    <h1 class="view-title">Objekt melden</h1>
+    <h1 class="view-title">${wortEinheit} melden</h1>
     <p class="muted view-intro">
-      Melde eine neue Immobilie für ein Video. Je mehr Eckdaten, desto besser –
-      ein Foto- oder Exposé-Link (Google Drive / Dropbox) ist optional.
+      ${istGastro
+        ? "Melde eine Filiale / einen Standort — dann können wir dort Drehs planen. Je mehr Infos zu Ambiente und Besonderheiten, desto besser."
+        : "Melde eine neue Immobilie für ein Video. Je mehr Eckdaten, desto besser – ein Foto- oder Exposé-Link (Google Drive / Dropbox) ist optional."}
     </p>
 
+    ${istGastro ? "" : `
     <section class="card card--pad ocr-card">
       <h2 class="section-title" style="margin:0 0 .3rem">🖼️ Exposé-Screenshot? Formular automatisch füllen</h2>
       <p class="muted" style="margin:0 0 .7rem">Lade einen Screenshot/Foto vom Exposé hoch — wir lesen Adresse, Typ und Eckdaten automatisch aus. Du kannst danach alles anpassen.</p>
@@ -64,7 +71,7 @@ export function renderObjektMelden(container, ctx) {
       <div class="ocr-progress" id="ocrProgress" hidden><div class="ocr-progress-bar" id="ocrProgressBar"></div></div>
       <div class="notice notice--ok"    id="ocrOk"  hidden role="status"></div>
       <div class="notice notice--error" id="ocrErr" hidden role="alert"></div>
-    </section>
+    </section>`}
 
     <section class="card card--pad form-card">
       <div class="notice notice--ok"   id="objOk"  hidden role="status"></div>
@@ -78,27 +85,29 @@ export function renderObjektMelden(container, ctx) {
         </div>
 
         <div class="field">
-          <label for="objektTyp">Objekttyp <span class="req">*</span></label>
+          <label for="objektTyp">${istGastro ? "Art der Filiale" : "Objekttyp"} <span class="req">*</span></label>
           <select id="objektTyp" name="objektTyp" required>
-            ${OBJEKT_TYPEN.map((t) => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join("")}
+            ${typen.map((t) => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join("")}
           </select>
         </div>
 
         <div class="field">
           <label for="beschreibung">Beschreibung / Eckdaten <span class="req">*</span></label>
           <textarea id="beschreibung" name="beschreibung" required
-                    placeholder="Zimmer, Wohnfläche, Besonderheiten, gewünschter Fokus …"></textarea>
+                    placeholder="${istGastro
+                      ? "Ambiente, Besonderheiten, beste Drehzeiten, was gezeigt werden soll …"
+                      : "Zimmer, Wohnfläche, Besonderheiten, gewünschter Fokus …"}"></textarea>
         </div>
 
         <div class="field">
           <label for="link">Link (optional)</label>
           <input id="link" name="link" type="url"
                  placeholder="https://drive.google.com/…  oder  https://www.dropbox.com/…" />
-          <p class="field-hint muted">Fotos, Exposé o. Ä. – nur der Link, kein Upload.</p>
+          <p class="field-hint muted">${istGastro ? "Fotos, Speisekarte o. Ä. – nur der Link, kein Upload." : "Fotos, Exposé o. Ä. – nur der Link, kein Upload."}</p>
         </div>
 
         <button class="btn btn--accent btn--block" id="objSubmit" type="submit">
-          <span class="btn-label">Objekt melden</span>
+          <span class="btn-label">${wortEinheit} melden</span>
         </button>
       </form>
     </section>`;
@@ -166,7 +175,9 @@ export function renderObjektMelden(container, ctx) {
     const link         = form.link.value.trim();
 
     if (!adresse || !objektTyp || !beschreibung) {
-      errBox.textContent = "Bitte Adresse, Objekttyp und Beschreibung ausfüllen.";
+      errBox.textContent = istGastro
+        ? "Bitte Adresse, Art der Filiale und Beschreibung ausfüllen."
+        : "Bitte Adresse, Objekttyp und Beschreibung ausfüllen.";
       errBox.hidden = false;
       return;
     }
@@ -180,8 +191,8 @@ export function renderObjektMelden(container, ctx) {
       sendAdminNeuesObjekt({ adresse, objektTyp, beschreibung, link, gemeldetVon: user.email });
 
       form.reset();
-      okBox.innerHTML = `Danke! Dein Objekt ist eingegangen (Status <strong>${escapeHtml(OBJEKT_STATUS.EINGEGANGEN)}</strong>).
-        Du findest es ab sofort unter <a href="#/aufgaben">Aufgaben</a>.`;
+      okBox.innerHTML = `Danke! Deine ${istGastro ? "Filiale" : "Meldung"} ist eingegangen (Status <strong>${escapeHtml(OBJEKT_STATUS.EINGEGANGEN)}</strong>).
+        Du findest sie ab sofort unter <a href="#/aufgaben">Aufgaben</a>.`;
       okBox.hidden = false;
       okBox.scrollIntoView({ behavior: "smooth", block: "nearest" });
     } catch (err) {
@@ -190,7 +201,7 @@ export function renderObjektMelden(container, ctx) {
       errBox.hidden = false;
     } finally {
       submit.disabled = false;
-      label.textContent = "Objekt melden";
+      label.textContent = `${wortEinheit} melden`;
     }
   });
 }

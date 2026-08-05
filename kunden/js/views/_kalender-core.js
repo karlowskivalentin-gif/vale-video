@@ -46,6 +46,14 @@ export function renderKalender(container, opts) {
   const heute = new Date();
   let jahr = heute.getFullYear();
   let monat = heute.getMonth(); // 0–11
+  // Deep-Link (z. B. aus der Pipeline): startMonat "YYYY-MM" öffnet direkt den
+  // Zielmonat, markiere = Marker-ID (vd_/vp_…) hebt den Chip einmalig hervor.
+  if (opts.startMonat && /^\d{4}-\d{2}$/.test(opts.startMonat)) {
+    jahr = Number(opts.startMonat.slice(0, 4));
+    monat = Number(opts.startMonat.slice(5, 7)) - 1;
+  }
+  let markPending = opts.markiere || null;
+  let markGescrollt = false;   // Scroll + Ablauf-Timer nur beim ersten Treffer
   let videos = [];
   let termine = [];
   let plaene = [];
@@ -131,6 +139,26 @@ export function renderKalender(container, opts) {
     titelEl.textContent = `${MONATE[monat]} ${jahr}`;
     const alle = baueMarker();
     gridEl.innerHTML = monatsHtml(jahr, monat, alle);
+
+    // Deep-Link-Highlight: bei JEDEM zeichne() erneut setzen — die parallelen
+    // Snapshots (Videos/Termine/Pläne) bauen das Grid mehrfach neu und würden
+    // die Klasse sonst sofort wieder wegwischen. Gescrollt wird nur beim ersten
+    // Treffer; nach 2,5 s läuft das Highlight ab (markPending = null).
+    if (markPending) {
+      const ziel = gridEl.querySelector(`[data-mid="${cssEscape(markPending)}"]`);
+      if (ziel) {
+        ziel.classList.add("kal-eintrag--mark");
+        if (!markGescrollt) {
+          markGescrollt = true;
+          ziel.scrollIntoView({ block: "center", behavior: "smooth" });
+          setTimeout(() => {
+            markPending = null;
+            const alt = gridEl.querySelector(".kal-eintrag--mark");
+            if (alt) alt.classList.remove("kal-eintrag--mark");
+          }, 2500);
+        }
+      }
+    }
   }
 
   container.querySelector("#kalPrev").addEventListener("click", () => {
@@ -249,7 +277,13 @@ function eintragHtml(m) {
     : `<span class="kal-chip kal-chip--${m.cls}" title="${tip}">${inhalt}</span>`;
   const ics = `<button class="kal-ics" type="button" data-ics="${escapeHtml(m.id)}"
       title="Zu meinem Kalender hinzufügen" aria-label="Zu meinem Kalender hinzufügen">＋</button>`;
-  return `<span class="kal-eintrag">${chip}${ics}</span>`;
+  return `<span class="kal-eintrag" data-mid="${escapeHtml(m.id)}">${chip}${ics}</span>`;
+}
+
+// Marker-IDs sind intern erzeugt (vp_/vd_/t_/p…), aber fürs querySelector-
+// Attribut trotzdem defensiv escapen (Doc-IDs könnten Sonderzeichen enthalten).
+function cssEscape(s) {
+  return (window.CSS && CSS.escape) ? CSS.escape(s) : String(s).replace(/"/g, '\\"');
 }
 
 function zuDate(ts) {

@@ -72,6 +72,20 @@ export function monatKey(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
+// "YYYY-MM" → lesbares Label "Aug 2026". Ungültige Keys unverändert zurück.
+export function monatsLabel(key) {
+  const m = /^(\d{4})-(\d{2})$/.exec(key || "");
+  if (!m) return key || "";
+  return `${MONATE_KURZ[Number(m[2]) - 1] || m[2]} ${m[1]}`;
+}
+
+// Monats-Key um delta Monate verschieben: monatPlus("2026-08", -1) → "2026-07".
+export function monatPlus(key, delta) {
+  const m = /^(\d{4})-(\d{2})$/.exec(key || "");
+  if (!m) return key || "";
+  return monatKey(new Date(Number(m[1]), Number(m[2]) - 1 + delta, 1));
+}
+
 // Kleines, sicheres Markdown → HTML (alles wird zuerst escaped). Wird von der
 // Gedanken-Mindmap, dem Fokus-To-Do-Panel und der To-Do-Detailansicht geteilt.
 export function mdZuHtml(src) {

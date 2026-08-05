@@ -4,7 +4,8 @@ import { beobachteAuth, logout, abgewieseneAdresse,
          istLoginLink, schliesseLoginLinkAb, setzePasswort } from "./auth.js";
 import { loeseEinladungEin, beobachteBenachrichtigungen, markiereBenachrichtigungenGelesen } from "./db.js";
 import { KOLLAB_MAP_ID, EINLADUNG_ID } from "./roles.js";
-import { getAktiv, setzeAktiv, abonniereKunden } from "./kunde-context.js";
+import { getAktiv, setzeAktiv, abonniereKunden, getAktivKunde } from "./kunde-context.js";
+import { kundenartVon } from "./status.js";
 import { mountFeedbackWidget, unmountFeedbackWidget } from "./feedback-widget.js";
 import { raeumeViewAuf, beiViewWechsel } from "./view-lifecycle.js";
 import { renderLogin } from "./views/login.js";
@@ -27,6 +28,7 @@ import { renderAdminGedanken } from "./views/admin-gedanken.js";
 import { renderTodos } from "./views/todos.js";
 import { renderAdminTranskript } from "./views/admin-transkript.js";
 import { renderAdminInspiration } from "./views/admin-inspiration.js";
+import { renderAdminMoodboard } from "./views/admin-moodboard.js";
 import { renderAdminKunden } from "./views/admin-kunden.js";
 import { renderAdminKundeFeed } from "./views/admin-kunde-feed.js";
 
@@ -66,6 +68,7 @@ const ROUTES = {
   "/admin/stickies": { rolle: "admin", titel: "Sticky Notes",     render: (c, o) => renderTodos(c, { ...o, modus: "sticky" }) },
   "/admin/transkript": { rolle: "admin", titel: "Transkript",     render: renderAdminTranskript },
   "/admin/inspiration": { rolle: "admin", titel: "Inspiration",   render: renderAdminInspiration },
+  "/admin/moodboard": { rolle: "admin", titel: "Moodboard",       render: renderAdminMoodboard },
   "/admin/kunden":   { rolle: "admin", titel: "Kunden",           render: renderAdminKunden },
   "/admin/kunde-feed": { rolle: "admin", titel: "Kunden-Feed",     render: renderAdminKundeFeed },
   // Kollaborator (externer Mitarbeiter: geteilte + eigene Mindmaps)
@@ -94,6 +97,7 @@ const NAV = {
     { href: "#/admin/stickies", label: "Stickies" },
     { href: "#/admin/transkript", label: "Transkript" },
     { href: "#/admin/inspiration", label: "Inspiration" },
+    { href: "#/admin/moodboard", label: "Moodboard" },
     { href: "#/admin/kunden", label: "Kunden" },
     { href: "#/admin/kunde-feed", label: "Kunden-Feed" }
   ],
@@ -110,22 +114,44 @@ function startRoute(rolle) {
   return "/aufgaben";
 }
 
-// --- Hash auflösen (inkl. Param-Routen) -------------------------------
+// Kundenart (Branche) für Wording/Optionen: beim Admin die des aktiven Kunden
+// (aus dem kunde-context-Cache), beim Kunden die eigene (aus der Auth geladen).
+// Fallback ist immer "immobilien" (Bestandskunden ohne Feld, Cache noch leer).
+function aktuelleKundenart() {
+  if (_rolle === "admin") return kundenartVon(getAktivKunde());
+  return kundenartVon(_info);
+}
+
+// --- Hash auflösen (inkl. Param-Routen + optionalem ?query) ------------
+// „#/admin/kalender?m=2026-09&mark=vd_abc" → pfad ohne Query matchen, die
+// Parameter landen als Plain-Object in den Render-Opts (opts.query).
 function resolve(hash) {
   const path = (hash || "").replace(/^#/, "");
-  if (path.startsWith("/video/"))       return { route: ROUTES["/video"],       id: decodeURIComponent(path.slice("/video/".length)) };
-  if (path.startsWith("/admin/video/")) return { route: ROUTES["/admin/video"], id: decodeURIComponent(path.slice("/admin/video/".length)) };
-  if (path.startsWith("/admin/drehtag/")) return { route: ROUTES["/admin/drehtag"], id: decodeURIComponent(path.slice("/admin/drehtag/".length)) };
-  if (path.startsWith("/admin/plan/"))  return { route: ROUTES["/admin/plan"],  id: decodeURIComponent(path.slice("/admin/plan/".length)) };
-  return { route: ROUTES[path] || null, id: null };
+  const qIdx = path.indexOf("?");
+  const pfad = qIdx === -1 ? path : path.slice(0, qIdx);
+  const query = {};
+  if (qIdx !== -1) new URLSearchParams(path.slice(qIdx + 1)).forEach((v, k) => { query[k] = v; });
+  if (pfad.startsWith("/video/"))       return { route: ROUTES["/video"],       id: decodeURIComponent(pfad.slice("/video/".length)), query };
+  if (pfad.startsWith("/admin/video/")) return { route: ROUTES["/admin/video"], id: decodeURIComponent(pfad.slice("/admin/video/".length)), query };
+  if (pfad.startsWith("/admin/drehtag/")) return { route: ROUTES["/admin/drehtag"], id: decodeURIComponent(pfad.slice("/admin/drehtag/".length)), query };
+  if (pfad.startsWith("/admin/plan/"))  return { route: ROUTES["/admin/plan"],  id: decodeURIComponent(pfad.slice("/admin/plan/".length)), query };
+  return { route: ROUTES[pfad] || null, id: null, query };
 }
 
 // --- Branded Shell (Header + Nav + Logout) ----------------------------
 function renderShell(aktiverPfad) {
+  // Branchen-abhängige Nav-Labels: die Objekt-Welt heißt bei Gastro „Filialen".
+  const art = aktuelleKundenart();
+  const label = (l) => {
+    if (art !== "gastro") return l.label;
+    if (l.href === "#/objekt-melden") return "Filiale melden";
+    if (l.href === "#/admin/objekte") return "Filialen";
+    return l.label;
+  };
   const links = (NAV[_rolle] || [])
     .map(l => {
       const aktiv = ("#" + aktiverPfad) === l.href ? " is-active" : "";
-      return `<a class="topnav-link${aktiv}" href="${l.href}">${l.label}</a>`;
+      return `<a class="topnav-link${aktiv}" href="${l.href}">${label(l)}</a>`;
     })
     .join("");
 
@@ -191,6 +217,7 @@ function wireKundenSwitch() {
   const sel = document.getElementById("kundeSwitch");
   if (!sel || _rolle !== "admin") return;
   const gebautMit = getAktiv();
+  const gebautMitArt = aktuelleKundenart();
 
   const unsub = abonniereKunden((kunden) => {
     const aktiv = getAktiv();
@@ -199,7 +226,9 @@ function wireKundenSwitch() {
           `<option value="${escapeHtmlR(k.id)}"${k.id === aktiv ? " selected" : ""}>${escapeHtmlR(k.name || k.id)}</option>`).join("")
       : `<option value="">— noch kein Kunde —</option>`;
     sel.value = aktiv || "";
-    if (aktiv !== gebautMit) render();   // Default-Kunde gerade gesetzt → mit Filter neu bauen
+    // Neu bauen, wenn der Default-Kunde gerade gesetzt wurde ODER die Shell noch
+    // mit unbekannter Kundenart gebaut wurde (Cache war beim ersten Paint leer).
+    if (aktiv !== gebautMit || aktuelleKundenart() !== gebautMitArt) render();
   }, () => {});
   beiViewWechsel(unsub);
 
@@ -348,7 +377,7 @@ function render() {
   }
 
   // Eingeloggt -> Routing
-  let { route, id } = resolve(location.hash);
+  let { route, id, query } = resolve(location.hash);
 
   // Keine/unbekannte Route -> auf Startseite der Rolle
   if (!route) {
@@ -361,11 +390,11 @@ function render() {
     return;
   }
 
-  const viewContainer = renderShell(location.hash.replace(/^#/, "").replace(/^(\/video|\/admin\/video).*/, "$1"));
+  const viewContainer = renderShell(location.hash.replace(/^#/, "").replace(/\?.*$/, "").replace(/^(\/video|\/admin\/video).*/, "$1"));
   // Aktiver Kunde (kundeId): Admin wählt ihn über den Umschalter; der Kunde
   // bekommt seinen eigenen fest aus der Auth (kundenmitglieder-Lookup).
   const kundeId = _rolle === "admin" ? getAktiv() : ((_info && _info.kundeId) || null);
-  route.render(viewContainer, { id, user: _user, rolle: _rolle, kollabMapId: (_info && _info.mapId) || null, kundeId });
+  route.render(viewContainer, { id, query, user: _user, rolle: _rolle, kollabMapId: (_info && _info.mapId) || null, kundeId, kundenart: aktuelleKundenart() });
 
   // Schwebende Feedback-Box nur für Kunden (Singleton, überlebt Routenwechsel).
   if (_rolle === "kunde") mountFeedbackWidget({ user: _user, kundeId });

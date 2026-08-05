@@ -9,7 +9,7 @@ import {
   benachrichtigeAdmin, skriptUploadAnlegen, beobachteSkriptUploads, erledigeFreigabeNews
 } from "../db.js";
 import { beiViewWechsel } from "../view-lifecycle.js";
-import { STATUS, kundenStatus, istFreigabeStufe } from "../status.js";
+import { STATUS, kundenStatus, istFreigabeStufe, skriptFreigabeNoetig } from "../status.js";
 import { drivePreviewUrl } from "../drive.js";
 import { escapeHtml, formatDatum } from "../util.js";
 import { renderPlanDetails, planHatDetails } from "../plan-ansicht.js";
@@ -35,8 +35,10 @@ export function renderVideoDetail(container, ctx) {
     <div id="vdAction" class="vd-action"></div>
 
     <section class="vd-skript-upload card card--pad">
-      <h2 class="section-title" style="margin:0 0 .4rem">📄 Skript überarbeitet?</h2>
+      <h2 class="section-title" style="margin:0 0 .4rem">📄 Dein überarbeitetes Skript</h2>
       <p class="muted" style="margin:0 0 .8rem">Zieh dein überarbeitetes Skript (Word oder PDF) hier rein — Valentin bekommt sofort Bescheid.</p>
+      <p class="vd-upload-anreiz" hidden>💡 Du hast Formulierungen im Kopf, die besser zu dir passen? Lade dein überarbeitetes
+        Skript direkt hoch — <strong>so lernt Valentin mit jedem Video deinen Geschmack und deine Sprache besser kennen.</strong></p>
       <div class="skript-drop" id="skDrop" tabindex="0" role="button" aria-label="Skript-Datei ablegen oder auswählen">
         <span class="skript-drop-icon" aria-hidden="true">⬆️</span>
         <span class="skript-drop-text">Datei hierher ziehen oder <span class="skript-drop-link">auswählen</span></span>
@@ -65,6 +67,9 @@ export function renderVideoDetail(container, ctx) {
   const elMedia    = container.querySelector("#vdMedia");
   const elPlan     = container.querySelector("#vdPlan");
   const elAction   = container.querySelector("#vdAction");
+  const elUpload   = container.querySelector(".vd-skript-upload");
+  const elAnreiz   = container.querySelector(".vd-upload-anreiz");
+  const elKomm     = container.querySelector(".vd-komm");
   const elComments = container.querySelector("#vdComments");
   const kForm      = container.querySelector("#kForm");
   const kText      = container.querySelector("#kText");
@@ -94,6 +99,7 @@ export function renderVideoDetail(container, ctx) {
           Dieses Video existiert nicht (mehr).</p></div>`;
         elPlan.innerHTML = "";
         elAction.innerHTML = "";
+        elUpload.hidden = true;
         kForm.style.display = "none";
         return;
       }
@@ -103,6 +109,7 @@ export function renderVideoDetail(container, ctx) {
       verarbeiteEmbeds(elMedia);   // TikTok/Instagram-Embeds aktivieren
       renderPlan(v);
       renderAction(v);
+      positioniereUpload(v);
     },
     (err) => {
       console.error(err);
@@ -122,6 +129,22 @@ export function renderVideoDetail(container, ctx) {
 
   // --- Skript-Upload (Drag & Drop) ------------------------------------
   initSkriptUpload();
+
+  // Upload-Sektion je nach Status platzieren. Der DOM-Node wird VERSCHOBEN
+  // (nicht neu gerendert), damit die Listener aus initSkriptUpload() und das
+  // laufende Upload-Abo intakt bleiben.
+  //   - Skript-Freigabe steht an → direkt unter die Ampel, hervorgehoben.
+  //   - Format ganz ohne Skript (z. B. wortloses Edit) → ausblenden.
+  //   - Sonst → an der Default-Position unten vor den Kommentaren.
+  function positioniereUpload(v) {
+    if (!skriptFreigabeNoetig(v.typ)) { elUpload.hidden = true; return; }
+    elUpload.hidden = false;
+    const prominent = v.status === STATUS.FREIGABE_SKRIPT;
+    elUpload.classList.toggle("vd-skript-upload--prominent", prominent);
+    elAnreiz.hidden = !prominent;
+    if (prominent) elAction.after(elUpload);
+    else elKomm.before(elUpload);
+  }
 
   function initSkriptUpload() {
     const drop  = container.querySelector("#skDrop");
@@ -167,7 +190,9 @@ export function renderVideoDetail(container, ctx) {
           text: `📝 ${kurzname(user.email)} hat das Skript für „${titel}" angepasst (${escapeHtml(name)})`,
           videoId: id, art: "skript"
         }).catch(() => {});
-        okB.textContent = "Danke! Dein überarbeitetes Skript ist bei Valentin eingegangen.";
+        okB.textContent = (video && video.status === STATUS.FREIGABE_SKRIPT)
+          ? "Dein Skript ist da! Du kannst jetzt oben ‚Mit Änderungswünschen' bestätigen oder direkt freigeben."
+          : "Danke! Dein überarbeitetes Skript ist bei Valentin eingegangen.";
         okB.hidden = false;
       } catch (e) {
         console.error(e);
@@ -245,6 +270,13 @@ export function renderVideoDetail(container, ctx) {
         <div class="action-btns action-ampel">${buttons}</div>
 
         <div id="aenderPanel" hidden>
+          ${istSkript ? `
+          <div class="vd-upload-cta">
+            <span>⚡ Am schnellsten: lade dein überarbeitetes Skript direkt hoch —
+            Valentin übernimmt deine Formulierungen 1:1 und lernt dabei deinen Stil.</span>
+            <button class="btn btn--ok btn--sm" id="btnZumUpload" type="button">📄 Skript hochladen</button>
+          </div>
+          <p class="muted" style="margin:.6rem 0 0">— oder beschreibe die Änderungen als Text: —</p>` : ``}
           <div class="field" style="margin-top:1rem">
             <label for="aenderText">Was sollen wir ändern? <span class="req">*</span></label>
             <textarea id="aenderText" placeholder="Beschreibe möglichst konkret, was angepasst werden soll …"></textarea>
@@ -315,6 +347,21 @@ export function renderVideoDetail(container, ctx) {
       if (vPanel) vPanel.hidden = true;
       zeigePrimaer(false);
       aenderText.focus();
+    });
+
+    // ⚡ Abkürzung im Änderungs-Panel: direkt zur Upload-Box (nur Skript-Stufe).
+    // Öffnet den Datei-Dialog gleich mit; das Panel bleibt offen, damit der
+    // Kunde zusätzlich Text senden kann (Statuswechsel läuft weiter über die Ampel).
+    const btnZumUpload = elAction.querySelector("#btnZumUpload");
+    if (btnZumUpload) btnZumUpload.addEventListener("click", () => {
+      const drop = container.querySelector("#skDrop");
+      elUpload.scrollIntoView({ behavior: "smooth", block: "center" });
+      if (drop) {
+        drop.classList.add("is-hinweis");
+        setTimeout(() => { if (drop.isConnected) drop.classList.remove("is-hinweis"); }, 2500);
+      }
+      const input = container.querySelector("#skFile");
+      if (input) input.click();
     });
     btnAbbrechen.addEventListener("click", () => {
       panel.hidden = true;

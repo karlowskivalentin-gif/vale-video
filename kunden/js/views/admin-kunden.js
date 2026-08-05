@@ -10,6 +10,7 @@ import { KUNDE_EMAILS } from "../roles.js";
 import { setzeAktiv } from "../kunde-context.js";
 import { sendeKundenZugang } from "../auth.js";
 import { escapeHtml } from "../util.js";
+import { KUNDENARTEN, kundenartVon } from "../status.js";
 
 // Verschickt Firebase-Anmelde-Links an eine Liste von E-Mails. Gibt
 // { ok, fehler } zurück (Anzahl erfolgreich / fehlgeschlagen). Fire-and-report.
@@ -47,11 +48,22 @@ export function renderAdminKunden(container) {
         <form id="kdForm" novalidate>
           <div class="field">
             <label for="kdName">Name</label>
-            <input id="kdName" type="text" maxlength="60" placeholder="z. B. Müller Immobilien" autocomplete="off" />
+            <input id="kdName" type="text" maxlength="60" placeholder="z. B. Müller Immobilien oder Kaffee Röstzeit" autocomplete="off" />
+          </div>
+          <div class="field">
+            <label for="kdArt">Kundenart <span class="muted">(steuert Video-Typen & Wording im Portal)</span></label>
+            <select id="kdArt">
+              ${Object.entries(KUNDENARTEN).map(([wert, a]) =>
+                `<option value="${escapeHtml(wert)}">${a.emoji} ${escapeHtml(a.label)}</option>`).join("")}
+            </select>
           </div>
           <div class="field">
             <label for="kdEmails">Login-E-Mails <span class="muted">(eine pro Zeile — diese Adressen bekommen Kundenzugang)</span></label>
             <textarea id="kdEmails" rows="4" placeholder="max@mueller-immobilien.de&#10;info@mueller-immobilien.de"></textarea>
+          </div>
+          <div class="field">
+            <label for="kdDrive">Google-Drive-Ordner <span class="muted">(Standard für alle Videos dieses Kunden)</span></label>
+            <input id="kdDrive" type="url" placeholder="https://drive.google.com/drive/folders/…" autocomplete="off" />
           </div>
           <div class="action-btns">
             <button class="btn btn--accent btn--sm" id="kdSave" type="submit">Speichern</button>
@@ -80,6 +92,8 @@ export function renderAdminKunden(container) {
   const titelEl  = container.querySelector("#kdFormTitel");
   const nameEl   = container.querySelector("#kdName");
   const emailsEl = container.querySelector("#kdEmails");
+  const driveEl  = container.querySelector("#kdDrive");
+  const artEl    = container.querySelector("#kdArt");
   const errEl    = container.querySelector("#kdErr");
   const okEl     = container.querySelector("#kdOk");
   const saveBtn  = container.querySelector("#kdSave");
@@ -93,6 +107,8 @@ export function renderAdminKunden(container) {
     titelEl.textContent = kunde ? `Kunde bearbeiten: ${kunde.name || kunde.id}` : "Neuer Kunde";
     nameEl.value   = kunde ? (kunde.name || "") : "";
     emailsEl.value = kunde && Array.isArray(kunde.emails) ? kunde.emails.join("\n") : "";
+    driveEl.value  = kunde ? (kunde.driveOrdner || "") : "";
+    artEl.value    = kundenartVon(kunde);
     errEl.hidden = true;
     okEl.hidden = true;
     formWrap.hidden = false;
@@ -129,7 +145,7 @@ export function renderAdminKunden(container) {
 
     saveBtn.disabled = true;
     try {
-      await kundeSpeichern({ id, name, emails, altEmails, istNeu: !bearbeite });
+      await kundeSpeichern({ id, name, emails, altEmails, istNeu: !bearbeite, driveOrdner: driveEl.value.trim(), kundenart: artEl.value });
 
       let hinweis = bearbeite ? "Änderungen gespeichert." : "Kunde angelegt.";
       if (neueEmails.length) {
@@ -143,7 +159,7 @@ export function renderAdminKunden(container) {
       if (!bearbeite) setzeAktiv(id);   // frisch angelegten Kunden gleich aktiv schalten
       // Formular in „Bearbeiten"-Modus des soeben gespeicherten Kunden versetzen,
       // damit ein erneutes Speichern kein Duplikat anlegt.
-      bearbeite = { id, name, emails };
+      bearbeite = { id, name, emails, driveOrdner: driveEl.value.trim(), kundenart: artEl.value };
       titelEl.textContent = `Kunde bearbeiten: ${name}`;
     } catch (ex) {
       console.error(ex);
@@ -227,10 +243,11 @@ function zeichne(el, kunden, zeigeForm, resendZugang) {
   el.innerHTML = `<div class="card row-list">
     ${kunden.map((k) => {
       const anz = Array.isArray(k.emails) ? k.emails.length : 0;
+      const art = KUNDENARTEN[kundenartVon(k)];
       return `
         <div class="pl-row" data-id="${escapeHtml(k.id)}">
           <div class="pl-main">
-            <span class="row-name">${escapeHtml(k.name || k.id)}</span>
+            <span class="row-name">${escapeHtml(k.name || k.id)} <span class="kd-art-badge">${art.emoji} ${escapeHtml(art.label)}</span></span>
             <span class="row-sub muted">${anz} Login${anz === 1 ? "" : "s"}${anz ? " · " + escapeHtml((k.emails || []).join(", ")) : ""}</span>
           </div>
           <button class="btn btn--ghost btn--sm kd-send" type="button" title="Anmelde-Link (erneut) senden">Zugang senden</button>

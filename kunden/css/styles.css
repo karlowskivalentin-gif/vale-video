@@ -441,13 +441,33 @@ a.row-item:hover { background: var(--off-white); }
 .pl-main .row-name:hover { color: var(--accent); }
 .pl-status { flex: 0 0 auto; }
 
-/* Pipeline-Zeile ist jetzt in .pl-item gewrappt (Zeile + Nachrichten-Block).
-   Trenner wandert auf den Wrapper, damit die Zeile selbst randlos bleibt. */
-.pl-item { border-bottom: 1px solid var(--mid); }
-.pl-item:last-child { border-bottom: none; }
+/* Jedes Video ist eine eigene Karten-Fläche (statt Zeilen in EINER Karte):
+   .pl-karten stapelt die Karten mit Außenabstand, .pl-item trägt die Optik. */
+.pl-karten { display: flex; flex-direction: column; gap: 0.9rem; }
+.pl-item {
+  border: 1px solid var(--mid); border-radius: var(--radius-lg);
+  background: var(--surface); box-shadow: var(--shadow-card); overflow: hidden;
+}
 .pl-item .pl-row { border-bottom: none; }
 .pl-item--verworfen { background: var(--error-bg); }
 .pl-item--verworfen .row-name { color: var(--error); }
+
+/* Kundenart-Badge in der Kundenliste (🏠 Immobilien / ☕ Gastro) */
+.kd-art-badge {
+  font-size: 0.68rem; font-weight: 700; color: var(--muted);
+  border: 1px solid var(--mid); border-radius: 999px;
+  padding: 0.08rem 0.5rem; margin-left: 0.4rem; vertical-align: middle;
+  white-space: nowrap;
+}
+
+/* 🔗 Schnellzugriffe (Skript · Drive · Kalender) als Pill-Links auf der Karte */
+.pl-links { display: flex; gap: 0.5rem; flex-wrap: wrap; padding: 0 1.25rem 0.9rem; }
+.pl-link {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  border: 1px solid var(--mid); border-radius: 999px; background: var(--surface);
+  font-size: 0.78rem; font-weight: 600; padding: 0.3rem 0.7rem; color: var(--black);
+}
+.pl-link:hover { border-color: var(--accent); color: var(--accent); }
 
 /* Status-Dashboard: Fortschritts-Kacheln über der Pipeline-Liste */
 .pl-dash { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem; }
@@ -624,6 +644,16 @@ a.row-item:hover { background: var(--off-white); }
   font-size: 0.78rem; line-height: 1; padding: 0; font-weight: 700;
 }
 .kal-ics:hover { color: var(--accent-dim); border-color: var(--accent); background: rgba(226,98,44,0.08); }
+
+/* Deep-Link-Highlight (Pipeline-Karte → 📅 Kalender): Chip pulsiert kurz */
+.kal-eintrag--mark .kal-chip {
+  outline: 2px solid var(--accent);
+  animation: kal-mark-puls 0.9s ease 3;
+}
+@keyframes kal-mark-puls {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(226,98,44,0.35); }
+  50%      { box-shadow: 0 0 0 6px rgba(226,98,44,0); }
+}
 
 /* Legende ------------------------------------------------------------- */
 .kal-legende { display: flex; flex-wrap: wrap; gap: 0.4rem 0.6rem; margin: -0.4rem 0 1rem; }
@@ -1192,6 +1222,7 @@ a.row-item:hover { background: var(--off-white); }
   .pl-msg-btn, .pl-del, .pl-version, .pl-bong, .pl-notes-btn { flex: 0 0 auto; }
   .pl-version-txt { display: none; }   /* mobil nur 🔁, spart Platz in der Steuerleiste */
   .pl-notes { padding-left: 0.75rem; padding-right: 0.75rem; }
+  .pl-links { padding: 0 0.85rem 0.75rem; }
 
   /* Kunden-Ampel + Entwurf-Button: lange Buttons untereinander, volle Breite */
   .action-ampel { flex-direction: column; }
@@ -2192,6 +2223,22 @@ a.news-item:hover { background: var(--off-white); }
 
 /* --- Kunde: eigene Skript-Uploads ----------------------------------- */
 .vd-skript-upload { margin-top: 1.5rem; }
+
+/* Skript-Freigabe steht an → Sektion rückt unter die Ampel und leuchtet */
+.vd-skript-upload--prominent {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(226,98,44,0.12);
+  margin-top: 1rem; margin-bottom: 0.5rem;
+}
+.vd-upload-anreiz { font-size: 0.9rem; margin: 0 0 0.8rem; }
+
+/* CTA im „Änderungen anfordern"-Panel: Upload als bequemste Option */
+.vd-upload-cta {
+  display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
+  background: var(--ok-bg); border: 1px solid #bfe0cb; border-radius: var(--radius);
+  padding: 0.75rem 0.9rem; margin-top: 1rem; font-size: 0.9rem;
+}
+.skript-drop.is-hinweis { border-color: var(--accent); background: rgba(226,98,44,0.06); }
 .skript-upload-liste { margin-top: 0.7rem; }
 .skript-upload-head { font-size: 0.78rem; margin-bottom: 0.3rem; }
 .skript-upload-item {
@@ -2352,3 +2399,136 @@ a.mv-card:hover { border-color: var(--accent); transform: translateY(-1px); }
 .mv-foot { margin-top: 0.9rem; text-align: right; }
 .mv-cta-link { font-size: 0.82rem; color: var(--muted); }
 a.mv-card:hover .mv-cta-link { color: var(--accent); }
+
+/* =====================================================================
+   MOODBOARD (Admin) — Pinnwand mit Kanal-Haftnotizen
+   ===================================================================== */
+.mb-board {
+  background: var(--surface-2);
+  background-image: radial-gradient(circle, rgba(20, 17, 13, 0.05) 1px, transparent 1px);
+  background-size: 22px 22px;
+  border: 1px solid var(--mid);
+  border-radius: var(--radius-lg);
+  padding: 1.6rem 1.2rem 1.4rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1.4rem 1.2rem;
+  align-items: start;
+}
+.mb-board > .muted { grid-column: 1 / -1; }
+
+/* Haftnotiz: Papier-Look, leichte Schieflage, Reißzwecke oben mittig. */
+.mb-note {
+  position: relative;
+  transform: rotate(var(--neigung, 0deg));
+  border-radius: 2px;
+  border: 1px solid;
+  box-shadow: var(--shadow-card);
+  padding: 1.1rem 0.95rem 0.7rem;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.mb-note:hover {
+  transform: rotate(0deg) scale(1.02);
+  box-shadow: 0 8px 22px rgba(20, 17, 13, 0.16);
+  z-index: 1;
+}
+.mb-note.is-edit { transform: none; background: var(--surface); }
+.mb-note::before {
+  content: "";
+  position: absolute;
+  top: -7px; left: 50%;
+  width: 14px; height: 14px;
+  margin-left: -7px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #f0824e, var(--accent) 55%, var(--accent-dim));
+  border: 1px solid var(--accent-dim);
+  box-shadow: 0 2px 3px rgba(20, 17, 13, 0.3);
+}
+
+/* Notizfarben: Pastellfläche + kräftiger Rand (Vorbild .is-sticky-Notizen). */
+.mb-note--gelb   { background: #fef9c3; border-color: #eab308; }
+.mb-note--rosa   { background: #fce7f3; border-color: #db2777; }
+.mb-note--blau   { background: #e0f2fe; border-color: #0284c7; }
+.mb-note--gruen  { background: #dcfce7; border-color: #16a34a; }
+.mb-note--orange { background: #ffedd5; border-color: var(--accent); }
+
+.mb-note-kopf { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.65rem; }
+.mb-avatar {
+  flex: 0 0 34px; width: 34px; height: 34px;
+  display: grid; place-items: center;
+  border-radius: var(--radius);
+  color: #fff; font-weight: 800; font-size: 1rem;
+}
+.mb-note--gelb   .mb-avatar { background: #eab308; }
+.mb-note--rosa   .mb-avatar { background: #db2777; }
+.mb-note--blau   .mb-avatar { background: #0284c7; }
+.mb-note--gruen  .mb-avatar { background: #16a34a; }
+.mb-note--orange .mb-avatar { background: var(--accent); }
+
+.mb-note-titel { min-width: 0; display: flex; flex-direction: column; gap: 0.1rem; }
+.mb-note-titel strong { font-size: 0.98rem; line-height: 1.25; overflow-wrap: anywhere; }
+.mb-note-link { font-size: 0.76rem; text-decoration: none; overflow-wrap: anywhere; }
+.mb-note-link:hover { color: var(--accent); }
+
+.mb-note-abschnitt { margin-bottom: 0.6rem; }
+.mb-note-label {
+  font-size: 0.7rem; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.04em;
+  margin-bottom: 0.15rem;
+}
+.mb-note-text { margin: 0; font-size: 0.88rem; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.mb-note-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 0.5rem; margin-top: 0.4rem;
+  border-top: 1px dashed rgba(20, 17, 13, 0.15);
+  padding-top: 0.45rem;
+}
+
+/* Farbwahl-Chips im Formular (Anlegen + Inline-Edit). */
+.mb-farb-chips { display: flex; gap: 0.5rem; }
+.mb-farb-chip {
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  border: 1px solid rgba(20, 17, 13, 0.2);
+  cursor: pointer;
+  padding: 0;
+}
+.mb-farb-chip.is-active { outline: 2px solid var(--black); outline-offset: 2px; }
+.mb-farb-chip--gelb   { background: #eab308; }
+.mb-farb-chip--rosa   { background: #db2777; }
+.mb-farb-chip--blau   { background: #0284c7; }
+.mb-farb-chip--gruen  { background: #16a34a; }
+.mb-farb-chip--orange { background: var(--accent); }
+
+@media (max-width: 640px) {
+  .mb-board { grid-template-columns: 1fr; padding: 1.2rem 0.8rem 1rem; }
+}
+
+/* =====================================================================
+   PIPELINE — Monats-Sektionen
+   ===================================================================== */
+.pl-monat { margin-bottom: 0.9rem; }
+.pl-monat-head {
+  width: 100%;
+  display: flex; align-items: center; gap: 0.55rem;
+  background: var(--surface);
+  border: 1px solid var(--mid);
+  border-radius: var(--radius);
+  padding: 0.55rem 0.8rem;
+  cursor: pointer;
+  font: inherit; text-align: left;
+}
+.pl-monat-head:hover { border-color: var(--accent); }
+.pl-monat-chevron { font-size: 0.8rem; color: var(--muted); transition: transform 0.15s ease; }
+.pl-monat.is-offen .pl-monat-chevron { transform: rotate(90deg); }
+.pl-monat-label { font-weight: 700; }
+.pl-monat-jetzt {
+  font-size: 0.7rem; font-weight: 700; color: var(--accent-dim);
+  background: rgba(226, 98, 44, 0.1);
+  border-radius: 999px; padding: 0.1rem 0.55rem;
+  text-transform: uppercase; letter-spacing: 0.03em;
+}
+.pl-monat-n { margin-left: auto; font-size: 0.8rem; white-space: nowrap; }
+.pl-monat-body { margin-top: 0.55rem; }
+.pl-monat-sel { max-width: 8.5rem; }

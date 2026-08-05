@@ -18,7 +18,7 @@ import {
   sendPasswordResetEmail
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { rolleVon, KUNDE_EMAILS } from "./roles.js";
-import { ladeKollaborator, ladeKundenmitglied } from "./db.js";
+import { ladeKollaborator, ladeKundenmitglied, ladeKunde } from "./db.js";
 
 const provider = new GoogleAuthProvider();
 provider.setCustomParameters({ prompt: "select_account" });
@@ -175,7 +175,12 @@ export function beobachteAuth(callback) {
       const km = await ladeKundenmitglied(user.email);
       if (km && km.kundeId) {
         _abgewiesen = null;
-        callback(user, "kunde", { kundeId: km.kundeId });
+        // Kundenart (Branche) fürs Portal-Wording mitladen — best-effort,
+        // ohne Doc/Feld gilt der Default "immobilien" (Bestandskunden).
+        let kundenart = null;
+        try { const kd = await ladeKunde(km.kundeId); kundenart = (kd && kd.kundenart) || null; }
+        catch (_) { /* Default greift */ }
+        callback(user, "kunde", { kundeId: km.kundeId, kundenart });
         return;
       }
     } catch (e) {

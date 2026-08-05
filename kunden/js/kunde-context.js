@@ -19,9 +19,18 @@ try { _aktivId = localStorage.getItem(LS_KEY) || null; } catch (_) { /* egal */ 
 
 const wechselCbs = new Set();
 
+// Zuletzt empfangene Kundenliste (Cache über Shell-Rebuilds hinweg) — damit
+// Router/Views synchron ans volle Doc des aktiven Kunden kommen (z. B. kundenart).
+let _kundenListe = [];
+
 // Aktuell gewählter Kunde (Doc-ID) oder null, solange keiner geladen/gewählt ist.
 export function getAktiv() {
   return _aktivId;
+}
+
+// Volles Doc des aktiven Kunden aus dem Cache (null vor dem ersten Snapshot).
+export function getAktivKunde() {
+  return _kundenListe.find((k) => k.id === _aktivId) || null;
 }
 
 // Setzt den aktiven Kunden, persistiert ihn und benachrichtigt Abonnenten.
@@ -48,6 +57,7 @@ export function beiKundenwechsel(cb) {
 // den ersten Kunden der Liste zurückgefallen. Gibt die onSnapshot-Abmeldung zurück.
 export function abonniereKunden(callback, onError) {
   return beobachteKunden((kunden) => {
+    _kundenListe = kunden;
     if (kunden.length && (!_aktivId || !kunden.some((k) => k.id === _aktivId))) {
       setzeAktiv(kunden[0].id);
     } else if (!kunden.length && _aktivId) {

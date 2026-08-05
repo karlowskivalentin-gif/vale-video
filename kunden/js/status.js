@@ -56,19 +56,61 @@ export const OBJEKT_STATUS_LISTE = [
   OBJEKT_STATUS.ERLEDIGT
 ];
 
-// --- Video-Typen ------------------------------------------------------
-export const VIDEO_TYPEN = [
-  "Social Reel",
-  "Imagefilm",
-  "Cinematic Film",
-  "Objektvideo",
-  "Drohnenvideo",
-  "Real Estate (wortloses Edit)"
-];
+// --- Kundenarten ------------------------------------------------------
+// Jeder Kunde hat eine Branche (kunden/{id}.kundenart). Bestandskunden ohne
+// Feld gelten als "immobilien" — deshalb überall über kundenartVon() lesen.
+export const KUNDENARTEN = {
+  immobilien: { label: "Immobilien", emoji: "🏠" },
+  gastro:     { label: "Gastro",     emoji: "☕" }
+};
+export function kundenartVon(kunde) {
+  const art = kunde && kunde.kundenart;
+  return KUNDENARTEN[art] ? art : "immobilien";
+}
+
+// --- Objekt-/Filial-Typen (je Kundenart) --------------------------------
+// Immobilien melden Objekte, Gastro meldet Filialen/Standorte — gleiche
+// Collection `objekte`, nur andere Typ-Listen und Wording.
+const OBJEKT_TYPEN_JE_ART = {
+  immobilien: ["Wohnung", "Haus", "Gewerbe", "Grundstück"],
+  gastro:     ["Café", "Rösterei", "Restaurant", "Bar/Lounge", "Sonstiges"]
+};
+export function objektTypenFuer(kundenart) {
+  return OBJEKT_TYPEN_JE_ART[kundenart] || OBJEKT_TYPEN_JE_ART.immobilien;
+}
+
+// --- Video-Typen (je Kundenart) ----------------------------------------
+const VIDEO_TYPEN_JE_ART = {
+  immobilien: [
+    "Social Reel",
+    "Imagefilm",
+    "Cinematic Film",
+    "Objektvideo",
+    "Drohnenvideo",
+    "Real Estate (wortloses Edit)"
+  ],
+  gastro: [
+    "Social Reel",
+    "Food-/Produkt-Reel",
+    "Behind the Scenes",
+    "Imagefilm",
+    "Cinematic Film",
+    "Drohnenvideo",
+    "Ambiente-Film (wortloses Edit)",
+    "Interview/Team-Porträt"
+  ]
+};
+export function videoTypenFuer(kundenart) {
+  return VIDEO_TYPEN_JE_ART[kundenart] || VIDEO_TYPEN_JE_ART.immobilien;
+}
+// Rückwärtskompatibler Default (historischer Konsument: admin-video-edit).
+export const VIDEO_TYPEN = VIDEO_TYPEN_JE_ART.immobilien;
 
 // Typen, bei denen es KEINE separate Skript-Freigabe gibt (nur Schnitt-Freigabe):
-// reine Edit-/Cinematic-Formate ohne Sprechertext/Skript.
-const TYPEN_OHNE_SKRIPT = ["Cinematic Film", "Real Estate (wortloses Edit)"];
+// reine Edit-/Cinematic-Formate ohne Sprechertext/Skript. Union über ALLE
+// Kundenarten — der Lookup läuft über gespeicherte Strings und muss auch für
+// Alt-Videos jeder Branche stimmen.
+const TYPEN_OHNE_SKRIPT = ["Cinematic Film", "Real Estate (wortloses Edit)", "Ambiente-Film (wortloses Edit)"];
 
 export function skriptFreigabeNoetig(typ) {
   return !TYPEN_OHNE_SKRIPT.includes(typ);

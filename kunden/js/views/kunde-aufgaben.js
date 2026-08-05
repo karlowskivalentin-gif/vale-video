@@ -9,9 +9,10 @@ import { escapeHtml, formatDatum } from "../util.js";
 export function renderAufgaben(container, opts = {}) {
   const kundeId = opts.kundeId || null;   // eigener Mandant des eingeloggten Kunden
   const user = opts.user || null;
+  const istGastro = opts.kundenart === "gastro";
   container.innerHTML = `
     <h1 class="view-title">Aufgaben</h1>
-    <p class="muted view-intro">Dein Überblick: Neuigkeiten, offene Freigaben, deine Videos und gemeldete Objekte.</p>
+    <p class="muted view-intro">Dein Überblick: Neuigkeiten, offene Freigaben, deine Videos und ${istGastro ? "Filialen" : "gemeldete Objekte"}.</p>
 
     <section id="secNews"     class="stack"></section>
     <section id="secAufgaben" class="stack"></section>
@@ -46,7 +47,7 @@ export function renderAufgaben(container, opts = {}) {
     if (videos === null) return; // erste Videos noch nicht da
     zeichneAufgaben(secAufgaben, videos);
     zeichneVideos(secVideos, videos);
-    if (objekte !== null) zeichneObjekte(secObjekte, objekte);
+    if (objekte !== null) zeichneObjekte(secObjekte, objekte, istGastro);
   }
 
   const unsubV = beobachteVideos(
@@ -139,14 +140,14 @@ function zeichneVideos(el, videos) {
     </div>`;
 }
 
-// --- Block: gemeldete Objekte -----------------------------------------
-function zeichneObjekte(el, objekte) {
-  const kopf = `<h2 class="section-title">Deine gemeldeten Objekte</h2>`;
+// --- Block: gemeldete Objekte / Filialen (Gastro) ----------------------
+function zeichneObjekte(el, objekte, istGastro) {
+  const kopf = `<h2 class="section-title">${istGastro ? "Deine Filialen" : "Deine gemeldeten Objekte"}</h2>`;
   if (!objekte.length) {
     el.innerHTML = `${kopf}
       <div class="card card--pad empty-card">
-        <p class="muted">Noch keine Objekte gemeldet.</p>
-        <a class="btn btn--ghost btn--sm" href="#/objekt-melden">Objekt melden</a>
+        <p class="muted">${istGastro ? "Noch keine Filiale gemeldet." : "Noch keine Objekte gemeldet."}</p>
+        <a class="btn btn--ghost btn--sm" href="#/objekt-melden">${istGastro ? "Filiale melden" : "Objekt melden"}</a>
       </div>`;
     return;
   }

@@ -8,7 +8,7 @@ import {
 } from "../db.js";
 import { beiViewWechsel } from "../view-lifecycle.js";
 import {
-  STATUS, STATUS_REIHENFOLGE, VIDEO_TYPEN, skriptFreigabeNoetig
+  STATUS, STATUS_REIHENFOLGE, videoTypenFuer, skriptFreigabeNoetig
 } from "../status.js";
 import { escapeHtml, formatDatum, tsZuDateInput, dateInputZuDate } from "../util.js";
 import { renderPlanDetails, planZuSnapshot } from "../plan-ansicht.js";
@@ -26,6 +26,7 @@ export function renderAdminVideoEdit(container, ctx) {
   const user = ctx.user;
   const id = ctx.id;
   const kundeId = ctx.kundeId || null;   // aktiver Kunde (Mandant) für neue Videos
+  const kundenart = ctx.kundenart || "immobilien";   // steuert Typ-Liste & Wording
   const istNeu = !id || id === "neu";
 
   container.innerHTML = `
@@ -57,7 +58,7 @@ export function renderAdminVideoEdit(container, ctx) {
       }
     }
 
-    body.innerHTML = formHtml(video, objekte, istNeu);
+    body.innerHTML = formHtml(video, objekte, istNeu, kundenart);
     wire(video, istNeu, body, id, user);
     initEmbedVorschau(body);
     if (!istNeu) initKommentare(id, user, body);
@@ -70,19 +71,24 @@ export function renderAdminVideoEdit(container, ctx) {
 }
 
 // --- Formular ---------------------------------------------------------
-function formHtml(v, objekte, istNeu) {
+function formHtml(v, objekte, istNeu, kundenart) {
   const val = (k, d = "") => (v && v[k] != null ? v[k] : d);
   const typ = val("typ", "");
   const status = val("status", STATUS.IDEE);
   const objektId = val("objektId", "");
+  const istGastro = kundenart === "gastro";
 
+  // Typ-Liste der Kundenart — plus den gespeicherten Typ, falls er (Altbestand,
+  // Kundenart-Wechsel) außerhalb liegt: sonst wäre die Selektion unsichtbar.
+  const typen = videoTypenFuer(kundenart).slice();
+  if (typ && !typen.includes(typ)) typen.push(typ);
   const typOpts = ['<option value="">— Typ wählen —</option>']
-    .concat(VIDEO_TYPEN.map((t) => `<option value="${escapeHtml(t)}"${t === typ ? " selected" : ""}>${escapeHtml(t)}</option>`))
+    .concat(typen.map((t) => `<option value="${escapeHtml(t)}"${t === typ ? " selected" : ""}>${escapeHtml(t)}</option>`))
     .join("");
   const statusOpts = STATUS_REIHENFOLGE
     .map((s) => `<option value="${escapeHtml(s)}"${s === status ? " selected" : ""}>${escapeHtml(s)}</option>`)
     .join("");
-  const objektOpts = ['<option value="">— kein Objekt —</option>']
+  const objektOpts = [`<option value="">${istGastro ? "— keine Filiale —" : "— kein Objekt —"}</option>`]
     .concat(objekte.map((o) =>
       `<option value="${escapeHtml(o.id)}"${o.id === objektId ? " selected" : ""}>${escapeHtml(o.adresse || o.id)}</option>`))
     .join("");
@@ -105,7 +111,7 @@ function formHtml(v, objekte, istNeu) {
       <form id="aveForm" novalidate>
         <div class="field">
           <label for="f-titel">Titel <span class="req">*</span></label>
-          <input id="f-titel" type="text" value="${escapeHtml(val("titel"))}" placeholder="z. B. Objektvideo Musterstraße 1" required />
+          <input id="f-titel" type="text" value="${escapeHtml(val("titel"))}" placeholder="${istGastro ? "z. B. Reel — Neue Winterkarte" : "z. B. Objektvideo Musterstraße 1"}" required />
         </div>
 
         <div class="grid-2">
@@ -121,13 +127,19 @@ function formHtml(v, objekte, istNeu) {
         </div>
 
         <div class="field">
-          <label for="f-objekt">Verknüpftes Objekt</label>
+          <label for="f-objekt">${istGastro ? "Verknüpfte Filiale" : "Verknüpftes Objekt"}</label>
           <select id="f-objekt">${objektOpts}</select>
         </div>
 
         <div class="field">
           <label for="f-skript">Skript-Link (Google Drive)</label>
           <input id="f-skript" type="url" value="${escapeHtml(val("skriptLink"))}" placeholder="https://drive.google.com/file/d/…/view" />
+        </div>
+
+        <div class="field">
+          <label for="f-drive">Google-Drive-Ordner (Rohmaterial/Projekt)</label>
+          <input id="f-drive" type="url" value="${escapeHtml(val("driveOrdner"))}" placeholder="https://drive.google.com/drive/folders/…" />
+          <p class="field-hint muted">Leer lassen → Fallback auf den Drive-Ordner des Kunden.</p>
         </div>
 
         <div class="field">
@@ -202,6 +214,7 @@ function wire(v, istNeu, body, id, user) {
       status:      body.querySelector("#f-status").value,
       objektId:    body.querySelector("#f-objekt").value || null,
       skriptLink:  body.querySelector("#f-skript").value.trim(),
+      driveOrdner: body.querySelector("#f-drive").value.trim(),
       schnittLink: body.querySelector("#f-schnitt").value.trim(),
       geplantesDatum:     dateInputZuDate(body.querySelector("#f-datum").value),
       geplanterDrehtermin: dateInputZuDate(body.querySelector("#f-drehdatum").value)

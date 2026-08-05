@@ -6,17 +6,32 @@
 import {
   beobachteVideos, adminSetzeStatus, loescheVideo, aktualisierePlan, aktualisiereVideo,
   beobachteAlleKommentare, kommentarSetzeBearbeitung, benachrichtigeKunde,
-  beobachteBongNotizen, bongNotizAnlegen, loescheBongNotiz
+  beobachteBongNotizen, bongNotizAnlegen, loescheBongNotiz, beobachteKunden
 } from "../db.js";
 import { beiViewWechsel } from "../view-lifecycle.js";
 import { STATUS, STATUS_REIHENFOLGE, statusIndex, istFreigabeStufe, kundenStatus, skriptFreigabeNoetig, istGebongt, autoGebongt } from "../status.js";
 import { sendKundeFreigabe } from "../email.js";
 import { videoNeuerEntwurf } from "../versionen.js";
-import { escapeHtml, formatDatum, tsZuDateInput, dateInputZuDate } from "../util.js";
+import { escapeHtml, formatDatum, tsZuDateInput, dateInputZuDate, monatKey, monatsLabel, monatPlus } from "../util.js";
 
 const BEARB_LABEL = {
   neu: "Neu", gelesen: "Gelesen", in_umsetzung: "In Umsetzung", umgesetzt: "Umgesetzt"
 };
+
+// Einmalige Migration: Bestandsvideos ohne `monat`-Feld gehören zum Juli-Batch
+// (so von Valentin festgelegt). Idempotent — schreibt nur Dokumente ohne das
+// Feld; Konstante kann nach erfolgreicher Migration entfernt werden (dann
+// greift für Nachzügler der erstelltAm-Fallback in anzeigeMonat()).
+const MIGRATION_MONAT = "2026-07";
+let _backfillLief = false;
+
+// Pipeline-Monat eines Videos — mit Fallbacks, damit NIE ein Video aus der
+// Ansicht fällt (alte Docs ohne Feld, Latenz-Snapshots mit null-Timestamp).
+function anzeigeMonat(v) {
+  if (v.monat) return v.monat;
+  if (v.erstelltAm && typeof v.erstelltAm.toDate === "function") return monatKey(v.erstelltAm.toDate());
+  return monatKey(new Date());
+}
 
 export function renderAdminPipeline(container, opts = {}) {
   const kundeId = opts.kundeId || null;
@@ -36,14 +51,23 @@ export function renderAdminPipeline(container, opts = {}) {
   const offen = new Set();         // aufgeklappte Nachrichten-Blöcke (videoId)
   const offenBong = new Set();     // aufgeklappte Notiz-Blöcke (videoId)
   const offenTermin = new Set();   // aufgeklappte Termin-Editoren (videoId)
-  const ctx = { offen, offenBong, offenTermin, state: { filterGebongt: false }, render: null };
+  const ctx = { offen, offenBong, offenTermin, kundenMap: new Map(),
+    state: { filterGebongt: false, offeneMonate: new Set([monatKey(new Date())]) }, render: null };
   let videosGeladen = false;
 
   const render = () => zeichne(plList, videos, kommMap, bongMap, ctx);
   ctx.render = render;
 
   const unsubV = beobachteVideos(
-    (v) => { videos = v; videosGeladen = true; render(); },
+    (v) => {
+      videos = v; videosGeladen = true;
+      if (!_backfillLief) {
+        _backfillLief = true;
+        v.filter((x) => !x.monat).forEach((x) =>
+          aktualisiereVideo(x.id, { monat: MIGRATION_MONAT }).catch(() => {}));
+      }
+      render();
+    },
     (err) => {
       console.error(err);
       plList.innerHTML = `<div class="card card--pad"><p class="notice notice--error" style="margin:0">
@@ -83,9 +107,20 @@ export function renderAdminPipeline(container, opts = {}) {
     (err) => console.error(err)
   );
 
+  // Kundenprofile für den Drive-Ordner-Fallback (video.driveOrdner leer →
+  // Ordner des Kunden). Kein Blocker: rendert auch, bevor die Map da ist.
+  const unsubKd = beobachteKunden(
+    (liste) => {
+      ctx.kundenMap = new Map(liste.map((k) => [k.id, k]));
+      if (videosGeladen) render();
+    },
+    (err) => console.error(err)
+  );
+
   beiViewWechsel(unsubV);
   beiViewWechsel(unsubK);
   beiViewWechsel(unsubB);
+  beiViewWechsel(unsubKd);
 }
 
 function zeichne(el, videos, kommMap, bongMap, ctx) {
@@ -100,13 +135,58 @@ function zeichne(el, videos, kommMap, bongMap, ctx) {
   }
 
   const sichtbar = state.filterGebongt ? videos.filter(istGebongt) : videos;
-  const liste = sichtbar.length
-    ? `<div class="card row-list">${sichtbar.map((v) =>
-        rowHtml(v, kommMap.get(v.id) || [], bongMap.get(v.id) || [], offen.has(v.id), offenBong.has(v.id), offenTermin.has(v.id))
-      ).join("")}</div>`
+
+  // Nach Pipeline-Monat gruppieren, neueste Monate zuerst. Der aktuelle Monat
+  // wird IMMER angelegt (auch leer) — so „öffnet" sich am 1. automatisch die
+  // neue Monats-Sektion, ganz ohne Backend/Cron. Im Gebongt-Filter entfallen
+  // leere Sektionen (nur echte Treffer zählen).
+  const aktuellerMonat = monatKey(new Date());
+  const gruppen = new Map();
+  sichtbar.forEach((v) => {
+    const m = anzeigeMonat(v);
+    if (!gruppen.has(m)) gruppen.set(m, []);
+    gruppen.get(m).push(v);
+  });
+  if (!state.filterGebongt && !gruppen.has(aktuellerMonat)) gruppen.set(aktuellerMonat, []);
+  const monate = [...gruppen.keys()].sort().reverse();
+
+  const sektionHtml = (m) => {
+    const vs = gruppen.get(m);
+    const istOffenM = state.offeneMonate.has(m);
+    const gebongtN = vs.filter(istGebongt).length;
+    const inhalt = vs.length
+      ? `<div class="pl-karten">${vs.map((v) =>
+          rowHtml(v, kommMap.get(v.id) || [], bongMap.get(v.id) || [], offen.has(v.id), offenBong.has(v.id), offenTermin.has(v.id), ctx.kundenMap.get(v.kundeId))
+        ).join("")}</div>`
+      : `<div class="card card--pad"><p class="muted" style="margin:0">Noch keine Videos in diesem Monat — leg mit „+ Neues Video" los.</p></div>`;
+    return `
+      <section class="pl-monat${istOffenM ? " is-offen" : ""}" data-monat="${escapeHtml(m)}">
+        <button class="pl-monat-head" type="button" title="${istOffenM ? "Monat zuklappen" : "Monat aufklappen"}">
+          <span class="pl-monat-chevron">▸</span>
+          <span class="pl-monat-label">${escapeHtml(monatsLabel(m))}</span>
+          ${m === aktuellerMonat ? `<span class="pl-monat-jetzt">aktueller Monat</span>` : ""}
+          <span class="pl-monat-n muted">${vs.length} Video${vs.length === 1 ? "" : "s"}${gebongtN ? ` · ${gebongtN} gebongt` : ""}</span>
+        </button>
+        <div class="pl-monat-body"${istOffenM ? "" : " hidden"}>${inhalt}</div>
+      </section>`;
+  };
+
+  const liste = monate.length
+    ? monate.map(sektionHtml).join("")
     : `<div class="card card--pad"><p class="muted" style="margin:0">Noch keine gebongten Videos. Markier eins mit „Video ist gebongt" — oder setz es auf 🎥 Gedreht.</p></div>`;
 
   el.innerHTML = `${dashboardHtml(videos)}${filterHtml(state, videos)}${liste}`;
+
+  // Monats-Sektionen auf-/zuklappen (Zustand in offeneMonate, damit er
+  // Snapshot-Re-Renders übersteht).
+  el.querySelectorAll(".pl-monat-head").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const m = btn.closest(".pl-monat").getAttribute("data-monat");
+      if (state.offeneMonate.has(m)) state.offeneMonate.delete(m);
+      else state.offeneMonate.add(m);
+      ctx.render();
+    });
+  });
 
   // Alle | Gebongt umschalten (State merken, ganze Liste neu zeichnen).
   el.querySelectorAll(".pl-filter-btn").forEach((btn) => {
@@ -164,6 +244,14 @@ function zeichne(el, videos, kommMap, bongMap, ctx) {
       } finally {
         sel.disabled = false;
       }
+    });
+
+    // 📅 Pipeline-Monat umhängen (z. B. „für August vorproduziert").
+    const monSel = item.querySelector(".pl-monat-sel");
+    if (monSel) monSel.addEventListener("change", async () => {
+      monSel.disabled = true;
+      try { await aktualisiereVideo(id, { monat: monSel.value }); }   // Observer zeichnet neu
+      catch (e) { console.error(e); alert("Monat konnte nicht gespeichert werden."); monSel.disabled = false; }
     });
 
     // 🔁 Neue Version an den Kunden geben (bestehender Entwurf-Mechanismus).
@@ -347,10 +435,20 @@ function kachelHtml(k) {
     </div>`;
 }
 
-function rowHtml(v, komms, notizen, istOffen, istOffenBong, istOffenTermin) {
+function rowHtml(v, komms, notizen, istOffen, istOffenBong, istOffenTermin, kunde) {
   const ks = kundenStatus(v.status);
   const opts = STATUS_REIHENFOLGE
     .map((s) => `<option value="${escapeHtml(s)}"${s === v.status ? " selected" : ""}>${escapeHtml(s)}</option>`)
+    .join("");
+
+  // 📅 Pipeline-Monat: Fenster Vormonat … +2 — plus den gesetzten Monat des
+  // Videos, falls er außerhalb liegt (sonst wäre die Selektion unsichtbar).
+  const vMonat = anzeigeMonat(v);
+  const basis = monatKey(new Date());
+  const fenster = [monatPlus(basis, -1), basis, monatPlus(basis, 1), monatPlus(basis, 2)];
+  if (!fenster.includes(vMonat)) fenster.push(vMonat);
+  const monatOpts = fenster.sort()
+    .map((m) => `<option value="${escapeHtml(m)}"${m === vMonat ? " selected" : ""}>${escapeHtml(monatsLabel(m))}</option>`)
     .join("");
 
   const ungelesen = komms.filter((k) => (k.bearbeitung || "neu") === "neu").length;
@@ -416,6 +514,25 @@ function rowHtml(v, komms, notizen, istOffen, istOffenBong, istOffenTermin) {
       </div>
     </form>`;
 
+  // 🔗 Schnellzugriffe auf der Karte: Skript, Google Drive, Kalender-Eintrag.
+  // Reine <a>-Links — brauchen kein Event-Wiring. Fehlt die Quelle, entfällt
+  // der Link (leere Buttons wären auf der Karte nur Rauschen).
+  const links = [];
+  if (skriptFreigabeNoetig(v.typ)) {
+    if (v.planId) links.push(`<a class="pl-link" href="#/admin/plan/${encodeURIComponent(v.planId)}">📝 Skript</a>`);
+    else if (v.skriptLink) links.push(`<a class="pl-link" href="${escapeHtml(v.skriptLink)}" target="_blank" rel="noopener">📝 Skript ↗</a>`);
+  }
+  const drive = v.driveOrdner || (kunde && kunde.driveOrdner) || "";
+  if (drive) links.push(`<a class="pl-link" href="${escapeHtml(drive)}" target="_blank" rel="noopener">📁 Google Drive ↗</a>`);
+  const terminTs = v.geplanterDrehtermin || v.geplantesDatum;
+  if (terminTs) {
+    const markerId = v.geplanterDrehtermin ? `vd_${v.id}` : `vp_${v.id}`;
+    const d = terminTs.toDate ? terminTs.toDate() : new Date(terminTs);
+    if (!isNaN(d.getTime())) links.push(
+      `<a class="pl-link" href="#/admin/kalender?m=${encodeURIComponent(monatKey(d))}&mark=${encodeURIComponent(markerId)}">📅 Kalender</a>`);
+  }
+  const linksHtml = links.length ? `<div class="pl-links">${links.join("")}</div>` : "";
+
   return `
     <div class="pl-item${verworfen}" data-id="${escapeHtml(v.id)}">
       <div class="pl-row">
@@ -431,9 +548,11 @@ function rowHtml(v, komms, notizen, istOffen, istOffenBong, istOffenTermin) {
         ${notesBtn}
         ${msgBtn}
         <button class="pl-version" type="button" title="Neue Version an den Kunden geben — zählt den Entwurf hoch und benachrichtigt den Kunden zur Freigabe">🔁 <span class="pl-version-txt">Neue Version</span></button>
+        <select class="pl-monat-sel field-inline" aria-label="Pipeline-Monat" title="In welchen Monat gehört dieses Video?">${monatOpts}</select>
         <select class="pl-status field-inline" aria-label="Status">${opts}</select>
         <button class="pl-del" type="button" title="Video aus der Pipeline entfernen">✕</button>
       </div>
+      ${linksHtml}
       ${hatMsgs ? `<div class="pl-msgs"${istOffen ? "" : " hidden"}>${komms.map(msgHtml).join("")}</div>` : ""}
       ${notesBlock}
       ${terminEdit}

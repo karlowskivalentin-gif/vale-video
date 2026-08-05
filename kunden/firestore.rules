@@ -224,6 +224,13 @@ service cloud.firestore {
       allow read, write: if istAdmin();
     }
 
+    // ---- moodboard (Kanal-Haftnotizen, Admin-only) -------------------
+    // Persönliche Pinnwand mit Inspirations-YouTube-Kanälen (was gefällt,
+    // was nachahmen). Der Kunde sieht das NIE.
+    match /moodboard/{id} {
+      allow read, write: if istAdmin();
+    }
+
     // ---- fokusvideos (kuratierte Fokus-YouTube-Liste, Admin-only) ----
     // Private Anspiel-Liste auf der Fokus-Seite. Nur Metadaten (kein Blob).
     // Gleiche Vertrauensgrenze wie gedanken/plaene/shotvorlagen.

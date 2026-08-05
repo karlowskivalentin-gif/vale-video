@@ -65,7 +65,7 @@ export function renderLogin(container, opts = {}) {
         <p class="login-eyebrow">Kundenportal</p>
         <h1 class="login-title">Anmelden</h1>
         <p class="muted login-sub">
-          Melde dich an, um deine Objekte und Videos zu sehen. Der Zugang ist auf
+          Melde dich an, um deine Projekte und Videos zu sehen. Der Zugang ist auf
           freigeschaltete Adressen beschränkt.
         </p>
 

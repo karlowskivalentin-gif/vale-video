@@ -17,6 +17,7 @@ import {
   kundenFreigabeZiel, kundenAenderungZiel, kundenVerwerfenZiel
 } from "./status.js";
 import { ADMIN_EMAILS } from "./roles.js";
+import { monatKey } from "./util.js";
 
 const snapToArr = (snap) => snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
@@ -74,9 +75,11 @@ export async function videoAnlegen(daten) {
     planId:         daten.planId || null,   // Herkunfts-Plan (Video-Edit zeigt dessen volle Details)
     planSnapshot:   daten.planSnapshot || null,  // kundensichtbarer Ausschnitt des Plans (Kunde darf /plaene nicht lesen)
     status:         daten.status || STATUS.IDEE,
+    monat:          daten.monat || monatKey(new Date()),   // Pipeline-Monat "YYYY-MM" (Sektion in der Admin-Pipeline)
     entwurf:        1,                       // Entwurfs-/Versionsnummer (steigt mit jedem „Neuen Entwurf")
     skriptLink:     daten.skriptLink || "",
     schnittLink:    daten.schnittLink || "",
+    driveOrdner:    daten.driveOrdner || "",  // Google-Drive-Ordner des Videos (leer → Fallback: Kunde)
     freigabeSkript: null,
     freigabeSchnitt: null,
     geplantesDatum:     daten.geplantesDatum || null,
@@ -541,6 +544,48 @@ export function beobachteInspirationen(callback, onError) {
 }
 
 // =====================================================================
+// MOODBOARD — persönliche Kanal-Haftnotizen (Admin-only)
+// Eine Notiz = ein Inspirations-YouTube-Kanal:
+//   kanalName   (string) — Anzeigename des Kanals
+//   kanalUrl    (string) — Link zum Kanal
+//   gefaelltMir (string) — was an dem Kanal gefällt
+//   nachahmen   (string) — was davon nachgeahmt werden soll
+//   farbe       ('gelb'|'rosa'|'blau'|'gruen'|'orange')
+// Rechte: ausschließlich Admin (siehe firestore.rules: /moodboard).
+// =====================================================================
+export const MOODBOARD_FARBEN = ["gelb", "rosa", "blau", "gruen", "orange"];
+
+const moodboardCol = () => collection(db, "moodboard");
+
+export async function moodboardNotizAnlegen(daten) {
+  return addDoc(moodboardCol(), {
+    kanalName:   daten.kanalName || "",
+    kanalUrl:    daten.kanalUrl || "",
+    gefaelltMir: daten.gefaelltMir || "",
+    nachahmen:   daten.nachahmen || "",
+    farbe:       MOODBOARD_FARBEN.includes(daten.farbe) ? daten.farbe : "gelb",
+    erstelltAm:     serverTimestamp(),
+    aktualisiertAm: serverTimestamp()
+  });
+}
+
+export async function aktualisiereMoodboardNotiz(id, felder) {
+  return updateDoc(doc(db, "moodboard", id), { ...felder, aktualisiertAm: serverTimestamp() });
+}
+
+export async function loescheMoodboardNotiz(id) {
+  return deleteDoc(doc(db, "moodboard", id));
+}
+
+export function beobachteMoodboard(callback, onError) {
+  return onSnapshot(
+    query(moodboardCol(), orderBy("erstelltAm", "desc")),
+    (snap) => callback(snapToArr(snap)),
+    onError || (() => {})
+  );
+}
+
+// =====================================================================
 // FOKUSVIDEOS — private Fokus-/Ambient-YouTube-Videos (Admin-only)
 // Kuratierte Anspiel-Liste auf der Fokus-Seite: Karten-Grid + Inline-Player.
 // Ein Dokument = ein Video. Es werden NUR Metadaten gespeichert (kein Blob):
@@ -970,7 +1015,7 @@ export async function ladeKundenmitglied(email) {
 // in EINEM Batch synchron (Single Source of Truth für die Rules). `altEmails` =
 // die vorher gespeicherten E-Mails, damit entfernte Mitglieds-Docs gelöscht
 // werden. `istNeu` setzt erstelltAm nur bei der Erstanlage.
-export async function kundeSpeichern({ id, name, emails, altEmails, istNeu }) {
+export async function kundeSpeichern({ id, name, emails, altEmails, istNeu, driveOrdner, kundenart }) {
   const kundeId = (id || "").trim().toLowerCase();
   if (!kundeId) throw new Error("kundeId fehlt");
   const norm = (arr) => Array.from(new Set(
@@ -982,6 +1027,10 @@ export async function kundeSpeichern({ id, name, emails, altEmails, istNeu }) {
   const batch = writeBatch(db);
   const kundeDaten = { name: name || kundeId, emails: neu, aktualisiertAm: serverTimestamp() };
   if (istNeu) kundeDaten.erstelltAm = serverTimestamp();
+  // Nur bedingt schreiben: migriereAltbestand() ruft ohne driveOrdner/kundenart
+  // auf — merge:true erhält dann den Bestandswert (und Firestore mag kein undefined).
+  if (typeof driveOrdner === "string") kundeDaten.driveOrdner = driveOrdner.trim();
+  if (typeof kundenart === "string" && kundenart) kundeDaten.kundenart = kundenart;
   batch.set(doc(db, "kunden", kundeId), kundeDaten, { merge: true });
 
   // Neue/bestehende Mitglieder eintragen …
