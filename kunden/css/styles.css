@@ -468,6 +468,11 @@ a.row-item:hover { background: var(--off-white); }
   font-size: 0.78rem; font-weight: 600; padding: 0.3rem 0.7rem; color: var(--black);
 }
 .pl-link:hover { border-color: var(--accent); color: var(--accent); }
+/* Offener Kunden-Skript-Upload: leuchtet, bis er „Erledigt" ist */
+.pl-link--upload {
+  border-color: var(--accent); color: var(--accent-dim);
+  background: rgba(226,98,44,0.07); font-weight: 700;
+}
 
 /* Status-Dashboard: Fortschritts-Kacheln über der Pipeline-Liste */
 .pl-dash { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem; }

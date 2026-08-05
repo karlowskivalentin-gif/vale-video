@@ -6,7 +6,8 @@
 import {
   beobachteVideos, adminSetzeStatus, loescheVideo, aktualisierePlan, aktualisiereVideo,
   beobachteAlleKommentare, kommentarSetzeBearbeitung, benachrichtigeKunde,
-  beobachteBongNotizen, bongNotizAnlegen, loescheBongNotiz, beobachteKunden
+  beobachteBongNotizen, bongNotizAnlegen, loescheBongNotiz, beobachteKunden,
+  beobachteOffeneSkriptUploads
 } from "../db.js";
 import { beiViewWechsel } from "../view-lifecycle.js";
 import { STATUS, STATUS_REIHENFOLGE, statusIndex, istFreigabeStufe, kundenStatus, skriptFreigabeNoetig, istGebongt, autoGebongt } from "../status.js";
@@ -51,7 +52,7 @@ export function renderAdminPipeline(container, opts = {}) {
   const offen = new Set();         // aufgeklappte Nachrichten-Blöcke (videoId)
   const offenBong = new Set();     // aufgeklappte Notiz-Blöcke (videoId)
   const offenTermin = new Set();   // aufgeklappte Termin-Editoren (videoId)
-  const ctx = { offen, offenBong, offenTermin, kundenMap: new Map(),
+  const ctx = { offen, offenBong, offenTermin, kundenMap: new Map(), uploadMap: new Map(),
     state: { filterGebongt: false, offeneMonate: new Set([monatKey(new Date())]) }, render: null };
   let videosGeladen = false;
 
@@ -117,10 +118,22 @@ export function renderAdminPipeline(container, opts = {}) {
     (err) => console.error(err)
   );
 
+  // Offene Kunden-Skript-Uploads → 📄-Badge auf der Karte (bis „Erledigt").
+  const unsubU = beobachteOffeneSkriptUploads(
+    (liste) => {
+      const m = new Map();
+      liste.forEach((u) => { if (u.videoId) m.set(u.videoId, (m.get(u.videoId) || 0) + 1); });
+      ctx.uploadMap = m;
+      if (videosGeladen) render();
+    },
+    (err) => console.error(err)
+  );
+
   beiViewWechsel(unsubV);
   beiViewWechsel(unsubK);
   beiViewWechsel(unsubB);
   beiViewWechsel(unsubKd);
+  beiViewWechsel(unsubU);
 }
 
 function zeichne(el, videos, kommMap, bongMap, ctx) {
@@ -156,7 +169,7 @@ function zeichne(el, videos, kommMap, bongMap, ctx) {
     const gebongtN = vs.filter(istGebongt).length;
     const inhalt = vs.length
       ? `<div class="pl-karten">${vs.map((v) =>
-          rowHtml(v, kommMap.get(v.id) || [], bongMap.get(v.id) || [], offen.has(v.id), offenBong.has(v.id), offenTermin.has(v.id), ctx.kundenMap.get(v.kundeId))
+          rowHtml(v, kommMap.get(v.id) || [], bongMap.get(v.id) || [], offen.has(v.id), offenBong.has(v.id), offenTermin.has(v.id), ctx.kundenMap.get(v.kundeId), ctx.uploadMap.get(v.id) || 0)
         ).join("")}</div>`
       : `<div class="card card--pad"><p class="muted" style="margin:0">Noch keine Videos in diesem Monat — leg mit „+ Neues Video" los.</p></div>`;
     return `
@@ -435,7 +448,7 @@ function kachelHtml(k) {
     </div>`;
 }
 
-function rowHtml(v, komms, notizen, istOffen, istOffenBong, istOffenTermin, kunde) {
+function rowHtml(v, komms, notizen, istOffen, istOffenBong, istOffenTermin, kunde, uploadsOffen) {
   const ks = kundenStatus(v.status);
   const opts = STATUS_REIHENFOLGE
     .map((s) => `<option value="${escapeHtml(s)}"${s === v.status ? " selected" : ""}>${escapeHtml(s)}</option>`)
@@ -518,6 +531,10 @@ function rowHtml(v, komms, notizen, istOffen, istOffenBong, istOffenTermin, kund
   // Reine <a>-Links — brauchen kein Event-Wiring. Fehlt die Quelle, entfällt
   // der Link (leere Buttons wären auf der Karte nur Rauschen).
   const links = [];
+  // 📄 Offener Kunden-Upload: auffälliger Badge, führt direkt zum Upload-Block
+  // in der Video-Bearbeitung. Verschwindet, sobald der Upload „Erledigt" ist.
+  if (uploadsOffen) links.push(
+    `<a class="pl-link pl-link--upload" href="#/admin/video/${encodeURIComponent(v.id)}" title="Der Kunde hat ein überarbeitetes Skript hochgeladen — ansehen und auf Erledigt setzen">📄 Neues Kunden-Skript${uploadsOffen > 1 ? ` (${uploadsOffen})` : ""}</a>`);
   if (skriptFreigabeNoetig(v.typ)) {
     if (v.planId) links.push(`<a class="pl-link" href="#/admin/plan/${encodeURIComponent(v.planId)}">📝 Skript</a>`);
     else if (v.skriptLink) links.push(`<a class="pl-link" href="${escapeHtml(v.skriptLink)}" target="_blank" rel="noopener">📝 Skript ↗</a>`);

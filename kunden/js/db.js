@@ -883,6 +883,17 @@ export function beobachteSkriptUploads(videoId, callback, onError) {
   );
 }
 
+// Offene (nicht erledigte) Uploads ALLER Videos — für den Pipeline-Badge.
+// Bewusst nur erledigt==false: die Docs tragen Base64-Blobs (bis ~700 KB),
+// offene sind aber typischerweise nur eine Handvoll.
+export function beobachteOffeneSkriptUploads(callback, onError) {
+  return onSnapshot(
+    query(skriptUploadsCol(), where("erledigt", "==", false)),
+    (snap) => callback(snapToArr(snap)),
+    onError || (() => {})
+  );
+}
+
 export async function setzeSkriptUploadErledigt(id, erledigt) {
   return updateDoc(doc(db, "skriptuploads", id), { erledigt: !!erledigt });
 }
