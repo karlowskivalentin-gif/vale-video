@@ -10,10 +10,11 @@ import {
   beobachteOffeneSkriptUploads
 } from "../db.js";
 import { beiViewWechsel } from "../view-lifecycle.js";
-import { STATUS, STATUS_REIHENFOLGE, statusIndex, istFreigabeStufe, kundenStatus, skriptFreigabeNoetig, istGebongt, autoGebongt } from "../status.js";
+import { STATUS, STATUS_REIHENFOLGE, statusIndex, istFreigabeStufe, kundenStatus, skriptFreigabeNoetig, istGebongt, autoGebongt,
+         MONAT_SPAETER, istSpaeter, pipelineMonatsLabel } from "../status.js";
 import { sendKundeFreigabe } from "../email.js";
 import { videoNeuerEntwurf } from "../versionen.js";
-import { escapeHtml, formatDatum, tsZuDateInput, dateInputZuDate, monatKey, monatsLabel, monatPlus } from "../util.js";
+import { escapeHtml, formatDatum, tsZuDateInput, dateInputZuDate, monatKey, monatPlus } from "../util.js";
 
 const BEARB_LABEL = {
   neu: "Neu", gelesen: "Gelesen", in_umsetzung: "In Umsetzung", umgesetzt: "Umgesetzt"
@@ -28,6 +29,7 @@ let _backfillLief = false;
 
 // Pipeline-Monat eines Videos — mit Fallbacks, damit NIE ein Video aus der
 // Ansicht fällt (alte Docs ohne Feld, Latenz-Snapshots mit null-Timestamp).
+// Kann auch MONAT_SPAETER sein — der Parkplatz ist ein Wert dieses Feldes.
 function anzeigeMonat(v) {
   if (v.monat) return v.monat;
   if (v.erstelltAm && typeof v.erstelltAm.toDate === "function") return monatKey(v.erstelltAm.toDate());
@@ -53,7 +55,9 @@ export function renderAdminPipeline(container, opts = {}) {
   const offenBong = new Set();     // aufgeklappte Notiz-Blöcke (videoId)
   const offenTermin = new Set();   // aufgeklappte Termin-Editoren (videoId)
   const ctx = { offen, offenBong, offenTermin, kundenMap: new Map(), uploadMap: new Map(),
-    state: { filterGebongt: false, offeneMonate: new Set([monatKey(new Date())]) }, render: null };
+    state: { filterGebongt: false, offeneMonate: new Set([monatKey(new Date())]),
+             dashMonat: monatKey(new Date()) },   // Kennzahlen-Zeitraum ("" = gesamt)
+    render: null };
   let videosGeladen = false;
 
   const render = () => zeichne(plList, videos, kommMap, bongMap, ctx);
@@ -161,23 +165,32 @@ function zeichne(el, videos, kommMap, bongMap, ctx) {
     gruppen.get(m).push(v);
   });
   if (!state.filterGebongt && !gruppen.has(aktuellerMonat)) gruppen.set(aktuellerMonat, []);
-  const monate = [...gruppen.keys()].sort().reverse();
+  // Echte Monate absteigend (neueste zuerst), der Parkplatz IMMER ganz unten —
+  // alphabetisch würde "spaeter" sonst vor jedes "2026-…" rutschen.
+  const monate = [...gruppen.keys()].filter((m) => !istSpaeter(m)).sort().reverse();
+  if (gruppen.has(MONAT_SPAETER)) monate.push(MONAT_SPAETER);
 
   const sektionHtml = (m) => {
     const vs = gruppen.get(m);
     const istOffenM = state.offeneMonate.has(m);
+    const spaeter = istSpaeter(m);
     const gebongtN = vs.filter(istGebongt).length;
     const inhalt = vs.length
       ? `<div class="pl-karten">${vs.map((v) =>
           rowHtml(v, kommMap.get(v.id) || [], bongMap.get(v.id) || [], offen.has(v.id), offenBong.has(v.id), offenTermin.has(v.id), ctx.kundenMap.get(v.kundeId), ctx.uploadMap.get(v.id) || 0)
         ).join("")}</div>`
-      : `<div class="card card--pad"><p class="muted" style="margin:0">Noch keine Videos in diesem Monat — leg mit „+ Neues Video" los.</p></div>`;
+      : `<div class="card card--pad"><p class="muted" style="margin:0">${spaeter
+          ? "Hier liegt gerade nichts — häng ein Video über das Monats-Dropdown auf „🅿️ Irgendwann“."
+          : "Noch keine Videos in diesem Monat — leg mit „+ Neues Video“ los."}</p></div>`;
     return `
-      <section class="pl-monat${istOffenM ? " is-offen" : ""}" data-monat="${escapeHtml(m)}">
-        <button class="pl-monat-head" type="button" title="${istOffenM ? "Monat zuklappen" : "Monat aufklappen"}">
+      <section class="pl-monat${spaeter ? " pl-monat--spaeter" : ""}${istOffenM ? " is-offen" : ""}" data-monat="${escapeHtml(m)}">
+        <button class="pl-monat-head" type="button" title="${spaeter
+          ? (istOffenM ? "Parkplatz zuklappen" : "Parkplatz aufklappen")
+          : (istOffenM ? "Monat zuklappen" : "Monat aufklappen")}">
           <span class="pl-monat-chevron">▸</span>
-          <span class="pl-monat-label">${escapeHtml(monatsLabel(m))}</span>
+          <span class="pl-monat-label">${escapeHtml(pipelineMonatsLabel(m))}</span>
           ${m === aktuellerMonat ? `<span class="pl-monat-jetzt">aktueller Monat</span>` : ""}
+          ${spaeter ? `<span class="pl-monat-parkplatz">ohne Monat</span>` : ""}
           <span class="pl-monat-n muted">${vs.length} Video${vs.length === 1 ? "" : "s"}${gebongtN ? ` · ${gebongtN} gebongt` : ""}</span>
         </button>
         <div class="pl-monat-body"${istOffenM ? "" : " hidden"}>${inhalt}</div>
@@ -188,7 +201,14 @@ function zeichne(el, videos, kommMap, bongMap, ctx) {
     ? monate.map(sektionHtml).join("")
     : `<div class="card card--pad"><p class="muted" style="margin:0">Noch keine gebongten Videos. Markier eins mit „Video ist gebongt" — oder setz es auf 🎥 Gedreht.</p></div>`;
 
-  el.innerHTML = `${dashboardHtml(videos)}${filterHtml(state, videos)}${liste}`;
+  el.innerHTML = `${dashboardHtml(videos, state)}${filterHtml(state, videos)}${liste}`;
+
+  // Zeitraum der Kennzahlen umschalten (Gesamt ⇄ einzelner Monat).
+  const dashSel = el.querySelector(".pl-dash-monat");
+  if (dashSel) dashSel.addEventListener("change", () => {
+    state.dashMonat = dashSel.value || "";
+    ctx.render();
+  });
 
   // Monats-Sektionen auf-/zuklappen (Zustand in offeneMonate, damit er
   // Snapshot-Re-Renders übersteht).
@@ -259,11 +279,15 @@ function zeichne(el, videos, kommMap, bongMap, ctx) {
       }
     });
 
-    // 📅 Pipeline-Monat umhängen (z. B. „für August vorproduziert").
+    // 📅 Pipeline-Monat umhängen (z. B. „für August vorproduziert") oder auf den
+    // Parkplatz „🅿️ Irgendwann“ schieben. Die Zielsektion wird aufgeklappt,
+    // sonst wandert die Karte in einen zugeklappten Block und wirkt verschwunden.
     const monSel = item.querySelector(".pl-monat-sel");
     if (monSel) monSel.addEventListener("change", async () => {
+      const ziel = monSel.value;
       monSel.disabled = true;
-      try { await aktualisiereVideo(id, { monat: monSel.value }); }   // Observer zeichnet neu
+      state.offeneMonate.add(ziel);
+      try { await aktualisiereVideo(id, { monat: ziel }); }   // Observer zeichnet neu
       catch (e) { console.error(e); alert("Monat konnte nicht gespeichert werden."); monSel.disabled = false; }
     });
 
@@ -384,10 +408,19 @@ function zeichne(el, videos, kommMap, bongMap, ctx) {
       save.disabled = true;
       offenTermin.add(id);   // Editor über das Re-Render offen halten
       try {
-        await aktualisiereVideo(id, {
+        const felder = {
           geplanterDrehtermin: dateInputZuDate(dreh),
           geplantesDatum:      dateInputZuDate(pub)
-        });
+        };
+        // Ein geparktes Video bekommt einen Termin → es ist nicht mehr „irgendwann".
+        // Automatisch in den Monat des Termins hängen (Dreh schlägt Veröffentlichung),
+        // sonst stünde ein Drehdatum unter „🅿️ Irgendwann“.
+        const datum = felder.geplanterDrehtermin || felder.geplantesDatum;
+        if (video && istSpaeter(anzeigeMonat(video)) && datum) {
+          felder.monat = monatKey(datum);
+          state.offeneMonate.add(felder.monat);
+        }
+        await aktualisiereVideo(id, felder);
       } catch (err) {
         console.error(err); alert("Termin konnte nicht gespeichert werden.");
       } finally { save.disabled = false; }
@@ -407,13 +440,44 @@ function filterHtml(state, videos) {
   </div>`;
 }
 
-// --- Status-Dashboard: Fortschritt über alle aktiven Videos ------------
-// Grundgesamtheit = alle Videos außer „Verworfen". „Geskriptet" zählt nur
-// Formate, die überhaupt ein Skript brauchen (Cinematic/wortlose Edits fallen
-// bei diesem Zähler aus Ist UND Gesamt — n/a). Reine Anzeige, keine DB-Schreibung.
-function dashboardHtml(videos) {
-  const aktiv = videos.filter((v) => v.status !== STATUS.VERWORFEN);
-  if (!aktiv.length) return "";
+// --- Status-Dashboard: Fortschritt über die aktiven Videos -------------
+// Grundgesamtheit = alle Videos außer „Verworfen", eingeschränkt auf den im
+// Kopf gewählten Zeitraum (state.dashMonat: ein Monat oder "" = gesamt).
+// Default ist der laufende Monat — sonst mischen sich alte Batches in die
+// Quoten. „Geskriptet" zählt nur Formate, die überhaupt ein Skript brauchen
+// (Cinematic/wortlose Edits fallen aus Ist UND Gesamt — n/a).
+// Geparkte Videos („🅿️ Irgendwann“) zählen NIRGENDS mit, auch nicht in
+// „Gesamt": ohne Drehmonat ist eine Skript-/Drehquote sinnlos und jede
+// liegengebliebene Idee würde die Zahlen dauerhaft nach unten ziehen.
+// Reine Anzeige, keine DB-Schreibung.
+function dashboardHtml(videos, state) {
+  const gewaehlt = state.dashMonat || "";          // "" = alle echten Monate
+  const aktuellerMonat = monatKey(new Date());
+  const geplant = videos.filter((v) => !istSpaeter(anzeigeMonat(v)));
+
+  // Auswahl: „Gesamt" + jeder Monat, in dem Videos liegen (aktueller immer dabei).
+  const vorhanden = new Set(geplant.map(anzeigeMonat));
+  vorhanden.add(aktuellerMonat);
+  const monate = [...vorhanden].sort().reverse();
+  const optionen = [`<option value=""${gewaehlt === "" ? " selected" : ""}>Gesamt (alle Monate)</option>`]
+    .concat(monate.map((m) =>
+      `<option value="${escapeHtml(m)}"${m === gewaehlt ? " selected" : ""}>${escapeHtml(pipelineMonatsLabel(m))}${m === aktuellerMonat ? " — aktuell" : ""}</option>`))
+    .join("");
+
+  const imZeitraum = gewaehlt ? geplant.filter((v) => anzeigeMonat(v) === gewaehlt) : geplant;
+  const aktiv = imZeitraum.filter((v) => v.status !== STATUS.VERWORFEN);
+
+  const kopf = `<div class="pl-dash-kopf">
+    <span class="pl-dash-titel">Kennzahlen</span>
+    <select class="pl-dash-monat field-inline" aria-label="Zeitraum der Kennzahlen"
+            title="Worüber sollen die Kennzahlen rechnen? Geparkte Videos zählen nie mit.">${optionen}</select>
+  </div>`;
+
+  if (!aktiv.length) {
+    return `${kopf}<div class="card card--pad"><p class="muted" style="margin:0">
+      ${gewaehlt ? `Keine aktiven Videos im Zeitraum ${escapeHtml(pipelineMonatsLabel(gewaehlt))}.` : "Noch keine aktiven Videos mit Monat."}
+      </p></div>`;
+  }
 
   const idxFreigabeSkript  = statusIndex(STATUS.FREIGABE_SKRIPT);
   const idxFreigabeSchnitt = statusIndex(STATUS.FREIGABE_SCHNITT);
@@ -431,7 +495,7 @@ function dashboardHtml(videos) {
     { emoji: "✂️", label: "Schnitt fertig",    ist: geschnitten, gesamt: aktiv.length },
     { emoji: "✅", label: "Vom Kunden freigegeben", ist: akzeptiert, gesamt: aktiv.length }
   ];
-  return `<div class="pl-dash">${kacheln.map(kachelHtml).join("")}</div>`;
+  return `${kopf}<div class="pl-dash">${kacheln.map(kachelHtml).join("")}</div>`;
 }
 
 function kachelHtml(k) {
@@ -456,12 +520,15 @@ function rowHtml(v, komms, notizen, istOffen, istOffenBong, istOffenTermin, kund
 
   // 📅 Pipeline-Monat: Fenster Vormonat … +2 — plus den gesetzten Monat des
   // Videos, falls er außerhalb liegt (sonst wäre die Selektion unsichtbar).
+  // Der Parkplatz „🅿️ Irgendwann“ hängt immer hinten dran: er ist kein Monat
+  // und darf deshalb nicht in die chronologische Sortierung geraten.
   const vMonat = anzeigeMonat(v);
+  const geparkt = istSpaeter(vMonat);
   const basis = monatKey(new Date());
   const fenster = [monatPlus(basis, -1), basis, monatPlus(basis, 1), monatPlus(basis, 2)];
-  if (!fenster.includes(vMonat)) fenster.push(vMonat);
-  const monatOpts = fenster.sort()
-    .map((m) => `<option value="${escapeHtml(m)}"${m === vMonat ? " selected" : ""}>${escapeHtml(monatsLabel(m))}</option>`)
+  if (!geparkt && !fenster.includes(vMonat)) fenster.push(vMonat);
+  const monatOpts = fenster.sort().concat(MONAT_SPAETER)
+    .map((m) => `<option value="${escapeHtml(m)}"${m === vMonat ? " selected" : ""}>${escapeHtml(pipelineMonatsLabel(m))}</option>`)
     .join("");
 
   const ungelesen = komms.filter((k) => (k.bearbeitung || "neu") === "neu").length;
@@ -565,7 +632,8 @@ function rowHtml(v, komms, notizen, istOffen, istOffenBong, istOffenTermin, kund
         ${notesBtn}
         ${msgBtn}
         <button class="pl-version" type="button" title="Neue Version an den Kunden geben — zählt den Entwurf hoch und benachrichtigt den Kunden zur Freigabe">🔁 <span class="pl-version-txt">Neue Version</span></button>
-        <select class="pl-monat-sel field-inline" aria-label="Pipeline-Monat" title="In welchen Monat gehört dieses Video?">${monatOpts}</select>
+        <select class="pl-monat-sel field-inline${geparkt ? " is-spaeter" : ""}" aria-label="Pipeline-Monat"
+                title="In welchen Monat gehört dieses Video? „🅿️ Irgendwann“ parkt es ohne Termin.">${monatOpts}</select>
         <select class="pl-status field-inline" aria-label="Status">${opts}</select>
         <button class="pl-del" type="button" title="Video aus der Pipeline entfernen">✕</button>
       </div>

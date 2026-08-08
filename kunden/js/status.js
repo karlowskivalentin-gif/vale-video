@@ -2,10 +2,14 @@
 // Status-Logik: die 10 internen Pipeline-Stufen, das kundenfreundliche
 // Mapping und die 4 erlaubten Kunden-Übergänge.
 //
+// Zusätzlich: die Monats-Logik der gemeldeten Objekte (Anlage-Monat →
+// Produktionsmonat), siehe objektProduktionsMonat() weiter unten.
+//
 // WICHTIG: Die Übergangs-Whitelist (kundenFreigabeZiel / kundenAenderungZiel /
 // kundenVerwerfenZiel) MUSS exakt mit der Funktion `erlaubterUebergang` in
 // firestore.rules übereinstimmen. Wird hier etwas geändert, auch dort anpassen.
 // =====================================================================
+import { monatKey, monatPlus, monatsLabel } from "./util.js";
 
 // --- Die internen Pipeline-Stufen (in Reihenfolge) --------------------
 // VERWORFEN ist ein terminaler Seiten-Status (nicht Teil der linearen Kette):
@@ -44,6 +48,24 @@ export function statusIndex(status) {
   return STATUS_REIHENFOLGE.indexOf(status);
 }
 
+// --- Pipeline-Parkplatz „Später" --------------------------------------
+// Videos, die als Idee/Skript existieren, aber noch keinen Drehmonat haben.
+// Statt eines zweiten Feldes ein Sentinel im vorhandenen `monat`-Feld: die
+// Monats-Gruppierung der Pipeline greift dadurch unverändert weiter, und das
+// Umhängen ist derselbe Dropdown-Wechsel wie zwischen zwei echten Monaten.
+// Der Wert kollidiert bewusst nie mit dem "YYYY-MM"-Format.
+export const MONAT_SPAETER = "spaeter";
+
+export function istSpaeter(monat) {
+  return monat === MONAT_SPAETER;
+}
+
+// Label für Pipeline-Sektionen und Monats-Dropdowns — kennt zusätzlich zu den
+// echten Monaten den Parkplatz.
+export function pipelineMonatsLabel(key) {
+  return istSpaeter(key) ? "🅿️ Irgendwann" : monatsLabel(key);
+}
+
 // --- Objekt-Status (kundenfreundlich, direkt gespeichert) -------------
 export const OBJEKT_STATUS = {
   EINGEGANGEN:   "Eingegangen",
@@ -55,6 +77,26 @@ export const OBJEKT_STATUS_LISTE = [
   OBJEKT_STATUS.IN_PRODUKTION,
   OBJEKT_STATUS.ERLEDIGT
 ];
+
+// --- Objekt-Monate: gemeldet im Juli → Produktion im August -----------
+// Der Produktionsmonat steht als "YYYY-MM" im Feld `produktionsMonat` und ist
+// im Admin jederzeit umhängbar. Beide Helfer haben einen Read-side-Fallback auf
+// `erstelltAm`, damit Bestandsobjekte ohne Feld ohne Migration/Backfill sauber
+// einsortiert werden — geschrieben wird das Feld erst beim Anlegen oder wenn der
+// Admin den Monat ändert.
+
+// Monat, in dem das Objekt gemeldet wurde ("YYYY-MM").
+export function objektMeldeMonat(o) {
+  const ts = o && o.erstelltAm;
+  const d = ts && typeof ts.toDate === "function" ? ts.toDate() : new Date();
+  return monatKey(d);
+}
+
+// Produktionsmonat des Objekts ("YYYY-MM") = Melde-Monat + 1, sofern nicht gesetzt.
+export function objektProduktionsMonat(o) {
+  if (o && o.produktionsMonat) return o.produktionsMonat;
+  return monatPlus(objektMeldeMonat(o), 1);
+}
 
 // --- Kundenarten ------------------------------------------------------
 // Jeder Kunde hat eine Branche (kunden/{id}.kundenart). Bestandskunden ohne
@@ -155,6 +197,33 @@ export function kundenStatus(intern) {
 
 export function istFreigabeStufe(status) {
   return status === STATUS.FREIGABE_SKRIPT || status === STATUS.FREIGABE_SCHNITT;
+}
+
+// --- Fortschritt für den Kunden (4 Schritte) --------------------------
+// Die 10 internen Stufen sind für den Kunden zu fein — er will wissen: „wo
+// steht mein Video?". Deshalb ein grobes Vier-Schritt-Raster. Formate ohne
+// Skript (wortlose Edits) starten mit „Konzept" statt „Skript".
+export function kundenSchritte(typ) {
+  return [skriptFreigabeNoetig(typ) ? "Skript" : "Konzept", "Dreh", "Schnitt", "Fertig"];
+}
+
+// Index des aktuellen Schritts (0..3). „Verworfen" hat keinen Fortschritt und
+// wird von der View gesondert behandelt (Rückgabe -1).
+export function kundenSchrittIndex(status) {
+  switch (status) {
+    case STATUS.IDEE:
+    case STATUS.SKRIPT:
+    case STATUS.FREIGABE_SKRIPT:  return 0;
+    case STATUS.DREHBEREIT:
+    case STATUS.GEDREHT:          return 1;
+    case STATUS.SCHNITT:
+    case STATUS.FREIGABE_SCHNITT: return 2;
+    case STATUS.FREIGEGEBEN:
+    case STATUS.GEPLANT:
+    case STATUS.GEPOSTET:         return 3;
+    case STATUS.VERWORFEN:        return -1;
+    default:                      return 0;
+  }
 }
 
 // =====================================================================

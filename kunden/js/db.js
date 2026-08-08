@@ -17,7 +17,7 @@ import {
   kundenFreigabeZiel, kundenAenderungZiel, kundenVerwerfenZiel
 } from "./status.js";
 import { ADMIN_EMAILS } from "./roles.js";
-import { monatKey } from "./util.js";
+import { monatKey, monatPlus } from "./util.js";
 
 const snapToArr = (snap) => snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
@@ -26,7 +26,7 @@ const snapToArr = (snap) => snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 // =====================================================================
 const objekteCol = () => collection(db, "objekte");
 
-export async function objektMelden({ adresse, objektTyp, beschreibung, link, gemeldetVon, kundeId }) {
+export async function objektMelden({ adresse, objektTyp, beschreibung, link, gemeldetVon, kundeId, produktionsMonat }) {
   return addDoc(objekteCol(), {
     adresse:      adresse || "",
     objektTyp:    objektTyp || "",
@@ -35,6 +35,9 @@ export async function objektMelden({ adresse, objektTyp, beschreibung, link, gem
     gemeldetVon:  gemeldetVon,
     kundeId:      kundeId || null,   // Mandant, zu dem dieses gemeldete Objekt gehört
     status:       OBJEKT_STATUS.EINGEGANGEN,
+    // Produktionsmonat "YYYY-MM": was diesen Monat gemeldet wird, produzieren wir
+    // im Folgemonat (im Admin pro Objekt umhängbar).
+    produktionsMonat: produktionsMonat || monatPlus(monatKey(new Date()), 1),
     erstelltAm:   serverTimestamp()
   });
 }
@@ -55,6 +58,11 @@ export function beobachteObjekte(callback, onError, kundeId) {
 
 export async function setzeObjektStatus(id, status) {
   return updateDoc(doc(db, "objekte", id), { status });
+}
+
+// Objekt bearbeiten (Admin): Adresse, Typ, Beschreibung, Link, Produktionsmonat.
+export async function aktualisiereObjekt(id, daten) {
+  return updateDoc(doc(db, "objekte", id), { ...daten, aktualisiertAm: serverTimestamp() });
 }
 
 export async function loescheObjekt(id) {
@@ -859,7 +867,10 @@ export async function erledigeFreigabeNews(email, videoId) {
 // =====================================================================
 const skriptUploadsCol = () => collection(db, "skriptuploads");
 
-export async function skriptUploadAnlegen({ videoId, kundeId, gemeldetVon, dateiName, dateiTyp, base64, text }) {
+// `erledigt` ist der Badge-Schalter der Pipeline: Kunden-Uploads starten offen
+// (false → 📄-Badge), Uploads des Admins gelten sofort als erledigt — sonst
+// würde Valentin sich selbst anbadgen.
+export async function skriptUploadAnlegen({ videoId, kundeId, gemeldetVon, dateiName, dateiTyp, base64, text, erledigt }) {
   return addDoc(skriptUploadsCol(), {
     videoId:     videoId || null,
     kundeId:     kundeId || null,
@@ -868,7 +879,7 @@ export async function skriptUploadAnlegen({ videoId, kundeId, gemeldetVon, datei
     dateiTyp:    dateiTyp || "application/octet-stream",
     base64:      base64 || "",
     text:        text || "",
-    erledigt:    false,
+    erledigt:    !!erledigt,
     erstelltAm:  serverTimestamp()
   });
 }

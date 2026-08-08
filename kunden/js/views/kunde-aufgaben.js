@@ -3,8 +3,8 @@
 // Interne Pipeline-Stufen werden NIE gezeigt – nur das Kunden-Mapping.
 import { beobachteVideos, beobachteObjekte, beobachteBenachrichtigungen } from "../db.js";
 import { beiViewWechsel } from "../view-lifecycle.js";
-import { kundenStatus, istFreigabeStufe, OBJEKT_STATUS } from "../status.js";
-import { escapeHtml, formatDatum } from "../util.js";
+import { kundenStatus, istFreigabeStufe, OBJEKT_STATUS, objektProduktionsMonat } from "../status.js";
+import { escapeHtml, formatDatum, monatsLabel } from "../util.js";
 
 export function renderAufgaben(container, opts = {}) {
   const kundeId = opts.kundeId || null;   // eigener Mandant des eingeloggten Kunden
@@ -159,7 +159,7 @@ function zeichneObjekte(el, objekte, istGastro) {
             <span class="row-name">${escapeHtml(o.adresse || "Ohne Adresse")}</span>
             <span class="row-sub muted">${escapeHtml(o.objektTyp || "")}${
               o.erstelltAm ? " · gemeldet " + escapeHtml(formatDatum(o.erstelltAm)) : ""
-            }</span>
+            } · Produktion ${escapeHtml(monatsLabel(objektProduktionsMonat(o)))}</span>
           </span>
           <span class="pill pill--${objektTon(o.status)}">${escapeHtml(o.status || OBJEKT_STATUS.EINGEGANGEN)}</span>
         </div>`).join("")}

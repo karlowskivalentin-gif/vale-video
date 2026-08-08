@@ -5,7 +5,7 @@
 import { objektMelden } from "../db.js";
 import { sendAdminNeuesObjekt } from "../email.js";
 import { OBJEKT_STATUS, objektTypenFuer } from "../status.js";
-import { escapeHtml } from "../util.js";
+import { escapeHtml, monatKey, monatsLabel, monatPlus } from "../util.js";
 import { ocrBild } from "../docparse.js";
 
 
@@ -50,12 +50,20 @@ export function renderObjektMelden(container, ctx) {
   const wortEinheit = istGastro ? "Filiale" : "Objekt";
   const typen = objektTypenFuer(ctx.kundenart);
 
+  // Produktionsmonat: was diesen Monat gemeldet wird, produzieren wir im
+  // Folgemonat. Denselben Default setzt objektMelden() in db.js.
+  const produktionsMonat = monatPlus(monatKey(new Date()), 1);
+  const produktionsLabel = monatsLabel(produktionsMonat);
+
   container.innerHTML = `
     <h1 class="view-title">${wortEinheit} melden</h1>
     <p class="muted view-intro">
       ${istGastro
         ? "Melde eine Filiale / einen Standort — dann können wir dort Drehs planen. Je mehr Infos zu Ambiente und Besonderheiten, desto besser."
         : "Melde eine neue Immobilie für ein Video. Je mehr Eckdaten, desto besser – ein Foto- oder Exposé-Link (Google Drive / Dropbox) ist optional."}
+    </p>
+    <p class="notice objekt-monat-hinweis">
+      📅 Was du jetzt meldest, produzieren wir im <strong>${escapeHtml(produktionsLabel)}</strong>.
     </p>
 
     ${istGastro ? "" : `
@@ -186,12 +194,16 @@ export function renderObjektMelden(container, ctx) {
     label.textContent = "Wird gemeldet …";
 
     try {
-      await objektMelden({ adresse, objektTyp, beschreibung, link, gemeldetVon: user.email, kundeId });
+      // produktionsMonat explizit mitgeben, damit der gespeicherte Wert exakt
+      // dem entspricht, was oben im Hinweis steht (Randfall: Monatswechsel bei
+      // lange offener Seite).
+      await objektMelden({ adresse, objektTyp, beschreibung, link, gemeldetVon: user.email, kundeId, produktionsMonat });
       // Admin-Mail fire-and-forget (blockiert die Meldung nicht).
       sendAdminNeuesObjekt({ adresse, objektTyp, beschreibung, link, gemeldetVon: user.email });
 
       form.reset();
-      okBox.innerHTML = `Danke! Deine ${istGastro ? "Filiale" : "Meldung"} ist eingegangen (Status <strong>${escapeHtml(OBJEKT_STATUS.EINGEGANGEN)}</strong>).
+      okBox.innerHTML = `Danke! Deine ${istGastro ? "Filiale" : "Meldung"} ist eingegangen (Status <strong>${escapeHtml(OBJEKT_STATUS.EINGEGANGEN)}</strong>)
+        und ist für die <strong>${escapeHtml(produktionsLabel)}</strong>-Produktion eingeplant.
         Du findest sie ab sofort unter <a href="#/aufgaben">Aufgaben</a>.`;
       okBox.hidden = false;
       okBox.scrollIntoView({ behavior: "smooth", block: "nearest" });

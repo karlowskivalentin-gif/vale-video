@@ -4,18 +4,21 @@ import {
   ladeVideo, videoAnlegen, aktualisiereVideo, loescheVideo, ladeObjekte,
   beobachteKommentare, kommentarHinzufuegen, kommentarSetzeBearbeitung, ladePlan,
   aktualisierePlan, benachrichtigeKunde,
-  beobachteSkriptUploads, setzeSkriptUploadErledigt, loescheSkriptUpload
+  beobachteSkriptUploads, setzeSkriptUploadErledigt, loescheSkriptUpload, skriptUploadAnlegen
 } from "../db.js";
 import { beiViewWechsel } from "../view-lifecycle.js";
 import {
-  STATUS, STATUS_REIHENFOLGE, videoTypenFuer, skriptFreigabeNoetig
+  STATUS, STATUS_REIHENFOLGE, videoTypenFuer, skriptFreigabeNoetig, objektProduktionsMonat,
+  istFreigabeStufe
 } from "../status.js";
-import { escapeHtml, formatDatum, tsZuDateInput, dateInputZuDate } from "../util.js";
+import { getAktivKunde } from "../kunde-context.js";
+import { escapeHtml, formatDatum, tsZuDateInput, dateInputZuDate, monatsLabel } from "../util.js";
 import { renderPlanDetails, planZuSnapshot } from "../plan-ansicht.js";
 import { sendKundeFreigabe } from "../email.js";
 import { videoNeuerEntwurf } from "../versionen.js";
 import { embedHtml, erkennePlattform, verarbeiteEmbeds } from "../embeds.js";
 import { dateiZuBase64, extrahiereText, zeigeDateiInline } from "../docparse.js";
+import { rolleVon } from "../roles.js";
 import { parseBeats, beatsZuChecklist } from "../beats.js";
 
 const BEARB_LABEL = {
@@ -31,10 +34,12 @@ export function renderAdminVideoEdit(container, ctx) {
 
   container.innerHTML = `
     <a class="back-link" href="#/admin/pipeline">← Zurück zur Pipeline</a>
-    <h1 class="view-title">${istNeu ? "Neues Video" : "Video bearbeiten"}</h1>
+    <div id="aveKopf"></div>
     <div id="aveBody"><div class="card card--pad"><p class="muted">Wird geladen …</p></div></div>`;
 
   const body = container.querySelector("#aveBody");
+  const kopf = container.querySelector("#aveKopf");
+  kopf.innerHTML = `<h1 class="view-title">${istNeu ? "Neues Video" : "Video bearbeiten"}</h1>`;
 
   (async function init() {
     let objekte = [];
@@ -58,8 +63,17 @@ export function renderAdminVideoEdit(container, ctx) {
       }
     }
 
+    if (!istNeu && video) kopf.innerHTML = kopfHtml(video);
     body.innerHTML = formHtml(video, objekte, istNeu, kundenart);
-    wire(video, istNeu, body, id, user);
+    // Skript-Upload direkt im Formular. Beim NEUEN Video gibt es noch keine
+    // videoId — die Datei wird vorgemerkt und von wire() nach dem Anlegen
+    // nachgereicht (siehe skriptUpload.ladeHoch).
+    const skriptUpload = initSkriptUpload(body, {
+      istNeu, user,
+      videoId: istNeu ? null : id,
+      kundeId: istNeu ? kundeId : ((video && video.kundeId) || kundeId)
+    });
+    wire(video, istNeu, body, id, user, objekte, kundeId, skriptUpload);
     initEmbedVorschau(body);
     if (!istNeu) initKommentare(id, user, body);
     if (!istNeu && video) initDrehplan(video, body);
@@ -126,24 +140,34 @@ function formHtml(v, objekte, istNeu, kundenart) {
           </div>
         </div>
 
+        <div class="ave-gruppe ave-gruppe--kunde">
+          <div class="ave-gruppe-kopf">
+            <span class="ave-gruppe-titel">👁 Was der Kunde sieht</span>
+            <span class="ave-gruppe-sub muted">Erscheint sofort in seiner Videoansicht — leere Felder bleiben bei ihm unsichtbar.</span>
+          </div>
+
         <div class="field">
-          <label for="f-objekt">${istGastro ? "Verknüpfte Filiale" : "Verknüpftes Objekt"}</label>
-          <select id="f-objekt">${objektOpts}</select>
+          <label>Skript</label>
+          <div class="skript-drop skript-drop--kompakt" id="skAdminDrop" tabindex="0" role="button"
+               aria-label="Skript-Datei hochladen">
+            <span class="skript-drop-icon" aria-hidden="true">📄</span>
+            <span class="skript-drop-text">Skript hochladen — <span class="skript-drop-link">Datei wählen</span> oder hierher ziehen</span>
+            <span class="muted skript-drop-hint">Word / PDF / TXT · max. ~700 KB · liegt danach direkt im Portal</span>
+          </div>
+          <input type="file" id="skAdminFile" accept=".docx,.pdf,.txt,.md,.rtf,application/pdf,text/plain" hidden />
+          <div class="skript-vorgemerkt" id="skAdminPending" hidden></div>
+          <div class="notice notice--ok"    id="skAdminOk"  hidden role="status"></div>
+          <div class="notice notice--error" id="skAdminErr" hidden role="alert"></div>
         </div>
 
         <div class="field">
-          <label for="f-skript">Skript-Link (Google Drive)</label>
+          <label for="f-skript">Skript-Link (Google Drive) <span class="muted">— optional</span></label>
           <input id="f-skript" type="url" value="${escapeHtml(val("skriptLink"))}" placeholder="https://drive.google.com/file/d/…/view" />
+          <p class="field-hint muted">Nur nötig, wenn das Skript in Drive liegen soll statt hier hochgeladen zu werden.</p>
         </div>
 
         <div class="field">
-          <label for="f-drive">Google-Drive-Ordner (Rohmaterial/Projekt)</label>
-          <input id="f-drive" type="url" value="${escapeHtml(val("driveOrdner"))}" placeholder="https://drive.google.com/drive/folders/…" />
-          <p class="field-hint muted">Leer lassen → Fallback auf den Drive-Ordner des Kunden.</p>
-        </div>
-
-        <div class="field">
-          <label for="f-schnitt">Video-Link (YouTube · TikTok · Instagram · Vimeo · Drive)</label>
+          <label for="f-schnitt">Fertiges Video (YouTube · TikTok · Instagram · Vimeo · Drive)</label>
           <input id="f-schnitt" type="url" value="${escapeHtml(val("schnittLink"))}" placeholder="Link von irgendeiner Plattform einfügen — wird automatisch erkannt & eingebettet" />
           <div class="ave-embed-vorschau" id="aveEmbedVorschau"></div>
         </div>
@@ -158,37 +182,224 @@ function formHtml(v, objekte, istNeu, kundenart) {
             <input id="f-drehdatum" type="date" value="${escapeHtml(tsZuDateInput(val("geplanterDrehtermin", null)))}" />
           </div>
         </div>
-
-        ${freigabeInfo}
-
-        <div class="action-btns" style="margin-top:1.25rem">
-          <button class="btn btn--accent" id="aveSave" type="submit">${istNeu ? "Anlegen" : "Speichern"}</button>
-          ${!istNeu ? `<button class="btn btn--ghost" id="aveDelete" type="button">Löschen</button>` : ""}
         </div>
-        ${!istNeu ? `
+
+        <div class="ave-gruppe ave-gruppe--intern">
+          <div class="ave-gruppe-kopf">
+            <span class="ave-gruppe-titel">🔒 Intern</span>
+            <span class="ave-gruppe-sub muted">Sieht nur du — nichts davon erreicht den Kunden.</span>
+          </div>
+
+          <div class="field">
+            <label for="f-objekt">${istGastro ? "Verknüpfte Filiale" : "Verknüpftes Objekt"}</label>
+            <select id="f-objekt">${objektOpts}</select>
+            ${istNeu ? `<p class="field-hint muted" id="f-objekt-hint"${objektMonatHinweis(objekte, objektId) ? "" : " hidden"}>${objektMonatHinweis(objekte, objektId)}</p>` : ""}
+          </div>
+
+          <div class="field">
+            <label for="f-drive">Google-Drive-Ordner (Rohmaterial/Projekt)</label>
+            <input id="f-drive" type="url" value="${escapeHtml(val("driveOrdner"))}" placeholder="https://drive.google.com/drive/folders/…" />
+            <p class="field-hint muted">Leer lassen → Fallback auf den Drive-Ordner des Kunden.</p>
+          </div>
+
+          ${freigabeInfo}
+        </div>
+
+        <!-- Speichern/Löschen liegen in der Sticky-Leiste am Seitenende; hier
+             bleibt nur, was zum Formular selbst gehört. -->
+        ${istNeu ? `
+        <div class="action-btns" style="margin-top:1.25rem">
+          <button class="btn btn--accent" id="aveSave" type="submit">Anlegen</button>
+        </div>` : `
         <div class="entwurf-box">
           <p class="muted" style="margin:0 0 .6rem">
             Änderungen umgesetzt? Aktualisiere den Plan/die Links oben, dann gib den Kunden einen neuen Entwurf zur Freigabe.
           </p>
           <button class="btn btn--ok" id="aveNeuerEntwurf" type="button">🔁 Neuen Entwurf an Kunden geben</button>
-        </div>` : ""}
+        </div>`}
       </form>
     </section>
-    ${!istNeu && v && v.planId ? `<div id="avePlanDetails"></div>` : ""}
-    ${!istNeu ? `<div id="aveDrehplan"></div>` : ""}
+    ${!istNeu && v && v.planId ? `
+    <details class="ave-block" open>
+      <summary class="ave-block-kopf"><span class="ave-block-titel">📋 Plan-Details</span></summary>
+      <div id="avePlanDetails"></div>
+    </details>` : ""}
     ${!istNeu ? `
-    <section class="vd-komm">
-      <h2 class="section-title">Kommentare &amp; Änderungswünsche</h2>
-      <div id="aveKomms" class="komm-list"><p class="muted">Wird geladen …</p></div>
-      <form id="aveKommForm" class="komm-form card card--pad">
-        <div class="field" style="margin:0 0 .75rem">
-          <label for="aveKommText">Antwort / Notiz an Kunde</label>
-          <textarea id="aveKommText" placeholder="Antwort oder interne Notiz …"></textarea>
-        </div>
-        <div class="notice notice--error" id="aveKommErr" hidden role="alert"></div>
-        <button class="btn btn--ghost btn--sm" type="submit" id="aveKommSubmit">Kommentar senden</button>
-      </form>
-    </section>` : ""}`;
+    <details class="ave-block" open>
+      <summary class="ave-block-kopf"><span class="ave-block-titel">🎬 Drehplan &amp; Skripte</span></summary>
+      <div id="aveDrehplan"></div>
+    </details>` : ""}
+    ${!istNeu ? `
+    <details class="ave-block">
+      <summary class="ave-block-kopf">
+        <span class="ave-block-titel">💬 Kommentare &amp; Änderungswünsche</span>
+        <span class="ave-block-zahl muted" id="aveKommZahl"></span>
+      </summary>
+      <section class="vd-komm">
+        <div id="aveKomms" class="komm-list"><p class="muted">Wird geladen …</p></div>
+        <form id="aveKommForm" class="komm-form card card--pad">
+          <div class="field" style="margin:0 0 .75rem">
+            <label for="aveKommText">Antwort / Notiz an Kunde</label>
+            <textarea id="aveKommText" placeholder="Antwort oder interne Notiz …"></textarea>
+          </div>
+          <div class="notice notice--error" id="aveKommErr" hidden role="alert"></div>
+          <button class="btn btn--ghost btn--sm" type="submit" id="aveKommSubmit">Kommentar senden</button>
+        </form>
+      </section>
+    </details>` : ""}
+    ${!istNeu ? `
+    <div class="ave-speicherleiste" id="aveSpeicherleiste" hidden>
+      <span class="ave-speicher-hinweis">Ungespeicherte Änderungen</span>
+      <button class="btn btn--ghost btn--sm" id="aveDelete" type="button">Löschen</button>
+      <button class="btn btn--accent" id="aveSave" type="submit" form="aveForm">Speichern</button>
+    </div>` : ""}`;
+}
+
+// --- Kopf: das Wichtigste vor dem Formular ----------------------------
+// Beantwortet beim Öffnen sofort: welches Video, welcher Kunde, welcher Stand
+// — und ob der Kunde gerade auf mich oder ich auf ihn warte.
+function kopfHtml(v) {
+  const kunde = getAktivKunde();
+  const teile = [];
+  if (kunde) teile.push(escapeHtml(kunde.name || kunde.id));
+  if (v.typ) teile.push(escapeHtml(v.typ));
+  teile.push(`Entwurf ${v.entwurf || 1}`);
+
+  // „Wartet seit": Näherung über aktualisiertAm — das ist der Zeitpunkt, seit
+  // dem der aktuelle Stand beim Kunden liegt. Deshalb bewusst als „Stand seit"
+  // beschriftet und nicht als exakte Wartezeit ausgegeben.
+  let hinweis = "";
+  if (istFreigabeStufe(v.status)) {
+    const was = v.status === STATUS.FREIGABE_SKRIPT ? "das Skript" : "den Schnitt";
+    hinweis = `<div class="ave-wartet">
+      <span aria-hidden="true">⏳</span>
+      <span>Der <strong>Kunde ist am Zug</strong> — er soll ${was} freigeben.${tageSeit(v.aktualisiertAm)}</span>
+    </div>`;
+  }
+
+  return `
+    <h1 class="view-title" style="margin-bottom:.35rem">${escapeHtml(v.titel || "Video bearbeiten")}</h1>
+    <p class="ave-kopf-meta muted">
+      ${teile.join(" · ")}
+      <span class="pill pill--neutral ave-kopf-status">${escapeHtml(v.status || "")}</span>
+    </p>
+    ${hinweis}`;
+}
+
+// „ · Stand seit 3 Tagen" — leer, wenn kein brauchbarer Zeitstempel vorliegt.
+function tageSeit(ts) {
+  const d = ts && ts.toDate ? ts.toDate() : null;
+  if (!d || isNaN(d.getTime())) return "";
+  const tage = Math.floor((Date.now() - d.getTime()) / 86400000);
+  if (tage < 1) return " Stand von heute.";
+  return ` Stand seit ${tage} Tag${tage === 1 ? "" : "en"}.`;
+}
+
+// Herkunft eines Skript-Uploads für die Liste: von mir (Admin) oder vom Kunden.
+function quelleLabel(u) {
+  const von = String(u.gemeldetVon || "");
+  return rolleVon(von) === "admin" ? "von mir" : `vom Kunden (${von.split("@")[0] || "Kunde"})`;
+}
+
+// --- Skript-Upload im Video-Formular ----------------------------------
+// Gleiche Mechanik wie der Kunden-Upload in kunde-video-detail.js: Datei →
+// Base64 (max ~700 KB) + offline extrahierter Text → Collection `skriptuploads`.
+// Admin-Uploads werden sofort als `erledigt` angelegt, damit sie nicht als
+// offener Kunden-Upload in der Pipeline anbadgen.
+// Rückgabe: { ladeHoch(videoId) } — für den Anlege-Fall, in dem die videoId
+// erst nach dem Speichern existiert.
+function initSkriptUpload(body, { istNeu, user, videoId, kundeId }) {
+  const drop    = body.querySelector("#skAdminDrop");
+  const input   = body.querySelector("#skAdminFile");
+  const pendEl  = body.querySelector("#skAdminPending");
+  const okB     = body.querySelector("#skAdminOk");
+  const errB    = body.querySelector("#skAdminErr");
+  let vorgemerkt = null;   // nur im Anlege-Modus belegt
+
+  if (!drop || !input) return { ladeHoch: async () => {} };
+
+  // Datei → { base64, name, typ, text }. Textextraktion best-effort.
+  async function lies(file) {
+    const { base64, name, typ } = await dateiZuBase64(file);
+    let text = "";
+    try { text = await extrahiereText(file); } catch (_) { /* ohne Text weiter */ }
+    return { base64, dateiName: name, dateiTyp: typ, text };
+  }
+
+  async function speichere(daten, zielVideoId) {
+    return skriptUploadAnlegen({
+      ...daten, videoId: zielVideoId, kundeId,
+      gemeldetVon: user && user.email, erledigt: true
+    });
+  }
+
+  function zeigeVorgemerkt() {
+    if (!vorgemerkt) { pendEl.hidden = true; pendEl.innerHTML = ""; return; }
+    pendEl.hidden = false;
+    pendEl.innerHTML = `<span>📄 ${escapeHtml(vorgemerkt.dateiName)}</span>
+      <span class="muted">wird beim Anlegen hochgeladen</span>
+      <button class="btn btn--ghost btn--sm" type="button" id="skAdminPendingDel" title="Datei verwerfen">✕</button>`;
+    pendEl.querySelector("#skAdminPendingDel").addEventListener("click", () => {
+      vorgemerkt = null; zeigeVorgemerkt();
+    });
+  }
+
+  const verarbeite = async (file) => {
+    if (!file) return;
+    okB.hidden = true; errB.hidden = true;
+    const txtEl = drop.querySelector(".skript-drop-text");
+    const alt = txtEl.textContent;
+    drop.classList.add("is-busy");
+    txtEl.textContent = istNeu ? "Wird gelesen …" : "Wird hochgeladen …";
+    try {
+      const daten = await lies(file);
+      if (istNeu) {
+        // Noch keine videoId → vormerken, wire() reicht sie nach dem Anlegen nach.
+        vorgemerkt = daten;
+        zeigeVorgemerkt();
+      } else {
+        await speichere(daten, videoId);
+        okB.textContent = `„${daten.dateiName}" ist hochgeladen — du findest es unten unter „Skripte".`;
+        okB.hidden = false;
+      }
+    } catch (e) {
+      console.error(e);
+      errB.textContent = (e && e.message) ? e.message : "Upload fehlgeschlagen. Bitte erneut versuchen.";
+      errB.hidden = false;
+    } finally {
+      drop.classList.remove("is-busy");
+      txtEl.textContent = alt;
+      input.value = "";
+    }
+  };
+
+  drop.addEventListener("click", () => input.click());
+  drop.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); input.click(); } });
+  input.addEventListener("change", () => verarbeite(input.files && input.files[0]));
+  ["dragenter", "dragover"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("is-over"); }));
+  ["dragleave", "dragend"].forEach((ev) => drop.addEventListener(ev, () => drop.classList.remove("is-over")));
+  drop.addEventListener("drop", (e) => {
+    e.preventDefault(); drop.classList.remove("is-over");
+    verarbeite(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]);
+  });
+
+  return {
+    // Vorgemerkte Datei an das frisch angelegte Video hängen. Schlägt das fehl,
+    // wirft es NICHT — das Video ist schon gespeichert, nur der Anhang fehlt.
+    async ladeHoch(neueVideoId) {
+      if (!vorgemerkt || !neueVideoId) return;
+      try { await speichere(vorgemerkt, neueVideoId); vorgemerkt = null; }
+      catch (e) { console.error(e); alert("Das Video wurde angelegt, aber das Skript konnte nicht hochgeladen werden. Bitte im Bearbeiten-Modus erneut versuchen."); }
+    }
+  };
+}
+
+// Hinweistext unter dem Objekt-Select: in welchen Pipeline-Monat das neue Video
+// dadurch fällt. Leerer String = kein Objekt gewählt (Hinweis bleibt versteckt).
+function objektMonatHinweis(objekte, objektId) {
+  const o = objektId && (objekte || []).find((x) => x.id === objektId);
+  if (!o) return "";
+  return `Landet in der Pipeline-Sektion <strong>${escapeHtml(monatsLabel(objektProduktionsMonat(o)))}</strong> — dem Produktionsmonat des Objekts.`;
 }
 
 function freigText(f) {
@@ -197,12 +408,28 @@ function freigText(f) {
 }
 
 // --- Speichern / Anlegen / Löschen ------------------------------------
-function wire(v, istNeu, body, id, user) {
+// `objekte` = Objektliste des Kunden (für den Produktionsmonat beim Anlegen),
+// `kundeId` = aktiver Mandant (kommt aus renderAdminVideoEdit),
+// `skriptUpload` = Handle aus initSkriptUpload() (reicht die vorgemerkte Datei nach).
+function wire(v, istNeu, body, id, user, objekte, kundeId, skriptUpload) {
   const form   = body.querySelector("#aveForm");
   const okBox  = body.querySelector("#aveOk");
   const errBox = body.querySelector("#aveErr");
   const save   = body.querySelector("#aveSave");
   const del    = body.querySelector("#aveDelete");
+  const leiste = body.querySelector("#aveSpeicherleiste");
+
+  // Speicherleiste erscheint erst, wenn wirklich etwas geändert wurde — so
+  // scrollt man nicht mehr am Speichern vorbei, ohne dass sie ständig im Weg ist.
+  // Der Datei-Dialog des Skript-Uploads zählt nicht: der speichert selbst.
+  if (leiste) {
+    const zeige = (e) => {
+      if (e && e.target && e.target.id === "skAdminFile") return;
+      leiste.hidden = false;
+    };
+    form.addEventListener("input", zeige);
+    form.addEventListener("change", zeige);
+  }
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -234,7 +461,15 @@ function wire(v, istNeu, body, id, user) {
     save.textContent = istNeu ? "Wird angelegt …" : "Wird gespeichert …";
     try {
       if (istNeu) {
+        // Hängt das Video an einem Objekt, erbt es dessen Produktionsmonat —
+        // Objekt und Video liegen so in derselben Monats-Sektion. Danach ist der
+        // Monat nur noch über das Dropdown in der Pipeline umhängbar.
+        const quelle = daten.objektId && (objekte || []).find((o) => o.id === daten.objektId);
+        if (quelle) daten.monat = objektProduktionsMonat(quelle);
+
         const ref = await videoAnlegen({ ...daten, kundeId });
+        // Erst jetzt gibt es eine videoId für ein vorgemerktes Skript.
+        if (skriptUpload) await skriptUpload.ladeHoch(ref.id);
         // Kunden-News: neues Video in der Pipeline.
         benachrichtigeKunde(kundeId, {
           text: `🎬 Ein neues Video wurde für dich angelegt: „${daten.titel}".`,
@@ -251,6 +486,7 @@ function wire(v, istNeu, body, id, user) {
         }
         okBox.textContent = "Gespeichert.";
         okBox.hidden = false;
+        if (leiste) leiste.hidden = true;   // nichts Ungespeichertes mehr offen
         okBox.scrollIntoView({ behavior: "smooth", block: "nearest" });
       }
     } catch (err) {
@@ -393,11 +629,11 @@ function initDrehplan(video, body) {
     const liste = uploads.sort((a, b) => ((b.erstelltAm && b.erstelltAm.seconds) || 0) - ((a.erstelltAm && a.erstelltAm.seconds) || 0));
     if (!liste.length) { uploadsEl.innerHTML = ""; return; }
     uploadsEl.innerHTML = `<div class="dreh-uploads">
-      <div class="gd-abschnitt-titel">📄 Vom Kunden hochgeladene Skripte</div>
+      <div class="gd-abschnitt-titel">📄 Skripte</div>
       ${liste.map((u) => `
         <div class="dreh-upload" data-id="${escapeHtml(u.id)}">
           <div class="dreh-upload-kopf">
-            <span>📄 ${escapeHtml(u.dateiName || "Skript")} <span class="muted">· ${escapeHtml(formatDatum(u.erstelltAm, true))}${u.erledigt ? " · ✅" : ""}</span></span>
+            <span>📄 ${escapeHtml(u.dateiName || "Skript")} <span class="muted">· ${escapeHtml(quelleLabel(u))} · ${escapeHtml(formatDatum(u.erstelltAm, true))}${u.erledigt ? " · ✅" : ""}</span></span>
             <span class="dreh-upload-btns">
               <button class="btn btn--ghost btn--sm" data-akt="ansehen" type="button">Ansehen</button>
               <button class="btn btn--ok btn--sm" data-akt="beats" type="button">Beats erzeugen</button>
@@ -562,8 +798,19 @@ function initKommentare(id, user, body) {
   const err   = body.querySelector("#aveKommErr");
   const submit = body.querySelector("#aveKommSubmit");
 
+  const zahl  = body.querySelector("#aveKommZahl");
+
   const unsub = beobachteKommentare(id,
     (komms) => {
+      // Zähler im Sektions-Kopf, damit man den Block nicht aufklappen muss,
+      // um zu sehen, ob etwas Neues drin ist.
+      if (zahl) {
+        const neu = komms.filter((k) => k.rolle !== "admin" && (k.bearbeitung || "neu") === "neu").length;
+        zahl.textContent = komms.length
+          ? `${komms.length}${neu ? ` · ${neu} neu` : ""}`
+          : "keine";
+        zahl.classList.toggle("ave-block-zahl--neu", neu > 0);
+      }
       if (!komms.length) { liste.innerHTML = `<p class="muted">Noch keine Kommentare.</p>`; return; }
       liste.innerHTML = komms.map((k) => {
         const istKunde = k.rolle !== "admin";

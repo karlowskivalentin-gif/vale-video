@@ -9,12 +9,14 @@ import {
   benachrichtigeAdmin, skriptUploadAnlegen, beobachteSkriptUploads, erledigeFreigabeNews
 } from "../db.js";
 import { beiViewWechsel } from "../view-lifecycle.js";
-import { STATUS, kundenStatus, istFreigabeStufe, skriptFreigabeNoetig } from "../status.js";
+import { STATUS, kundenStatus, istFreigabeStufe, skriptFreigabeNoetig,
+         kundenSchritte, kundenSchrittIndex } from "../status.js";
 import { drivePreviewUrl } from "../drive.js";
 import { escapeHtml, formatDatum } from "../util.js";
 import { renderPlanDetails, planHatDetails } from "../plan-ansicht.js";
 import { embedHtml, erkennePlattform, verarbeiteEmbeds } from "../embeds.js";
-import { dateiZuBase64, extrahiereText } from "../docparse.js";
+import { dateiZuBase64, extrahiereText, zeigeDateiInline } from "../docparse.js";
+import { rolleVon } from "../roles.js";
 
 export function renderVideoDetail(container, ctx) {
   const user = ctx.user;
@@ -30,6 +32,9 @@ export function renderVideoDetail(container, ctx) {
   container.innerHTML = `
     <a class="back-link" href="#/aufgaben">← Zurück zu Aufgaben</a>
     <h1 class="view-title" id="vdTitel">Video</h1>
+    <p class="vd-meta muted" id="vdMeta" hidden></p>
+    <div id="vdFortschritt"></div>
+    <div id="vdTodo"></div>
     <div id="vdMedia" class="vd-media"><div class="card card--pad"><p class="muted">Wird geladen …</p></div></div>
     <div id="vdPlan" class="vd-plan"></div>
     <div id="vdAction" class="vd-action"></div>
@@ -51,19 +56,24 @@ export function renderVideoDetail(container, ctx) {
     </section>
 
     <section class="vd-komm">
-      <h2 class="section-title">Kommentare</h2>
-      <div id="vdComments" class="komm-list"><p class="muted">Wird geladen …</p></div>
-      <form id="kForm" class="komm-form card card--pad">
+      <h2 class="section-title">Fragen an Valentin</h2>
+      <div id="vdComments" class="komm-list"></div>
+      <button class="btn btn--ghost btn--sm" id="kToggle" type="button">✍️ Frage stellen</button>
+      <form id="kForm" class="komm-form card card--pad" hidden>
         <div class="field" style="margin:0 0 .75rem">
-          <label for="kText">Kommentar</label>
+          <label for="kText">Deine Frage oder Anmerkung</label>
           <textarea id="kText" placeholder="Frage oder Anmerkung an Valentin …"></textarea>
         </div>
+        <p class="field-hint muted">Für Änderungswünsche am Entwurf nutze oben die Schaltfläche „Mit Änderungswünschen" — so weiß Valentin, dass er nachbessern soll.</p>
         <div class="notice notice--error" id="kErr" hidden role="alert"></div>
-        <button class="btn btn--ghost btn--sm" type="submit" id="kSubmit">Kommentar senden</button>
+        <button class="btn btn--accent btn--sm" type="submit" id="kSubmit">Frage senden</button>
       </form>
     </section>`;
 
   const elTitel    = container.querySelector("#vdTitel");
+  const elMeta     = container.querySelector("#vdMeta");
+  const elFortschr = container.querySelector("#vdFortschritt");
+  const elTodo     = container.querySelector("#vdTodo");
   const elMedia    = container.querySelector("#vdMedia");
   const elPlan     = container.querySelector("#vdPlan");
   const elAction   = container.querySelector("#vdAction");
@@ -72,11 +82,34 @@ export function renderVideoDetail(container, ctx) {
   const elKomm     = container.querySelector(".vd-komm");
   const elComments = container.querySelector("#vdComments");
   const kForm      = container.querySelector("#kForm");
+  const kToggle    = container.querySelector("#kToggle");
   const kText      = container.querySelector("#kText");
   const kErr       = container.querySelector("#kErr");
   const kSubmit    = container.querySelector("#kSubmit");
 
   let video = null;
+  let uploads = [];      // alle Skript-Dateien dieses Videos (von Valentin + eigene)
+
+  // Medien hängen an BEIDEN Quellen (Video-Doc + Uploads) — deshalb ein
+  // gemeinsamer Zeichenpfad, den beide Subscriptions anstoßen.
+  function zeichneMedien() {
+    if (!video) return;
+    elMedia.innerHTML = medienHtml(video, uploads);
+    verarbeiteEmbeds(elMedia);          // TikTok/Instagram-Embeds aktivieren
+    zeigeSkriptDateien();               // hochgeladene Datei inline rendern
+    positioniereUpload(video);
+  }
+
+  // Die vom Admin hochgeladene Skript-Datei direkt in der Karte anzeigen
+  // (PDF/Text inline, sonst Download) — kein Umweg über Drive nötig.
+  function zeigeSkriptDateien() {
+    elMedia.querySelectorAll(".vd-datei[data-upload]").forEach((el) => {
+      const u = uploads.find((x) => x.id === el.getAttribute("data-upload"));
+      if (!u) return;
+      const cleanup = zeigeDateiInline(el, { base64: u.base64, typ: u.dateiTyp, name: u.dateiName });
+      beiViewWechsel(cleanup);
+    });
+  }
 
   // Kunden-Aktivität an die Admin-Glocke melden (fire-and-forget, still bei Fehler).
   const meldeAdmin = (art, text, videoId) => {
@@ -97,19 +130,23 @@ export function renderVideoDetail(container, ctx) {
         elTitel.textContent = "Video nicht gefunden";
         elMedia.innerHTML = `<div class="card card--pad"><p class="muted">
           Dieses Video existiert nicht (mehr).</p></div>`;
+        elMeta.hidden = true;
+        elFortschr.innerHTML = "";
+        elTodo.innerHTML = "";
         elPlan.innerHTML = "";
         elAction.innerHTML = "";
         elUpload.hidden = true;
         kForm.style.display = "none";
+        kToggle.hidden = true;
         return;
       }
       kForm.style.display = "";
+      kToggle.hidden = false;
       elTitel.textContent = v.titel || "Unbenanntes Video";
-      elMedia.innerHTML = mediaHtml(v);
-      verarbeiteEmbeds(elMedia);   // TikTok/Instagram-Embeds aktivieren
+      renderKopf(v);
+      zeichneMedien();
       renderPlan(v);
       renderAction(v);
-      positioniereUpload(v);
     },
     (err) => {
       console.error(err);
@@ -135,9 +172,14 @@ export function renderVideoDetail(container, ctx) {
   // laufende Upload-Abo intakt bleiben.
   //   - Skript-Freigabe steht an → direkt unter die Ampel, hervorgehoben.
   //   - Format ganz ohne Skript (z. B. wortloses Edit) → ausblenden.
+  //   - Noch gar kein Skript da → ausblenden: „Dein überarbeitetes Skript"
+  //     ergibt keinen Sinn, solange es nichts zu überarbeiten gibt.
   //   - Sonst → an der Default-Position unten vor den Kommentaren.
   function positioniereUpload(v) {
-    if (!skriptFreigabeNoetig(v.typ)) { elUpload.hidden = true; return; }
+    const gibtEsEinSkript = uploads.length > 0
+      || !!v.skriptLink
+      || !!(v.planSnapshot && planHatDetails(v.planSnapshot));
+    if (!skriptFreigabeNoetig(v.typ) || !gibtEsEinSkript) { elUpload.hidden = true; return; }
     elUpload.hidden = false;
     const prominent = v.status === STATUS.FREIGABE_SKRIPT;
     elUpload.classList.toggle("vd-skript-upload--prominent", prominent);
@@ -154,8 +196,10 @@ export function renderVideoDetail(container, ctx) {
     const liste = container.querySelector("#skListe");
     if (!drop || !input) return;
 
-    // Eigene Uploads dieses Videos anzeigen (Bestätigung, dass es ankam).
-    const unsubU = beobachteSkriptUploads(id, (uploads) => {
+    // Alle Skript-Dateien dieses Videos: die von Valentin landen oben in der
+    // Medien-Karte, die eigenen hier als Eingangsbestätigung.
+    const unsubU = beobachteSkriptUploads(id, (liste_) => {
+      uploads = liste_;
       const meine = uploads
         .filter((u) => String(u.gemeldetVon || "").toLowerCase() === String(user.email).toLowerCase())
         .sort((a, b) => ((b.erstelltAm && b.erstelltAm.seconds) || 0) - ((a.erstelltAm && a.erstelltAm.seconds) || 0));
@@ -166,6 +210,7 @@ export function renderVideoDetail(container, ctx) {
               <span class="muted">${escapeHtml(formatDatum(u.erstelltAm, true))}${u.erledigt ? " · ✅ übernommen" : ""}</span>
             </div>`).join("")
         : "";
+      zeichneMedien();   // Valentins Skript kann gerade erst dazugekommen sein
     }, () => {});
     beiViewWechsel(unsubU);
 
@@ -217,6 +262,39 @@ export function renderVideoDetail(container, ctx) {
     });
   }
 
+  // --- Kopf: Eckdaten, Fortschritt, „Du bist dran" --------------------
+  // Beantwortet die drei Fragen, die der Kunde beim Öffnen hat: Was ist das?
+  // Wie weit ist es? Muss ich etwas tun? Alles vor dem ersten Scrollen.
+  function renderKopf(v) {
+    // Eckdaten — nur was gesetzt ist (gleiche Regel wie bei den Medien).
+    const teile = [];
+    if (v.typ) teile.push(escapeHtml(v.typ));
+    if (v.geplanterDrehtermin) teile.push(`Dreh ${escapeHtml(formatDatum(v.geplanterDrehtermin))}`);
+    if (v.geplantesDatum)      teile.push(`online ab ${escapeHtml(formatDatum(v.geplantesDatum))}`);
+    elMeta.innerHTML = teile.join(" · ");
+    elMeta.hidden = !teile.length;
+
+    elFortschr.innerHTML = fortschrittHtml(v);
+
+    // Steht eine Freigabe an, ist das die wichtigste Information der Seite.
+    if (istFreigabeStufe(v.status)) {
+      const istSkript = v.status === STATUS.FREIGABE_SKRIPT;
+      elTodo.innerHTML = `
+        <div class="vd-todo-karte">
+          <span class="vd-todo-icon" aria-hidden="true">⏳</span>
+          <span class="vd-todo-text"><strong>Du bist dran:</strong> ${istSkript
+            ? "Sieh dir das Skript an und sag uns, ob wir es so umsetzen sollen."
+            : "Sieh dir den fertigen Schnitt an und gib ihn frei."}</span>
+          <button class="btn btn--sm vd-todo-btn" type="button">Zur Entscheidung ↓</button>
+        </div>`;
+      elTodo.querySelector(".vd-todo-btn").addEventListener("click", () => {
+        elAction.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+    } else {
+      elTodo.innerHTML = "";
+    }
+  }
+
   // --- Plan-Details (das Skript & ALLES, was deployt wurde) -----------
   // Bei aus einem Plan deployten Videos steckt das Skript nicht in einem
   // Drive-PDF, sondern im planSnapshot (Notiz, Sound, Shotlist, Inspira-
@@ -255,12 +333,19 @@ export function renderVideoDetail(container, ctx) {
     const titel = v.titel || "Dein Video";
     const wer   = kurzname(user.email);
 
+    // Gewichtung statt Gleichrang: die konstruktive Antwort ist der große
+    // Primär-Button, „Änderungswünsche" die sichtbare Zweitwahl. Die Absage
+    // bleibt möglich, steht aber als ruhiger Textlink darunter (nur beim Skript
+    // — bei einem fertigen Schnitt gibt es kein „wird nicht gemacht").
     const buttons = istSkript
-      ? `<button class="btn btn--ok"    id="btnFreigeben" type="button">So umsetzen</button>
-         <button class="btn btn--warn"  id="btnAendern"   type="button">Mit Änderungswünschen</button>
-         <button class="btn btn--error" id="btnVerwerfen" type="button">Wird nicht gemacht</button>`
-      : `<button class="btn btn--accent" id="btnFreigeben" type="button">Freigeben</button>
-         <button class="btn btn--ghost"  id="btnAendern"   type="button">Änderungen anfordern</button>`;
+      ? `<button class="btn btn--ok btn--gross" id="btnFreigeben" type="button">✓ So umsetzen</button>
+         <button class="btn btn--ghost"         id="btnAendern"   type="button">Mit Änderungswünschen</button>`
+      : `<button class="btn btn--ok btn--gross" id="btnFreigeben" type="button">✓ Freigeben</button>
+         <button class="btn btn--ghost"         id="btnAendern"   type="button">Änderungen anfordern</button>`;
+
+    const verwerfenLink = istSkript
+      ? `<button class="vd-verwerfen-link" id="btnVerwerfen" type="button">Dieses Video soll nicht produziert werden</button>`
+      : ``;
 
     elAction.innerHTML = `
       <div class="card card--pad action-card">
@@ -268,6 +353,7 @@ export function renderVideoDetail(container, ctx) {
         ${(v.entwurf || 1) > 1 ? `<p class="entwurf-hinweis">✓ Deine Änderungswünsche wurden umgesetzt – hier ist der neue Entwurf (Nr.&nbsp;${v.entwurf}).</p>` : ""}
         <p class="action-hint muted">Sieh dir ${was} oben an und entscheide:</p>
         <div class="action-btns action-ampel">${buttons}</div>
+        ${verwerfenLink}
 
         <div id="aenderPanel" hidden>
           ${istSkript ? `
@@ -337,7 +423,7 @@ export function renderVideoDetail(container, ctx) {
         console.error(e);
         zeigeFehler("Freigabe fehlgeschlagen. Bitte erneut versuchen.");
         setBusy(false);
-        btnFreigeben.textContent = istSkript ? "So umsetzen" : "Freigeben";
+        btnFreigeben.textContent = istSkript ? "✓ So umsetzen" : "✓ Freigeben";
       }
     });
 
@@ -423,10 +509,17 @@ export function renderVideoDetail(container, ctx) {
     }
   }
 
+  // Formular erst auf Klick — leer und aufgeklappt wäre es nur Rauschen.
+  kToggle.addEventListener("click", () => {
+    kForm.hidden = !kForm.hidden;
+    kToggle.textContent = kForm.hidden ? "✍️ Frage stellen" : "Abbrechen";
+    if (!kForm.hidden) kText.focus();
+  });
+
   // --- Kommentar-Thread -----------------------------------------------
   function renderComments(liste) {
     if (!liste.length) {
-      elComments.innerHTML = `<p class="muted">Noch keine Kommentare.</p>`;
+      elComments.innerHTML = "";   // kein „noch keine Kommentare" — einfach leer
       return;
     }
     elComments.innerHTML = liste.map((k) => {
@@ -458,53 +551,99 @@ export function renderVideoDetail(container, ctx) {
       await kommentarHinzufuegen(video.id, { text: txt, autor: user.email, rolle: "kunde", art: "kommentar" });
       meldeAdmin("kommentar", `💬 ${kurzname(user.email)} hat kommentiert bei „${video.titel || "Video"}": ${kurz(txt)}`, video.id);
       kText.value = "";
+      kForm.hidden = true;                       // gesendet → wieder einklappen
+      kToggle.textContent = "✍️ Frage stellen";
     } catch (err) {
       console.error(err);
       kErr.textContent = "Kommentar konnte nicht gesendet werden.";
       kErr.hidden = false;
     } finally {
       kSubmit.disabled = false;
-      kSubmit.textContent = "Kommentar senden";
+      kSubmit.textContent = "Frage senden";
     }
   });
 }
 
-// --- Media nach Stufe -------------------------------------------------
-function mediaHtml(v) {
-  let art = null;
-  if (v.status === STATUS.FREIGABE_SKRIPT) art = "skript";
-  else if (v.status === STATUS.FREIGABE_SCHNITT) art = "schnitt";
-  else if (v.schnittLink && erkennePlattform(v.schnittLink) !== "andere") art = "schnitt";
-  else if (v.skriptLink && drivePreviewUrl(v.skriptLink)) art = "skript";
+// --- Medien: NUR zeigen, was wirklich da ist ---------------------------
+// Grundsatz: keine Platzhalter für Fehlendes. Der Kunde sieht ausschließlich
+// vorhandene Stände — und wenn Skript UND Schnitt existieren, beide (früher
+// verdrängte der Schnitt das Skript).
+//
+// Skript-Quellen (in dieser Reihenfolge): vom Admin hochgeladene Datei →
+// Drive-Link → planSnapshot (der rendert als eigener Block, siehe renderPlan).
+// Schnitt: einbettbarer Link → Embed, sonst schlichter Öffnen-Link (z. B. ein
+// Google-Drive-Ordner) — der soll ja ebenfalls sichtbar sein.
+function medienHtml(v, uploads) {
+  const karten = [];
 
-  // Skript aus einem Plan deployt? Dann steckt der Inhalt im planSnapshot
-  // (wird als eigener Block unter dem Media gerendert) — kein leerer Platzhalter.
-  const hatPlan = v.planSnapshot && planHatDetails(v.planSnapshot);
+  const vonValentin = adminUploads(uploads);
+  const skriptDatei = vonValentin[0] || null;
+  const skriptUrl   = v.skriptLink ? drivePreviewUrl(v.skriptLink) : null;
 
-  if (art === "skript") {
-    const url = drivePreviewUrl(v.skriptLink);
-    if (!url) return hatPlan ? "" : infoCard("Das Skript liegt noch nicht vor.");
-    return `
+  if (skriptDatei) {
+    karten.push(`
       <div class="card media-card">
-        <div class="media-label">📝 Skript</div>
-        <div class="embed-pdf"><iframe src="${escapeHtml(url)}" title="Skript" allow="autoplay"></iframe></div>
+        <div class="media-label">📝 Dein Skript
+          <span class="media-sub muted">${escapeHtml(skriptDatei.dateiName || "Skript")} · ${escapeHtml(formatDatum(skriptDatei.erstelltAm))}</span>
+        </div>
+        <div class="vd-datei" data-upload="${escapeHtml(skriptDatei.id)}"></div>
+      </div>`);
+  } else if (skriptUrl) {
+    karten.push(`
+      <div class="card media-card">
+        <div class="media-label">📝 Dein Skript</div>
+        <div class="embed-pdf"><iframe src="${escapeHtml(skriptUrl)}" title="Skript" allow="autoplay"></iframe></div>
         <a class="media-extern muted" href="${escapeHtml(v.skriptLink)}" target="_blank" rel="noopener">In Google&nbsp;Drive öffnen ↗</a>
-      </div>`;
+      </div>`);
+  } else if (v.skriptLink) {
+    // Link vorhanden, aber keine Drive-Vorschau möglich → wenigstens verlinken.
+    karten.push(`
+      <div class="card card--pad media-card">
+        <div class="media-label">📝 Dein Skript</div>
+        <a class="media-extern" href="${escapeHtml(v.skriptLink)}" target="_blank" rel="noopener">Skript öffnen ↗</a>
+      </div>`);
   }
-  if (art === "schnitt") {
-    if (!v.schnittLink || erkennePlattform(v.schnittLink) === "andere") return infoCard("Der Schnitt liegt noch nicht vor.");
-    // Universelles Embed: YouTube / TikTok / Instagram / Vimeo / Drive.
-    return `
-      <div class="card media-card">
-        <div class="media-label">🎬 Schnitt</div>
-        ${embedHtml(v.schnittLink)}
-      </div>`;
+
+  if (v.schnittLink) {
+    const einbettbar = erkennePlattform(v.schnittLink) !== "andere";
+    karten.push(einbettbar
+      ? `<div class="card media-card">
+           <div class="media-label">🎬 Dein fertiges Video</div>
+           ${embedHtml(v.schnittLink)}
+         </div>`
+      : `<div class="card card--pad media-card">
+           <div class="media-label">🎬 Dein fertiges Video</div>
+           <a class="media-extern" href="${escapeHtml(v.schnittLink)}" target="_blank" rel="noopener">Video öffnen ↗</a>
+         </div>`);
   }
-  return hatPlan ? "" : infoCard("Hier erscheinen Skript und Schnitt, sobald sie bereitstehen.");
+
+  return karten.join("");
 }
 
-function infoCard(text) {
-  return `<div class="card card--pad"><p class="muted" style="margin:0">${escapeHtml(text)}</p></div>`;
+// Vier-Schritt-Fortschritt statt der 10 internen Stufen — der Kunde soll auf
+// einen Blick sehen, wo sein Video steht.
+function fortschrittHtml(v) {
+  const idx = kundenSchrittIndex(v.status);
+  if (idx < 0) {
+    return `<div class="card card--pad vd-verworfen"><p style="margin:0">🚫 Dieses Video wird nicht produziert.</p></div>`;
+  }
+  const schritte = kundenSchritte(v.typ);
+  return `<ol class="vd-schritte" aria-label="Fortschritt">
+    ${schritte.map((s, i) => {
+      const zustand = i < idx ? " is-fertig" : (i === idx ? " is-aktiv" : "");
+      return `<li class="vd-schritt${zustand}">
+        <span class="vd-schritt-punkt" aria-hidden="true">${i < idx ? "✓" : ""}</span>
+        <span class="vd-schritt-label">${escapeHtml(s)}</span>
+      </li>`;
+    }).join("")}
+  </ol>`;
+}
+
+// Uploads von Valentin (= das Skript, das der Kunde bekommt), neueste zuerst.
+function adminUploads(uploads) {
+  return (uploads || [])
+    .filter((u) => rolleVon(u.gemeldetVon) === "admin")
+    .sort((a, b) => ((b.erstelltAm && b.erstelltAm.seconds) || 0) - ((a.erstelltAm && a.erstelltAm.seconds) || 0));
 }
 
 function kurzname(email) {

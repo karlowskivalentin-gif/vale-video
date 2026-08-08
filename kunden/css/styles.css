@@ -308,6 +308,13 @@ a { color: inherit; text-decoration: none; }
 /* --- Notice: Erfolg -------------------------------------------------- */
 .notice--ok { background: #eaf5ee; color: var(--ok); border: 1px solid #bfe0cb; }
 
+/* Monats-Hinweis über dem Melde-Formular („was du jetzt meldest, …"). */
+.objekt-monat-hinweis {
+  background: var(--surface-2); color: var(--black);
+  border: 1px solid var(--mid);
+  margin-bottom: 1.1rem;
+}
+
 /* --- Sektionen / Layout-Helfer --------------------------------------- */
 .view-intro { margin: -0.25rem 0 1.5rem; }
 .stack { margin-bottom: 2rem; }
@@ -385,6 +392,12 @@ a.row-item:hover { background: var(--off-white); }
 .embed-pdf iframe { width: 100%; height: 100%; border: 0; }
 .media-extern { display: inline-block; font-size: 0.78rem; padding: 0.7rem 1.25rem; }
 .media-extern:hover { color: var(--accent); }
+/* Zusatz im Label (Dateiname, Datum) — normal gewichtet, damit die Zeile ruhig bleibt. */
+.media-sub { font-weight: 400; margin-left: 0.4rem; }
+/* Container für eine im Portal hochgeladene Skript-Datei (PDF-Frame / Word-Text). */
+.vd-datei { padding: 1rem 1.25rem; }
+/* Mehrere Medien-Karten (Skript + fertiges Video) sauber untereinander. */
+.vd-media .media-card + .media-card { margin-top: 1.1rem; }
 
 /* --- Aktionen (Freigeben / Änderungen) ------------------------------- */
 .action-card .action-hint { margin: 0.7rem 0 1rem; }
@@ -475,6 +488,13 @@ a.row-item:hover { background: var(--off-white); }
 }
 
 /* Status-Dashboard: Fortschritts-Kacheln über der Pipeline-Liste */
+/* Kopfzeile über den Kacheln: worüber rechnen die Kennzahlen? */
+.pl-dash-kopf {
+  display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
+  margin-bottom: 0.55rem;
+}
+.pl-dash-titel { font-size: 0.85rem; font-weight: 700; color: var(--muted); }
+.pl-dash-monat { max-width: 13rem; }
 .pl-dash { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem; }
 .pl-dash-kachel { border: 1px solid var(--mid); border-radius: var(--radius-lg); padding: 0.85rem 1rem; background: var(--white); }
 .pl-dash-top { display: flex; align-items: baseline; justify-content: space-between; gap: 0.4rem; }
@@ -568,8 +588,26 @@ a.row-item:hover { background: var(--off-white); }
 .ob-feld-link { display: block; color: var(--accent-dim); }
 .ob-feld-link:hover { color: var(--accent); }
 .ob-card-fuss { margin-top: 1.1rem; }
+
+/* Herleitung „gemeldet im X → Produktion im Y" + Monats-Dropdown der Karte. */
+.ob-herleitung {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem;
+  margin: -0.6rem 0 1.1rem; font-size: 0.85rem;
+}
+.ob-herleitung strong { color: var(--black); font-weight: 700; }
+.ob-herleitung-pfeil { color: var(--accent-dim); font-weight: 700; }
+.ob-herleitung .ob-monat-sel { margin-left: auto; }
+
+/* Inline-Editor einer Objekt-Karte (gleiche Felder wie das Anlege-Formular). */
+.ob-edit-form {
+  background: var(--surface-2);
+  border: 1px solid var(--mid); border-radius: var(--radius);
+  padding: 1rem 1rem 0.4rem;
+}
+
 @media (max-width: 720px) {
   .ob-felder { grid-template-columns: 1fr; }
+  .ob-herleitung .ob-monat-sel { margin-left: 0; }
 }
 
 /* --- Termine-Zeile --------------------------------------------------- */
@@ -2097,6 +2135,12 @@ a.news-item:hover { background: var(--off-white); }
 .tk-opt-label { font-size: .8rem; font-weight: 600; color: var(--muted); }
 .tk-schritte { margin: 0; padding-left: 1.3rem; display: flex; flex-direction: column; gap: .6rem; font-size: .95rem; }
 .tk-schritte code { background: var(--surface-2); border: 1px solid var(--mid); border-radius: 4px; padding: .1rem .4rem; font-size: .82rem; }
+/* Schritt „Server starten", solange der Health-Check nicht durchkommt — der
+   mit Abstand häufigste Grund für einen toten Tool-Tab (admin-transkript.js). */
+.tk-schritte li.is-noetig {
+  background: var(--warn-bg); border-left: 3px solid var(--warn);
+  border-radius: 4px; padding: .5rem .7rem; margin-left: -.7rem;
+}
 .tk-progress { margin-top: 1.25rem; }
 .tk-progress-kopf { display: flex; align-items: baseline; justify-content: space-between; gap: .8rem; font-weight: 600; margin-bottom: .6rem; flex-wrap: wrap; }
 .tk-bar { height: 10px; border-radius: 999px; background: var(--off-white); border: 1px solid var(--mid); overflow: hidden; }
@@ -2226,6 +2270,25 @@ a.news-item:hover { background: var(--off-white); }
 .skript-drop-link { color: var(--accent-dim); text-decoration: underline; }
 .skript-drop-hint { font-size: 0.75rem; }
 
+/* Kompakte Variante im Admin-Videoformular: liegt zwischen zwei Feldern,
+   darf deshalb nicht so hoch bauen wie die Zone in der Kunden-Ansicht. */
+.skript-drop--kompakt {
+  flex-direction: row; flex-wrap: wrap; justify-content: flex-start;
+  align-items: center; gap: 0.2rem 0.6rem;
+  padding: 0.75rem 0.9rem; text-align: left;
+}
+.skript-drop--kompakt .skript-drop-icon { font-size: 1.15rem; }
+.skript-drop--kompakt .skript-drop-hint { width: 100%; }
+
+/* Beim NEUEN Video vorgemerkte Datei (wird erst nach dem Anlegen hochgeladen). */
+.skript-vorgemerkt {
+  display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
+  margin-top: 0.5rem; padding: 0.5rem 0.7rem;
+  background: var(--surface-2); border: 1px solid var(--mid);
+  border-radius: var(--radius); font-size: 0.9rem;
+}
+.skript-vorgemerkt .btn { margin-left: auto; }
+
 /* --- Kunde: eigene Skript-Uploads ----------------------------------- */
 .vd-skript-upload { margin-top: 1.5rem; }
 
@@ -2337,17 +2400,37 @@ a.news-item:hover { background: var(--off-white); }
 .fokus-voll {
   position: fixed; inset: 0; z-index: 2000; background: var(--white);
   display: flex; align-items: center; justify-content: center;
+  box-sizing: border-box;
+  /* Sicherer Abstand zum Bildschirmrand — respektiert Notch/Safe-Area */
+  padding: clamp(1.75rem, 6vh, 4.5rem) clamp(1.5rem, 6vw, 4.5rem);
+  padding-top: max(clamp(1.75rem, 6vh, 4.5rem), env(safe-area-inset-top));
+  padding-bottom: max(clamp(1.75rem, 6vh, 4.5rem), env(safe-area-inset-bottom));
+  padding-left: max(clamp(1.5rem, 6vw, 4.5rem), env(safe-area-inset-left));
+  padding-right: max(clamp(1.5rem, 6vw, 4.5rem), env(safe-area-inset-right));
 }
 .fokus-voll[hidden] { display: none; }
-.fokus-voll-inner { display: flex; flex-direction: column; align-items: center; gap: 0.8rem; text-align: center; }
-.fokus-voll-name { font-size: 1.3rem; font-weight: 700; }
+.fokus-voll-inner {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: clamp(1rem, 3.5vh, 2rem); text-align: center;
+  width: 100%; max-width: 560px;
+}
+.fokus-voll-name { font-size: clamp(1.2rem, 2.5vh, 1.5rem); font-weight: 700; }
 .fokus-voll-phase { font-weight: 600; color: var(--accent-dim); min-height: 1.2em; }
-.fokus-voll-ringwrap { position: relative; width: min(60vh, 420px); aspect-ratio: 1; }
+/* Ring skaliert an der knappsten Achse, damit auf jedem Format Luft zum Rand bleibt.
+   container-type: size → die Zeit darin kann proportional zum Ring skalieren (cqmin). */
+.fokus-voll-ringwrap { position: relative; width: min(55vh, 55vw, 420px); aspect-ratio: 1; container-type: size; }
 .fokus-voll-ring { width: 100%; height: 100%; transform: rotate(-90deg); }
+/* Apple-artig: schlankerer Ring als in der Inline-Ansicht */
+.fokus-voll-ring .fokus-ring-track,
+.fokus-voll-ring .fokus-ring-fill { stroke-width: 9; }
 .fokus-voll-zeit {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-  font-size: clamp(2.5rem, 9vh, 5rem); font-weight: 800; font-variant-numeric: tabular-nums;
+  /* Ziffern skalieren mit dem Ring, nicht mit dem Viewport → nie überdimensional */
+  font-family: -apple-system, "SF Pro Display", system-ui, "Segoe UI", sans-serif;
+  font-size: clamp(1.5rem, 12cqmin, 3.3rem); font-weight: 500;
+  letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
 }
+.fokus-voll-inner .action-btns { justify-content: center; margin-top: 0.4rem; }
 
 /* --- Wartungs-Box (ausblendbar) ------------------------------------- */
 .kd-wartung-kopf { display: flex; justify-content: space-between; align-items: center; }
@@ -2512,9 +2595,10 @@ a.mv-card:hover .mv-cta-link { color: var(--accent); }
 
 /* =====================================================================
    PIPELINE — Monats-Sektionen
+   (geteilt mit den Objekt-Sektionen, .ob-monat*: gleiche Optik, gleiche Logik)
    ===================================================================== */
-.pl-monat { margin-bottom: 0.9rem; }
-.pl-monat-head {
+.pl-monat, .ob-monat { margin-bottom: 0.9rem; }
+.pl-monat-head, .ob-monat-head {
   width: 100%;
   display: flex; align-items: center; gap: 0.55rem;
   background: var(--surface);
@@ -2524,16 +2608,221 @@ a.mv-card:hover .mv-cta-link { color: var(--accent); }
   cursor: pointer;
   font: inherit; text-align: left;
 }
-.pl-monat-head:hover { border-color: var(--accent); }
-.pl-monat-chevron { font-size: 0.8rem; color: var(--muted); transition: transform 0.15s ease; }
-.pl-monat.is-offen .pl-monat-chevron { transform: rotate(90deg); }
-.pl-monat-label { font-weight: 700; }
-.pl-monat-jetzt {
+.pl-monat-head:hover, .ob-monat-head:hover { border-color: var(--accent); }
+.pl-monat-chevron, .ob-monat-chevron { font-size: 0.8rem; color: var(--muted); transition: transform 0.15s ease; }
+.pl-monat.is-offen .pl-monat-chevron,
+.ob-monat.is-offen .ob-monat-chevron { transform: rotate(90deg); }
+.pl-monat-label, .ob-monat-label { font-weight: 700; }
+.pl-monat-jetzt, .ob-monat-jetzt {
   font-size: 0.7rem; font-weight: 700; color: var(--accent-dim);
   background: rgba(226, 98, 44, 0.1);
   border-radius: 999px; padding: 0.1rem 0.55rem;
   text-transform: uppercase; letter-spacing: 0.03em;
 }
-.pl-monat-n { margin-left: auto; font-size: 0.8rem; white-space: nowrap; }
-.pl-monat-body { margin-top: 0.55rem; }
-.pl-monat-sel { max-width: 8.5rem; }
+.pl-monat-n, .ob-monat-n { margin-left: auto; font-size: 0.8rem; white-space: nowrap; }
+.pl-monat-body, .ob-monat-body { margin-top: 0.55rem; }
+.pl-monat-sel, .ob-monat-sel { max-width: 8.5rem; }
+
+/* --- Parkplatz „🅿️ Irgendwann" (status.js: MONAT_SPAETER) ---------------
+   Videos ohne Drehmonat. Steht immer als letzte Sektion und ist bewusst
+   zurückgenommen: gestrichelte Kante statt Hairline, kein weißer Surface —
+   damit auf einen Blick klar ist, dass hier nichts terminiert ist.          */
+.pl-monat--spaeter { margin-top: 1.6rem; }
+.pl-monat--spaeter .pl-monat-head {
+  background: var(--off-white);
+  border-style: dashed;
+  color: var(--muted);
+}
+.pl-monat--spaeter .pl-monat-head:hover { border-color: var(--light); }
+.pl-monat-parkplatz {
+  font-size: 0.7rem; font-weight: 700; color: var(--muted);
+  background: var(--mid);
+  border-radius: 999px; padding: 0.1rem 0.55rem;
+  text-transform: uppercase; letter-spacing: 0.03em;
+}
+/* Karten im Parkplatz: leicht entsättigt, Termin-Chips treten zurück. */
+.pl-monat--spaeter .pl-item { border-style: dashed; }
+.pl-monat--spaeter .pl-termine { opacity: 0.75; }
+/* Das Monats-Dropdown der Karte zeigt selbst, dass geparkt ist. */
+.pl-monat-sel.is-spaeter {
+  border-color: var(--light);
+  background: var(--off-white);
+  font-style: italic;
+}
+
+/* =====================================================================
+   BEOBACHTUNGSMODUS — der Admin schaut durch die Augen eines Kunden
+   (router.js: istBeobachtung(); body-Klasse wird in render() gesetzt)
+   ===================================================================== */
+.beob-rahmen {
+  position: fixed; inset: 0; z-index: 200;
+  border: 4px solid var(--accent);
+  border-radius: 8px;
+  box-shadow: inset 0 0 26px rgba(226, 98, 44, 0.22);
+  pointer-events: none;   /* reine Optik — darf nichts abfangen */
+}
+.beob-banner {
+  position: fixed; z-index: 210;
+  left: 50%; transform: translateX(-50%); bottom: 1.1rem;
+  display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
+  max-width: min(94vw, 46rem);
+  padding: 0.65rem 1rem;
+  background: var(--accent); color: #fff;
+  border-radius: 999px;
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.22);
+  font-size: 0.9rem; line-height: 1.35;
+}
+.beob-banner strong { font-weight: 700; }
+.beob-punkt {
+  width: 0.6rem; height: 0.6rem; flex: 0 0 auto;
+  border-radius: 50%; background: #fff;
+  animation: beobPuls 1.6s ease-in-out infinite;
+}
+@keyframes beobPuls { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+.beob-zurueck {
+  flex: 0 0 auto; margin-left: auto;
+  background: #fff; color: var(--accent); border: none; font-weight: 700;
+}
+.beob-zurueck:hover:not(:disabled) { background: #fff; transform: translateY(-1px); }
+
+/* Die Topbar bekommt denselben Akzent, damit der Modus oben wie unten sichtbar ist. */
+body.is-beobachtung .topbar { border-bottom: 2px solid var(--accent); }
+/* Platz, damit das Banner die letzte Karte nicht verdeckt. */
+body.is-beobachtung .view { padding-bottom: 5.5rem; }
+
+/* Read-only: nichts im Namen des Kunden auslösen. Links bleiben klickbar,
+   damit sich die Kundensicht trotzdem komplett durchklicken lässt. */
+body.is-beobachtung .view button,
+body.is-beobachtung .view input,
+body.is-beobachtung .view select,
+body.is-beobachtung .view textarea,
+body.is-beobachtung .view .skript-drop,
+body.is-beobachtung .fb-widget {
+  pointer-events: none;
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* =====================================================================
+   KUNDEN-VIDEOANSICHT — Kopf, Fortschritt, Entscheidung
+   Leitidee: Was ist das? Wie weit ist es? Muss ich etwas tun? — alles
+   beantwortet, bevor der Kunde das erste Mal scrollt.
+   ===================================================================== */
+
+/* Eckdaten unter dem Titel (Typ · Dreh · online ab) */
+.vd-meta { margin: -0.5rem 0 1rem; font-size: 0.9rem; }
+
+/* Vier-Schritt-Fortschritt */
+.vd-schritte {
+  display: flex; align-items: flex-start;
+  list-style: none; margin: 0 0 1.25rem; padding: 0;
+}
+.vd-schritt {
+  flex: 1 1 0; position: relative;
+  display: flex; flex-direction: column; align-items: center; gap: 0.35rem;
+  font-size: 0.78rem; color: var(--muted); text-align: center;
+}
+/* Verbindungslinie zum vorherigen Schritt */
+.vd-schritt + .vd-schritt::before {
+  content: ""; position: absolute; top: 0.62rem; right: 50%;
+  width: 100%; height: 2px; background: var(--mid);
+}
+.vd-schritt.is-fertig + .vd-schritt::before,
+.vd-schritt.is-aktiv::before { background: var(--accent); }
+.vd-schritt-punkt {
+  position: relative; z-index: 1;
+  width: 1.25rem; height: 1.25rem; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--white); border: 2px solid var(--mid);
+  font-size: 0.68rem; line-height: 1; color: #fff;
+}
+.vd-schritt.is-fertig .vd-schritt-punkt { background: var(--accent); border-color: var(--accent); }
+.vd-schritt.is-aktiv  .vd-schritt-punkt { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(226,98,44,0.16); }
+.vd-schritt.is-fertig .vd-schritt-label { color: var(--black); }
+.vd-schritt.is-aktiv  .vd-schritt-label { color: var(--accent-dim); font-weight: 700; }
+
+.vd-verworfen { border-left: 3px solid var(--error); margin-bottom: 1.25rem; }
+
+/* „Du bist dran" — die wichtigste Zeile der Seite, wenn eine Freigabe ansteht */
+.vd-todo-karte {
+  display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap;
+  margin-bottom: 1.25rem; padding: 0.9rem 1.1rem;
+  background: rgba(226, 98, 44, 0.07);
+  border: 1px solid var(--accent); border-radius: var(--radius-lg);
+}
+.vd-todo-icon { font-size: 1.2rem; }
+.vd-todo-text { flex: 1 1 14rem; font-size: 0.95rem; line-height: 1.45; }
+.vd-todo-btn { flex: 0 0 auto; background: var(--accent); color: #fff; border: none; }
+.vd-todo-btn:hover:not(:disabled) { background: var(--accent-dim); transform: translateY(-1px); }
+
+/* Entscheidung: Primär groß, Absage als ruhiger Textlink darunter */
+.btn--gross { font-size: 1.02rem; padding: 0.85rem 1.6rem; }
+.vd-verwerfen-link {
+  display: inline-block; margin-top: 0.9rem; padding: 0;
+  background: none; border: none; cursor: pointer;
+  font: inherit; font-size: 0.82rem; color: var(--muted);
+  text-decoration: underline; text-underline-offset: 2px;
+}
+.vd-verwerfen-link:hover { color: var(--error); }
+
+/* =====================================================================
+   ADMIN-VIDEOANSICHT — Kopf, Feldgruppen, klappbare Blöcke, Speicherleiste
+   ===================================================================== */
+
+/* Kopf: Kunde · Typ · Entwurf + Status-Pille */
+.ave-kopf-meta {
+  display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+  margin: 0 0 0.9rem; font-size: 0.88rem;
+}
+.ave-kopf-status { margin-left: 0.2rem; }
+
+/* „Kunde ist am Zug" — der einzige Hinweis, der oben laut sein darf */
+.ave-wartet {
+  display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
+  margin: 0 0 1.25rem; padding: 0.75rem 1rem;
+  background: rgba(226, 98, 44, 0.07);
+  border: 1px solid var(--accent); border-radius: var(--radius-lg);
+  font-size: 0.92rem;
+}
+
+/* Feldgruppen: was rausgeht vs. was intern bleibt */
+.ave-gruppe {
+  margin: 1.5rem 0;
+  padding: 1rem 1.1rem 0.2rem;
+  border: 1px solid var(--mid); border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+.ave-gruppe--kunde  { border-left: 3px solid var(--accent); }
+.ave-gruppe--intern { border-left: 3px solid var(--mid); background: var(--surface-2); }
+.ave-gruppe-kopf { display: flex; flex-direction: column; gap: 0.15rem; margin-bottom: 0.9rem; }
+.ave-gruppe-titel { font-size: 0.9rem; font-weight: 700; }
+.ave-gruppe-sub { font-size: 0.78rem; }
+
+/* Klappbare Blöcke (Plan, Drehplan, Kommentare) */
+.ave-block { margin-top: 1.5rem; }
+.ave-block-kopf {
+  display: flex; align-items: center; gap: 0.55rem;
+  padding: 0.6rem 0.85rem; cursor: pointer;
+  background: var(--surface); border: 1px solid var(--mid); border-radius: var(--radius);
+  font-size: 0.92rem; list-style: none;
+}
+.ave-block-kopf::-webkit-details-marker { display: none; }
+.ave-block-kopf::before { content: "▸"; font-size: 0.8rem; color: var(--muted); transition: transform 0.15s ease; }
+.ave-block[open] > .ave-block-kopf::before { transform: rotate(90deg); }
+.ave-block-kopf:hover { border-color: var(--accent); }
+.ave-block-titel { font-weight: 700; }
+.ave-block-zahl { margin-left: auto; font-size: 0.8rem; white-space: nowrap; }
+.ave-block-zahl--neu { color: var(--accent); font-weight: 700; }
+.ave-block > :not(.ave-block-kopf) { margin-top: 0.7rem; }
+
+/* Speicherleiste: klebt unten, sobald es ungespeicherte Änderungen gibt */
+.ave-speicherleiste {
+  position: sticky; bottom: 0; z-index: 40;
+  display: flex; align-items: center; gap: 0.7rem; flex-wrap: wrap;
+  margin: 1.75rem -0.25rem 0; padding: 0.75rem 1rem;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--accent); border-radius: var(--radius-lg);
+  box-shadow: 0 -4px 18px rgba(0, 0, 0, 0.09);
+}
+.ave-speicher-hinweis { flex: 1 1 auto; font-size: 0.85rem; font-weight: 600; color: var(--accent-dim); }
