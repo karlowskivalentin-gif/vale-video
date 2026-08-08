@@ -397,6 +397,24 @@ service cloud.firestore {
       allow write: if istAdmin();
     }
 
+    // ---- webordner (Abschnitte des Portfolios) -----------------------
+    // Ein Doc = ein Abschnitt auf portfolio.html (Überschrift + Reihenfolge).
+    // Die Zugehörigkeit steht am jeweiligen Element (webvideos.ordnerId bzw.
+    // webstatisch.ordnerId), nicht als Mitgliederliste hier — sonst müssten
+    // beim Verschieben immer zwei Dokumente konsistent geändert werden.
+    match /webordner/{id} {
+      allow read:  if true;
+      allow write: if istAdmin();
+    }
+
+    // ---- webstatisch (Einsortierung der 7 handgebauten Projektseiten) -
+    // Enthält KEINE Inhalte, nur { ref, ordnerId, reihenfolge }. Die Seiten
+    // selbst bleiben statisches HTML im Eltern-Repo.
+    match /webstatisch/{id} {
+      allow read:  if true;
+      allow write: if istAdmin();
+    }
+
     // ---- webseite (Startseiten-Baukasten) ----------------------------
     // Ein einziges Doc `startseite`: `kacheln` = veröffentlichter Stand,
     // `entwurf` = Arbeitsstand. Beides ist nur eine Anordnung von

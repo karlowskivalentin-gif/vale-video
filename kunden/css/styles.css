@@ -3034,3 +3034,64 @@ body.is-beobachtung .fb-widget {
 .field--check input[type="checkbox"] {
   width: auto; flex-shrink: 0; margin: 0; accent-color: var(--accent);
 }
+
+/* --- Portfolio-Struktur: Abschnitte im Portal (admin-webseite.js) ------
+   Bildet die Gliederung von portfolio.html ab: „Ohne Abschnitt" oben,
+   darunter die Ordner in ihrer Reihenfolge. Karten werden am Griff (⠿) in
+   der Bildecke zwischen den Blöcken verschoben.                            */
+.wb-ordner-kopf { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-top: 2rem; }
+
+.wb-block {
+  border: 1px solid var(--mid); border-radius: var(--radius-lg);
+  background: var(--off-white); padding: .7rem; margin-bottom: .9rem;
+}
+.wb-block.is-dropziel {
+  border-color: var(--accent); background: rgba(226, 98, 44, 0.06);
+  box-shadow: 0 0 0 3px rgba(226, 98, 44, 0.14);
+}
+.wb-block-kopf { display: flex; align-items: center; gap: .55rem; margin-bottom: .7rem; }
+.wb-block-griff { font-size: 1rem; flex-shrink: 0; }
+.wb-block-titel { font-size: .95rem; }
+.wb-block-n {
+  font-size: .72rem; font-weight: 700;
+  background: var(--mid); border-radius: 999px; padding: .05rem .45rem;
+}
+.wb-block-hint { font-size: .75rem; margin-left: auto; }
+.wb-ordner-name {
+  font: inherit; font-size: .95rem; font-weight: 700;
+  background: transparent; border: 1px solid transparent; border-radius: 4px;
+  padding: .2rem .4rem; min-width: 8rem; flex: 1 1 auto; max-width: 22rem;
+}
+.wb-ordner-name:hover  { border-color: var(--mid); background: var(--surface); }
+.wb-ordner-name:focus  { outline: none; border-color: var(--accent); background: var(--surface); }
+.wb-block-kopf > button {
+  font: inherit; font-size: .8rem; line-height: 1; cursor: pointer;
+  background: transparent; border: 1px solid var(--mid); border-radius: 4px;
+  color: var(--muted); padding: .25rem .45rem; flex-shrink: 0;
+}
+.wb-block-kopf > button:hover { border-color: var(--accent); color: var(--black); }
+.wb-block-grid { min-height: 60px; }
+.wb-block-leer {
+  grid-column: 1 / -1; margin: 0; text-align: center;
+  border: 1.5px dashed var(--mid); border-radius: var(--radius); padding: 1.3rem;
+}
+
+/* Griff sitzt auf dem Bild — auf der Karte ist sonst kein Platz mehr. */
+.wb-karte-griff {
+  position: absolute; top: .4rem; right: .4rem; z-index: 2;
+  cursor: grab; user-select: none;
+  background: rgba(20, 17, 13, .55); color: #fff;
+  border-radius: 4px; padding: .1rem .35rem; font-size: .85rem; line-height: 1.2;
+  opacity: 0; transition: opacity .15s ease;
+}
+.wb-karte:hover .wb-karte-griff { opacity: 1; }
+.wb-karte-griff:active { cursor: grabbing; }
+.wb-karte.is-zieht { opacity: .4; }
+/* Handgebaute Projektseiten: verschiebbar, aber nicht editier-/löschbar. */
+.wb-statisch-pill {
+  position: absolute; bottom: .4rem; left: .4rem;
+  font-size: .62rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+  background: rgba(20, 17, 13, .6); color: #fff;
+  border-radius: 999px; padding: .1rem .45rem;
+}
+.wb-karte.is-statisch { border-style: dashed; }

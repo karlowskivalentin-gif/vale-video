@@ -66,61 +66,55 @@
   </section>
 
   <section class="work-section">
-    <div class="work-filter" id="workFilter">
-      <button class="filter-chip is-active" data-filter="all">Alle</button>
-      <button class="filter-chip" data-filter="imagefilm">Imagefilm</button>
-      <button class="filter-chip" data-filter="reels">Reels</button>
-      <button class="filter-chip" data-filter="objekt">Objektvideo</button>
-      <button class="filter-chip" data-filter="persoenlich">Persönlich</button>
-    </div>
-
-    <!-- Neue Posts aus dem Portal werden von js/portfolio-posts.js VOR die
-         folgenden Karten gehängt. Diese sieben bleiben statisches HTML —
-         sie sind die SEO-Basis und stehen ohne JavaScript im Quelltext. -->
+    <!-- Gliederung kommt aus dem Portal: js/portfolio-posts.js legt pro
+         Abschnitt ein eigenes Grid an und hängt die folgenden Karten dort
+         hinein. Diese sieben bleiben statisches HTML — sie sind die SEO-Basis
+         und stehen auch ohne JavaScript vollständig im Quelltext. Ohne
+         angelegte Abschnitte bleibt genau dieses eine Grid stehen. -->
     <div class="work-grid" id="workGrid">
-      <a href="projekt-clubpilates.html" class="work-card" data-category="reels">
+      <a href="projekt-clubpilates.html" class="work-card">
         <img loading="lazy" src="assets/images/thumb-clubpilates.webp" alt="Club Pilates × Fibo 2026" />
         <div class="work-card-overlay">
           <p class="work-card-tag">Auftrag · Event · Reel</p>
           <p class="work-card-name">Club Pilates × Fibo 2026</p>
         </div>
       </a>
-      <a href="projekt-cathy.html" class="work-card" data-category="reels">
+      <a href="projekt-cathy.html" class="work-card">
         <img loading="lazy" src="assets/images/thumb-cathy.webp" alt="Cathy Hummels Interview" />
         <div class="work-card-overlay">
           <p class="work-card-tag">Auftrag · Interview · Reel</p>
           <p class="work-card-name">Cathy Hummels Interview</p>
         </div>
       </a>
-      <a href="projekt-schneider.html" class="work-card" data-category="imagefilm">
+      <a href="projekt-schneider.html" class="work-card">
         <img loading="lazy" src="assets/images/thumb-schneider.webp" alt="Café Schneider Imagefilm" />
         <div class="work-card-overlay">
           <p class="work-card-tag">Auftrag · Imagefilm · Interview</p>
           <p class="work-card-name">Café Schneider Benrath</p>
         </div>
       </a>
-      <a href="projekt-zicke.html" class="work-card" data-category="imagefilm">
+      <a href="projekt-zicke.html" class="work-card">
         <img loading="lazy" src="assets/images/thumb-zicke.webp" alt="Bistro Zicke Imagefilm" />
         <div class="work-card-overlay">
           <p class="work-card-tag">Auftrag · Imagefilm</p>
           <p class="work-card-name">Bistro Zicke Düsseldorf</p>
         </div>
       </a>
-      <a href="projekt-amsterdam.html" class="work-card" data-category="persoenlich">
+      <a href="projekt-amsterdam.html" class="work-card">
         <img loading="lazy" src="assets/images/thumb-amsterdam.webp" alt="Amsterdam by Day" />
         <div class="work-card-overlay">
           <p class="work-card-tag">Persönlich · Cinematic Travel</p>
           <p class="work-card-name">Amsterdam by Day</p>
         </div>
       </a>
-      <a href="projekt-goldhaus.html" class="work-card" data-category="imagefilm">
+      <a href="projekt-goldhaus.html" class="work-card">
         <img loading="lazy" src="assets/images/thumb-goldhaus.webp" alt="Goldhaus Imagefilm" />
         <div class="work-card-overlay">
           <p class="work-card-tag">Auftrag · Imagefilm</p>
           <p class="work-card-name">Goldhaus</p>
         </div>
       </a>
-      <a href="projekt-pia.html" class="work-card" data-category="persoenlich">
+      <a href="projekt-pia.html" class="work-card">
         <img loading="lazy" src="assets/images/thumb-pia.webp" alt="Pia — Zuhause in Urdenbach" />
         <div class="work-card-overlay">
           <p class="work-card-tag">Persönlich · Objektfilm</p>

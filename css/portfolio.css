@@ -651,3 +651,35 @@
 /* Vorschau-Modus im Baukasten-iframe: die Navigation würde dort nur stören
    und beim Scrollen über die Kacheln wandern (js/startseite.js). */
 body.ist-vorschau nav { position: static; }
+
+/* ── Portfolio-Abschnitte (js/portfolio-posts.js) ──
+   Ersetzen die früheren Filter-Chips: Valentin legt die Gliederung im Portal
+   an, hier erscheint sie als Abfolge von Sektionen. Überschrift bewusst
+   zurückhaltend — die Arbeiten sollen wirken, nicht die Struktur. */
+.work-abschnitt { padding-top: 1rem; }
+.work-abschnitt-kopf {
+  padding: 0 3rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.work-abschnitt-titel {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-size: clamp(1.6rem, 3vw, 2.4rem);
+  line-height: 1.1;
+  color: var(--black);
+}
+.work-abschnitt-text {
+  font-size: 0.88rem;
+  color: var(--muted);
+  line-height: 1.8;
+  max-width: 560px;
+}
+/* Trennlinie zwischen den Abschnitten — außer beim ersten. */
+.work-abschnitt + .work-abschnitt { border-top: 1px solid var(--mid); margin-top: 2rem; }
+
+@media (max-width: 900px) {
+  .work-abschnitt-kopf { padding: 0 1.5rem 1.2rem; }
+}

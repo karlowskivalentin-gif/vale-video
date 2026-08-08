@@ -1129,6 +1129,8 @@ export async function webvideoAnlegen(daten) {
     thumbUrl:     daten.thumbUrl || "",
     thumbId:      daten.thumbId || "",
     hochformat:   daten.hochformat === true,
+    ordnerId:     daten.ordnerId || null,    // null = „ohne Ordner", steht oben
+    reihenfolge:  Number.isFinite(daten.reihenfolge) ? daten.reihenfolge : Date.now(),
     veroeffentlicht: daten.veroeffentlicht !== false,   // Default: sofort live
     erstelltAm:     serverTimestamp(),
     aktualisiertAm: serverTimestamp()
@@ -1192,4 +1194,66 @@ export async function veroeffentlicheStartseite(kacheln) {
   return setDoc(startseiteRef(), {
     kacheln, entwurf: null, veroeffentlichtAm: serverTimestamp()
   }, { merge: true });
+}
+
+// =====================================================================
+// PORTFOLIO-ORDNER — die Abschnitte auf portfolio.html
+//
+// Ein Ordner = eine Sektion mit Überschrift. Die Zugehörigkeit steht am
+// ELEMENT (webvideos.ordnerId bzw. webstatisch.ordnerId), nicht als
+// Mitgliederliste im Ordner: beim Verschieben ändert sich so genau ein
+// Dokument, und ein Element kann nie in zwei Ordnern gleichzeitig hängen.
+// =====================================================================
+const webordnerCol   = () => collection(db, "webordner");
+const webstatischCol = () => collection(db, "webstatisch");
+
+export async function ordnerAnlegen({ name, beschreibung, reihenfolge }) {
+  return addDoc(webordnerCol(), {
+    name: name || "Neuer Abschnitt",
+    beschreibung: beschreibung || "",
+    reihenfolge: Number.isFinite(reihenfolge) ? reihenfolge : Date.now(),
+    erstelltAm: serverTimestamp()
+  });
+}
+
+export async function aktualisiereOrdner(id, felder) {
+  return updateDoc(doc(db, "webordner", id), { ...felder, aktualisiertAm: serverTimestamp() });
+}
+
+// Ordner löschen und seine Mitglieder freistellen: sie landen wieder in
+// „ohne Ordner" (oben auf der Seite) statt unsichtbar zu werden.
+export async function loescheOrdner(id) {
+  const batch = writeBatch(db);
+  const [videos, statisch] = await Promise.all([
+    getDocs(query(webvideosCol(),   where("ordnerId", "==", id))),
+    getDocs(query(webstatischCol(), where("ordnerId", "==", id)))
+  ]);
+  videos.docs.forEach((d)   => batch.update(d.ref, { ordnerId: null }));
+  statisch.docs.forEach((d) => batch.update(d.ref, { ordnerId: null }));
+  batch.delete(doc(db, "webordner", id));
+  return batch.commit();
+}
+
+export function beobachteOrdner(callback, onError) {
+  return onSnapshot(
+    webordnerCol(),
+    (snap) => callback(snapToArr(snap).sort((a, b) => (a.reihenfolge || 0) - (b.reihenfolge || 0))),
+    onError || (() => {})
+  );
+}
+
+// --- Einsortierung der 7 statischen Projektseiten ---------------------
+// Doc-ID ist der Slug der Seite (z.B. "projekt-amsterdam"), damit die
+// Zuordnung idempotent geschrieben werden kann.
+export async function setzeStatischZuordnung(ref, { ordnerId, reihenfolge }) {
+  const slug = String(ref).replace(/\.html$/, "");
+  return setDoc(doc(db, "webstatisch", slug), {
+    ref, ordnerId: ordnerId || null,
+    reihenfolge: Number.isFinite(reihenfolge) ? reihenfolge : 0,
+    aktualisiertAm: serverTimestamp()
+  }, { merge: true });
+}
+
+export function beobachteStatisch(callback, onError) {
+  return onSnapshot(webstatischCol(), (snap) => callback(snapToArr(snap)), onError || (() => {}));
 }

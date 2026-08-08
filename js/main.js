@@ -7,22 +7,10 @@ function playYT(wrapperId, videoId) {
   wrap.classList.add('active');
 }
 
-// ── Portfolio / Work Filter
-document.querySelectorAll('[data-filter]').forEach(chip => {
-  chip.addEventListener('click', () => {
-    const group = chip.closest('.work-filter');
-    const filter = chip.getAttribute('data-filter');
-    if (group) {
-      group.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('is-active'));
-    }
-    chip.classList.add('is-active');
-    document.querySelectorAll('.work-card').forEach(card => {
-      const cat = card.getAttribute('data-category');
-      const show = filter === 'all' || cat === filter;
-      card.classList.toggle('is-hidden', !show);
-    });
-  });
-});
+// ── Portfolio: die Filter-Chips sind entfallen. Das Portfolio gliedert sich
+// jetzt in Abschnitte, die Valentin im Portal anlegt (js/portfolio-posts.js) —
+// zwei parallele Ordnungssysteme (Chips quer + Abschnitte längs) hätten
+// Besucher nur verwirrt.
 
 // ── Hero Video Swap-in Hook
 // Sobald der Showreel-Slot ein data-video-src trägt, wird das <video> injiziert

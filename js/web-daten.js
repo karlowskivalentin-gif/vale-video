@@ -95,6 +95,36 @@ export async function ladeThumb(id) {
   } catch (_) { return ""; }
 }
 
+// Portfolio-Abschnitte, in ihrer gesetzten Reihenfolge.
+export async function ladeOrdner() {
+  try {
+    const snap = await getDocs(collection(db, "webordner"));
+    return snap.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => (a.reihenfolge || 0) - (b.reihenfolge || 0));
+  } catch (e) {
+    console.warn("[vale-video] Abschnitte nicht ladbar:", e);
+    return [];
+  }
+}
+
+// Einsortierung der sieben handgebauten Projektseiten: { ref → ordnerId }.
+// Enthält keine Inhalte — die Seiten selbst sind und bleiben statisches HTML.
+export async function ladeStatischZuordnung() {
+  try {
+    const snap = await getDocs(collection(db, "webstatisch"));
+    const map = new Map();
+    snap.docs.forEach((d) => {
+      const v = d.data();
+      if (v.ref) map.set(v.ref, { ordnerId: v.ordnerId || null, reihenfolge: v.reihenfolge || 0 });
+    });
+    return map;
+  } catch (e) {
+    console.warn("[vale-video] Zuordnungen nicht ladbar:", e);
+    return new Map();
+  }
+}
+
 export async function ladeStartseite() {
   try {
     const s = await getDoc(doc(db, "webseite", "startseite"));

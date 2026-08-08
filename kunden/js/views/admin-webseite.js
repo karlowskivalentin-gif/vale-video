@@ -15,7 +15,9 @@
 import {
   beobachteWebvideos, webvideoAnlegen, aktualisiereWebvideo, loescheWebvideo,
   webthumbAnlegen, ladeWebthumb, beobachteStartseite, speichereStartseiteEntwurf,
-  veroeffentlicheStartseite, WEB_KATEGORIEN
+  veroeffentlicheStartseite, WEB_KATEGORIEN,
+  ordnerAnlegen, aktualisiereOrdner, loescheOrdner, beobachteOrdner,
+  setzeStatischZuordnung, beobachteStatisch
 } from "../db.js";
 import { beiViewWechsel } from "../view-lifecycle.js";
 import { escapeHtml } from "../util.js";
@@ -99,6 +101,8 @@ function postBild(v, thumbCache) {
 export function renderAdminWebseite(container) {
   let tab = "posts";                 // 'posts' | 'startseite'
   let posts = [];
+  let ordner = [];                   // Abschnitte des Portfolios
+  let statisch = [];                 // Einsortierung der 7 festen Projektseiten
   let startseite = { kacheln: [], entwurf: null };
   let entwurf = null;                // lokaler Arbeitsstand des Baukastens
   const thumbCache = new Map();      // thumbId → data:-URL
@@ -112,7 +116,7 @@ export function renderAdminWebseite(container) {
     <p class="muted view-intro">Was hier steht, ist <strong>öffentlich</strong> — es landet direkt auf
       vale-video.de. Kein Deploy nötig: Absenden genügt.</p>
     <div class="wb-tabs" id="wbTabs">
-      <button class="wb-tab is-active" data-tab="posts" type="button">📮 Posts</button>
+      <button class="wb-tab is-active" data-tab="posts" type="button">📁 Portfolio</button>
       <button class="wb-tab" data-tab="startseite" type="button">🏠 Startseite</button>
     </div>
     <div id="wbInhalt"><div class="card card--pad"><p class="muted">Lädt …</p></div></div>`;
@@ -145,6 +149,16 @@ export function renderAdminWebseite(container) {
     }
   );
 
+  const unsubO = beobachteOrdner(
+    (liste) => { ordner = liste; zeichne(); },
+    (err) => console.warn("Ordner laden fehlgeschlagen:", err)
+  );
+
+  const unsubSt = beobachteStatisch(
+    (liste) => { statisch = liste; zeichne(); },
+    (err) => console.warn("Zuordnungen laden fehlgeschlagen:", err)
+  );
+
   const unsubS = beobachteStartseite(
     (d) => {
       startseite = d || { kacheln: [], entwurf: null };
@@ -156,6 +170,8 @@ export function renderAdminWebseite(container) {
   );
 
   beiViewWechsel(unsubV);
+  beiViewWechsel(unsubO);
+  beiViewWechsel(unsubSt);
   beiViewWechsel(unsubS);
 
   // =====================================================================
@@ -233,36 +249,98 @@ export function renderAdminWebseite(container) {
         </form>
       </section>
 
-      <h2 class="wb-listen-titel">Deine Posts <span class="muted">(${posts.length})</span></h2>
-      <div class="wb-grid" id="wbListe">${posts.length
-        ? posts.map(postKarte).join("")
-        : `<div class="card card--pad empty-card" style="grid-column:1/-1">
-             <div class="empty-emoji">📮</div>
-             <p class="empty-title">Noch keine Posts</p>
-             <p class="muted">Füg oben einen Link ein — er steht sofort auf vale-video.de.</p>
-           </div>`}</div>`;
+      <div class="wb-ordner-kopf">
+        <h2 class="wb-listen-titel" style="margin:0">Portfolio-Struktur</h2>
+        <button class="btn btn--ghost btn--sm" id="wbNeuerOrdner" type="button">＋ Neuer Abschnitt</button>
+      </div>
+      <p class="muted" style="margin:.2rem 0 1rem">Genau so sieht portfolio.html aus: „Ohne Abschnitt“ steht oben,
+        danach deine Abschnitte in dieser Reihenfolge. Karten am Griff ⠿ anfassen und in einen anderen Block ziehen.</p>
+      <div id="wbBloecke">
+        ${blockHtml(null)}
+        ${ordner.map(blockHtml).join("")}
+      </div>`;
 
     wirePostForm();
-    wirePostListe();
+    wirePortfolio();
   }
 
-  function postKarte(v) {
-    const bild = postBild(v, thumbCache);
+  // Alle Elemente eines Abschnitts — Posts UND statische Projektseiten,
+  // damit auch die sieben Referenzseiten einsortierbar sind.
+  function elementeVon(ordnerId) {
+    const ausPosts = posts
+      .filter((p) => (p.ordnerId || null) === ordnerId)
+      .map((p) => ({
+        art: "post", key: p.id, titel: p.titel || "Ohne Titel",
+        tag: p.untertitel || KAT_LABEL[p.kategorie] || "",
+        bild: postBild(p, thumbCache), hoch: p.hochformat === true,
+        live: p.veroeffentlicht !== false, sort: p.reihenfolge || 0, roh: p
+      }));
+    const ausStatisch = STATISCHE_PROJEKTE
+      .filter((s) => (zuordnungVon(s.ref) || null) === ordnerId)
+      .map((s) => ({
+        art: "statisch", key: s.ref, titel: s.titel, tag: s.tag,
+        bild: "../" + s.thumb, hoch: false, live: true,
+        sort: (statisch.find((x) => x.ref === s.ref) || {}).reihenfolge || 0
+      }));
+    return [...ausPosts, ...ausStatisch].sort((a, b) => a.sort - b.sort);
+  }
+
+  function zuordnungVon(ref) {
+    const z = statisch.find((x) => x.ref === ref);
+    return z ? (z.ordnerId || null) : null;
+  }
+
+  // Ein Block = „Ohne Abschnitt" (o === null) oder ein Ordner.
+  function blockHtml(o) {
+    const id = o ? o.id : "";
+    const els = elementeVon(o ? o.id : null);
+    const kopf = o
+      ? `<div class="wb-block-kopf">
+           <span class="wb-block-griff" aria-hidden="true">📁</span>
+           <input class="wb-ordner-name" value="${escapeHtml(o.name || "")}" aria-label="Name des Abschnitts" />
+           <span class="wb-block-n muted">${els.length}</span>
+           <button class="wb-ordner-hoch" type="button" title="Abschnitt nach oben">↑</button>
+           <button class="wb-ordner-runter" type="button" title="Abschnitt nach unten">↓</button>
+           <button class="gd-del wb-ordner-del" type="button" title="Abschnitt löschen — die Videos landen wieder oben">✕</button>
+         </div>`
+      : `<div class="wb-block-kopf is-offen-block">
+           <span class="wb-block-griff" aria-hidden="true">📄</span>
+           <strong class="wb-block-titel">Ohne Abschnitt</strong>
+           <span class="wb-block-n muted">${els.length}</span>
+           <span class="muted wb-block-hint">stehen oben auf der Portfolio-Seite</span>
+         </div>`;
+    const inhalt = els.length
+      ? els.map(karteHtml).join("")
+      : `<p class="muted wb-block-leer">Leer — zieh eine Karte hierher.</p>`;
     return `
-      <article class="card wb-karte${v.veroeffentlicht ? "" : " is-entwurf"}" data-id="${escapeHtml(v.id)}">
-        <div class="wb-karte-bild${v.hochformat ? " is-hoch" : ""}">
-          ${bild ? `<img src="${escapeHtml(bild)}" alt="" loading="lazy" />`
-                 : `<span class="wb-kein-bild">kein Bild</span>`}
-          ${v.veroeffentlicht ? "" : `<span class="wb-entwurf-pill">Entwurf</span>`}
+      <section class="wb-block" data-ordner="${escapeHtml(id)}">
+        ${kopf}
+        <div class="wb-grid wb-block-grid">${inhalt}</div>
+      </section>`;
+  }
+
+  function karteHtml(e) {
+    const istPost = e.art === "post";
+    return `
+      <article class="card wb-karte${e.live ? "" : " is-entwurf"}${istPost ? "" : " is-statisch"}"
+               data-art="${e.art}" data-key="${escapeHtml(e.key)}">
+        <div class="wb-karte-bild${e.hoch ? " is-hoch" : ""}">
+          ${e.bild ? `<img src="${escapeHtml(e.bild)}" alt="" loading="lazy" />`
+                   : `<span class="wb-kein-bild">kein Bild</span>`}
+          <span class="wb-karte-griff" title="Ziehen, um in einen anderen Abschnitt zu verschieben">⠿</span>
+          ${e.live ? "" : `<span class="wb-entwurf-pill">Entwurf</span>`}
+          ${istPost ? "" : `<span class="wb-statisch-pill" title="Handgebaute Projektseite — nur verschiebbar">fest</span>`}
         </div>
         <div class="wb-karte-text">
-          <p class="wb-karte-tag muted">${escapeHtml(v.untertitel || KAT_LABEL[v.kategorie] || "")}</p>
-          <h3 class="wb-karte-titel">${escapeHtml(v.titel || "Ohne Titel")}</h3>
+          <p class="wb-karte-tag muted">${escapeHtml(e.tag)}</p>
+          <h3 class="wb-karte-titel">${escapeHtml(e.titel)}</h3>
         </div>
         <div class="wb-karte-btns">
-          <button class="btn btn--ghost btn--sm wb-live" type="button">${v.veroeffentlicht ? "Auf Entwurf" : "Veröffentlichen"}</button>
-          <button class="btn btn--ghost btn--sm wb-edit" type="button">Bearbeiten</button>
-          <button class="gd-del wb-del" type="button" title="Post löschen">✕</button>
+          ${istPost ? `
+            <button class="btn btn--ghost btn--sm wb-live" type="button">${e.live ? "Auf Entwurf" : "Veröffentlichen"}</button>
+            <button class="btn btn--ghost btn--sm wb-edit" type="button">Bearbeiten</button>
+            <button class="gd-del wb-del" type="button" title="Post löschen">✕</button>`
+          : `<span class="muted" style="font-size:.75rem">eigene Seite · ${escapeHtml(e.key)}</span>`}
         </div>
       </article>`;
   }
@@ -382,9 +460,62 @@ export function renderAdminWebseite(container) {
     });
   }
 
-  function wirePostListe() {
-    inhalt.querySelectorAll(".wb-karte").forEach((k) => {
-      const id = k.getAttribute("data-id");
+  function wirePortfolio() {
+    // --- Neuen Abschnitt anlegen ---------------------------------------
+    const neu = inhalt.querySelector("#wbNeuerOrdner");
+    if (neu) neu.addEventListener("click", async () => {
+      neu.disabled = true;
+      try {
+        // Ans Ende hängen: höchste vorhandene Reihenfolge + 1.
+        const max = ordner.reduce((m, o) => Math.max(m, o.reihenfolge || 0), 0);
+        await ordnerAnlegen({ name: "Neuer Abschnitt", reihenfolge: max + 1 });
+      } catch (e) { console.warn(e); alert("Abschnitt konnte nicht angelegt werden."); }
+      finally { neu.disabled = false; }
+    });
+
+    // --- Abschnitt umbenennen / sortieren / löschen ----------------------
+    inhalt.querySelectorAll(".wb-block").forEach((block) => {
+      const oid = block.getAttribute("data-ordner");
+      if (!oid) return;   // „Ohne Abschnitt" hat keine Steuerung
+
+      const nameEl = block.querySelector(".wb-ordner-name");
+      if (nameEl) nameEl.addEventListener("change", async () => {
+        const wert = nameEl.value.trim() || "Ohne Namen";
+        try { await aktualisiereOrdner(oid, { name: wert }); }
+        catch (e) { console.warn(e); alert("Name konnte nicht gespeichert werden."); }
+      });
+
+      // Reihenfolge: mit dem Nachbarn tauschen. Beide Werte schreiben, damit
+      // die Sortierung auch dann stimmt, wenn zwei Ordner denselben Wert haben.
+      const tausche = async (richtung) => {
+        const i = ordner.findIndex((o) => o.id === oid);
+        const j = i + richtung;
+        if (i < 0 || j < 0 || j >= ordner.length) return;
+        try {
+          await Promise.all([
+            aktualisiereOrdner(ordner[i].id, { reihenfolge: j }),
+            aktualisiereOrdner(ordner[j].id, { reihenfolge: i })
+          ]);
+        } catch (e) { console.warn(e); }
+      };
+      block.querySelector(".wb-ordner-hoch").addEventListener("click", () => tausche(-1));
+      block.querySelector(".wb-ordner-runter").addEventListener("click", () => tausche(1));
+
+      const del = block.querySelector(".wb-ordner-del");
+      del.addEventListener("click", async () => {
+        if (!del.classList.contains("is-bestaetigen")) {
+          del.classList.add("is-bestaetigen"); del.textContent = "Löschen?";
+          setTimeout(() => { if (del.isConnected) { del.classList.remove("is-bestaetigen"); del.textContent = "✕"; } }, 4000);
+          return;
+        }
+        // loescheOrdner stellt die Mitglieder frei (ordnerId = null).
+        try { await loescheOrdner(oid); } catch (e) { console.warn(e); alert("Abschnitt konnte nicht gelöscht werden."); }
+      });
+    });
+
+    // --- Karten-Aktionen (nur Posts) ------------------------------------
+    inhalt.querySelectorAll('.wb-karte[data-art="post"]').forEach((k) => {
+      const id = k.getAttribute("data-key");
       const v = posts.find((x) => x.id === id);
       if (!v) return;
 
@@ -408,6 +539,68 @@ export function renderAdminWebseite(container) {
           return;
         }
         try { await loescheWebvideo(id, v.thumbId); } catch (e) { console.warn(e); }
+      });
+    });
+
+    wireKartenDnD();
+  }
+
+  // --- Drag & Drop zwischen den Abschnitten -----------------------------
+  // Gleiches Muster wie in der Pipeline (admin-pipeline.js → wireDragDrop):
+  // gezogen wird am Griff, damit die Buttons auf der Karte bedienbar bleiben.
+  // Drop-Ziel ist der ganze Block, auch ein leerer.
+  function wireKartenDnD() {
+    let gezogen = null;   // { art, key, ordnerId }
+
+    inhalt.querySelectorAll(".wb-karte").forEach((karte) => {
+      const griff = karte.querySelector(".wb-karte-griff");
+      if (!griff) return;
+      griff.addEventListener("mousedown", () => karte.setAttribute("draggable", "true"));
+      griff.addEventListener("mouseup",   () => karte.removeAttribute("draggable"));
+
+      karte.addEventListener("dragstart", (e) => {
+        const block = karte.closest(".wb-block");
+        gezogen = {
+          art: karte.getAttribute("data-art"),
+          key: karte.getAttribute("data-key"),
+          ordnerId: block.getAttribute("data-ordner") || null
+        };
+        karte.classList.add("is-zieht");
+        e.dataTransfer.effectAllowed = "move";
+        try { e.dataTransfer.setData("text/plain", gezogen.key); } catch (_) { /* egal */ }
+      });
+      karte.addEventListener("dragend", () => {
+        karte.classList.remove("is-zieht");
+        karte.removeAttribute("draggable");
+        inhalt.querySelectorAll(".wb-block").forEach((b) => b.classList.remove("is-dropziel"));
+        gezogen = null;
+      });
+    });
+
+    inhalt.querySelectorAll(".wb-block").forEach((block) => {
+      const ziel = block.getAttribute("data-ordner") || null;
+      block.addEventListener("dragover", (e) => {
+        if (!gezogen || gezogen.ordnerId === ziel) return;   // eigener Block = kein Ziel
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        block.classList.add("is-dropziel");
+      });
+      block.addEventListener("dragleave", (e) => {
+        if (!block.contains(e.relatedTarget)) block.classList.remove("is-dropziel");
+      });
+      block.addEventListener("drop", async (e) => {
+        if (!gezogen || gezogen.ordnerId === ziel) return;
+        e.preventDefault();
+        block.classList.remove("is-dropziel");
+        const { art, key } = gezogen;
+        gezogen = null;
+        try {
+          if (art === "post") await aktualisiereWebvideo(key, { ordnerId: ziel });
+          else await setzeStatischZuordnung(key, { ordnerId: ziel, reihenfolge: Date.now() });
+        } catch (err) {
+          console.warn(err);
+          alert("Verschieben fehlgeschlagen.");
+        }
       });
     });
   }
