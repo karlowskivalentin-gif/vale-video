@@ -17,6 +17,10 @@ desktop.ini
 *.tmp
 *.log
 
+# Python-Bytecode (Deploy-Scripts, tools/transkript/)
+__pycache__/
+*.pyc
+
 # Secrets / Deploy-Zugangsdaten — NIEMALS committen
 config/secrets.php
 config/secrets.py

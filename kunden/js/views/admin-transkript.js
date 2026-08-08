@@ -24,7 +24,7 @@ export function renderAdminTranskript(container) {
     <section class="card card--pad" style="max-width:640px">
       <h2 class="section-title" style="margin-top:0">So funktioniert's</h2>
       <ol class="tk-schritte">
-        <li><strong>Server starten</strong> (falls noch nicht an): im Projektordner unter
+        <li id="tkSchritt1"><strong>Server starten</strong> (falls noch nicht an): im Projektordner unter
           <code>tools/transkript/</code> &mdash; unter Windows <code>transkript-server.bat</code>
           doppelklicken, sonst <code>python transkript_server.py</code> im Terminal.
           Fenster offen lassen.</li>
@@ -35,20 +35,29 @@ export function renderAdminTranskript(container) {
         <button class="btn btn--ghost btn--sm" id="tkRetry" type="button">Server erneut prüfen</button>
       </div>
       <p class="field-hint muted" style="margin-top:.8rem">Das Tool öffnet sich in einem eigenen Tab direkt
-        von deinem PC (127.0.0.1) — gleiche Optik, volle Funktion: Fortschritt, Zeitstempel, Kopieren, .txt-Export.</p>
+        von deinem PC (127.0.0.1) — gleiche Optik, volle Funktion: Fortschritt, Zeitstempel, Kopieren, .txt-Export.
+        <strong>Bleibt der Tab leer oder meldet „Verbindung abgelehnt", läuft der Server nicht</strong> — dann Schritt 1.</p>
     </section>`;
 
-  // Best-effort-Statusanzeige. Kann an Chromes „Local Network Access"-Sperre
-  // scheitern, obwohl der Server läuft — deshalb nur Hinweis, kein Blocker.
+  // Best-effort-Statusanzeige. Der fetch von dieser https-Seite auf
+  // http://127.0.0.1 wird von Chrome über „Local Network Access" gegated und
+  // kann deshalb auch bei LAUFENDEM Server fehlschlagen. Trotzdem ist „Server
+  // gar nicht gestartet" der mit Abstand häufigste Grund — genau der muss im
+  // Fehlerfall zuerst dastehen. Die frühere Formulierung („Status nicht prüfbar
+  // — einfach Tool öffnen klicken") führte direkt in einen toten Tab.
   async function pruefeServer() {
-    const badge = container.querySelector("#tkServer");
+    const badge    = container.querySelector("#tkServer");
+    const schritt1 = container.querySelector("#tkSchritt1");
     badge.innerHTML = `<span class="tk-dot"></span> prüfe lokalen Server …`;
     try {
       const r = await fetch(SERVER + "/health", { signal: AbortSignal.timeout(2500) });
       const d = await r.json();
       badge.innerHTML = `<span class="tk-dot is-ok"></span> lokaler Server läuft (Modell: ${escapeHtml(d.modell || "?")})`;
+      schritt1.classList.remove("is-noetig");
     } catch (_) {
-      badge.innerHTML = `<span class="tk-dot is-aus"></span> Status nicht prüfbar — einfach „Tool öffnen" klicken`;
+      badge.innerHTML = `<span class="tk-dot is-aus"></span> Server antwortet nicht — vermutlich nicht gestartet`;
+      // Schritt 1 hervorheben: bleibt der Tab beim Öffnen leer, liegt es daran.
+      schritt1.classList.add("is-noetig");
     }
   }
   pruefeServer();
