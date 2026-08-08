@@ -2927,3 +2927,20 @@ body.is-beobachtung .fb-widget {
   .wb-bk { grid-template-columns: 1fr; }
   .wb-vorschau iframe { height: 420px; }
 }
+
+/* Globaler hidden-Schutz: Komponenten mit eigenem display (.btn ist
+   inline-flex) ueberschreiben sonst das hidden-Attribut und bleiben
+   sichtbar. Bisher wurde das pro Fall einzeln nachgezogen (.pl-msgs,
+   .pl-termine-edit, .fokus-float ...) — diese Regel deckt alle ab. */
+[hidden] { display: none !important; }
+
+/* Checkbox-Zeilen: .field setzt width:100% auf jedes input, was eine
+   Checkbox quer ueber die Zeile zieht. Hier gilt: Kaestchen links,
+   Beschriftung daneben, in normaler Textfarbe statt Label-Grau. */
+.field--check label {
+  display: flex; align-items: center; gap: .55rem;
+  font-weight: 500; color: var(--black); cursor: pointer;
+}
+.field--check input[type="checkbox"] {
+  width: auto; flex-shrink: 0; margin: 0; accent-color: var(--accent);
+}

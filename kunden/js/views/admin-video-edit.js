@@ -469,7 +469,20 @@ function wire(v, istNeu, body, id, user, objekte, kundeId, skriptUpload) {
 
         const ref = await videoAnlegen({ ...daten, kundeId });
         // Erst jetzt gibt es eine videoId für ein vorgemerktes Skript.
-        if (skriptUpload) await skriptUpload.ladeHoch(ref.id);
+        // WICHTIG: Ab hier ist das Video ANGELEGT. Ein Fehler beim Skript darf
+        // deshalb nicht in den äußeren catch laufen — der meldete sonst
+        // „Speichern fehlgeschlagen", obwohl das Video längst in der Pipeline
+        // liegt. Wer daraufhin erneut klickt, erzeugt ein Duplikat.
+        let uploadFehler = null;
+        if (skriptUpload) {
+          try { await skriptUpload.ladeHoch(ref.id); }
+          catch (e) { console.error("Skript-Upload fehlgeschlagen:", e); uploadFehler = e; }
+        }
+        if (uploadFehler) {
+          alert(`Das Video „${daten.titel}" wurde angelegt — nur das Skript konnte nicht hochgeladen werden:\n\n`
+              + `${(uploadFehler && uploadFehler.message) || uploadFehler}\n\n`
+              + `Du kannst es gleich in der Bearbeitung erneut hochladen.`);
+        }
         // Kunden-News: neues Video in der Pipeline.
         benachrichtigeKunde(kundeId, {
           text: `🎬 Ein neues Video wurde für dich angelegt: „${daten.titel}".`,
@@ -491,7 +504,11 @@ function wire(v, istNeu, body, id, user, objekte, kundeId, skriptUpload) {
       }
     } catch (err) {
       console.error(err);
-      errBox.textContent = "Speichern fehlgeschlagen.";
+      // Den ECHTEN Grund zeigen. Das blanke „Speichern fehlgeschlagen" zwang
+      // vorher dazu, die Browser-Konsole zu öffnen, um überhaupt zu erfahren,
+      // woran es lag (Rechte? Feldwert? Netz?).
+      const grund = (err && (err.message || err.code)) ? ` ${err.message || err.code}` : "";
+      errBox.textContent = `Speichern fehlgeschlagen.${grund}`;
       errBox.hidden = false;
     } finally {
       save.disabled = false;

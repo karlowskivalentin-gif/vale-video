@@ -11,7 +11,7 @@
 // =====================================================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import {
-  getFirestore, collection, doc, getDoc, getDocs, query, where, orderBy
+  getFirestore, collection, doc, getDoc, getDocs, query, where
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 // Bewusst dupliziert statt aus kunden/ importiert: die öffentliche Seite soll
@@ -51,17 +51,26 @@ export function escapeHtml(s) {
 // --- Laden ------------------------------------------------------------
 
 // Alle veröffentlichten Posts, neueste zuerst.
+//
 // Das where() ist PFLICHT: die Rules erlauben Lesen nur für
 // veroeffentlicht == true, und Firestore weist eine Query ab, die auch
 // unerlaubte Dokumente treffen könnte.
+//
+// Sortiert wird bewusst HIER statt per orderBy(): die Kombination aus
+// where() und orderBy() verlangt einen zusammengesetzten Index, den man
+// anlegen, deployen und pflegen müsste. Für ein Portfolio in dieser
+// Größenordnung ist das unnötige Infrastruktur — bei mehreren hundert
+// Posts wäre der Index die bessere Wahl.
 export async function ladeWebvideos() {
   try {
     const snap = await getDocs(query(
       collection(db, "webvideos"),
-      where("veroeffentlicht", "==", true),
-      orderBy("erstelltAm", "desc")
+      where("veroeffentlicht", "==", true)
     ));
-    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    return snap.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => ((b.erstelltAm && b.erstelltAm.seconds) || 0)
+                    - ((a.erstelltAm && a.erstelltAm.seconds) || 0));
   } catch (e) {
     console.warn("[vale-video] Posts konnten nicht geladen werden:", e);
     return [];   // Seite bleibt mit ihrem statischen Inhalt benutzbar
