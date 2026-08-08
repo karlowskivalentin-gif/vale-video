@@ -2826,3 +2826,104 @@ body.is-beobachtung .fb-widget {
   box-shadow: 0 -4px 18px rgba(0, 0, 0, 0.09);
 }
 .ave-speicher-hinweis { flex: 1 1 auto; font-size: 0.85rem; font-weight: 600; color: var(--accent-dim); }
+
+/* =====================================================================
+   WEBSEITE-VIEW (admin-webseite.js) — Posts + Startseiten-Baukasten
+   Steuert die ÖFFENTLICHE Seite vale-video.de aus dem Portal heraus.
+   ===================================================================== */
+.wb-tabs { display: flex; gap: .4rem; margin: 0 0 1.2rem; }
+.wb-tab {
+  font: inherit; font-size: .85rem; font-weight: 600; cursor: pointer;
+  background: var(--surface); color: var(--muted);
+  border: 1px solid var(--mid); border-radius: 999px; padding: .45rem 1.1rem;
+}
+.wb-tab:hover { border-color: var(--accent); color: var(--black); }
+.wb-tab.is-active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.wb-form-karte { max-width: 720px; }
+.wb-form-titel { font-size: 1.05rem; margin: 0 0 1rem; }
+.wb-listen-titel { font-size: 1.05rem; margin: 2rem 0 .9rem; }
+
+/* Vorschaubild-Block im Formular */
+.wb-thumb-block { margin: 1rem 0; }
+.wb-thumb-block > label { display: block; font-size: .8rem; font-weight: 600; color: var(--muted); margin-bottom: .4rem; }
+.wb-thumb-zeile { display: flex; gap: 1rem; align-items: flex-start; }
+.wb-thumb-vorschau {
+  width: 160px; aspect-ratio: 16/9; flex-shrink: 0;
+  border: 1px solid var(--mid); border-radius: var(--radius);
+  background: var(--off-white); overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+}
+.wb-thumb-vorschau img { width: 100%; height: 100%; object-fit: cover; }
+.wb-thumb-aktion { display: flex; flex-direction: column; gap: .5rem; align-items: flex-start; }
+
+/* Post-Liste */
+.wb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 1rem; }
+.wb-karte { overflow: hidden; display: flex; flex-direction: column; }
+.wb-karte.is-entwurf { opacity: .72; border-style: dashed; }
+.wb-karte-bild {
+  position: relative; aspect-ratio: 16/9; background: var(--off-white);
+  display: flex; align-items: center; justify-content: center;
+}
+.wb-karte-bild.is-hoch { aspect-ratio: 9/16; max-height: 300px; }
+.wb-karte-bild img { width: 100%; height: 100%; object-fit: cover; }
+.wb-kein-bild { font-size: .75rem; color: var(--light); }
+.wb-entwurf-pill {
+  position: absolute; top: .5rem; left: .5rem;
+  font-size: .65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+  background: var(--warn-bg); color: var(--warn);
+  border: 1px solid var(--warn); border-radius: 999px; padding: .1rem .5rem;
+}
+.wb-karte-text { padding: .7rem .8rem .4rem; flex: 1; }
+.wb-karte-tag { font-size: .68rem; text-transform: uppercase; letter-spacing: .06em; }
+.wb-karte-titel { font-size: .92rem; margin: .2rem 0 0; }
+.wb-karte-btns { display: flex; gap: .35rem; align-items: center; padding: .5rem .8rem .8rem; flex-wrap: wrap; }
+
+/* --- Baukasten ------------------------------------------------------ */
+.wb-bk-kopf { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: .9rem; }
+.wb-hinweis { margin: 0 0 1rem; }
+.wb-bk { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; align-items: start; }
+.wb-bk-titel { font-size: .95rem; margin: 0 0 .8rem; }
+.wb-bk-liste { display: flex; flex-direction: column; gap: .5rem; min-height: 90px; }
+.wb-bk-leer { border: 1.5px dashed var(--mid); border-radius: var(--radius); padding: 1.4rem; text-align: center; margin: 0; }
+
+.wb-bk-kachel {
+  display: flex; align-items: center; gap: .7rem;
+  border: 1px solid var(--mid); border-radius: var(--radius);
+  background: var(--surface); padding: .45rem .6rem; cursor: grab;
+}
+.wb-bk-kachel:hover { border-color: var(--accent); }
+.wb-bk-kachel.is-zieht { opacity: .45; }
+.wb-bk-kachel.is-ziel { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(226,98,44,.14); }
+.wb-bk-kachel.is-tot { border-color: var(--error); background: var(--error-bg); }
+.wb-bk-bild { width: 64px; aspect-ratio: 16/9; flex-shrink: 0; border-radius: 4px; overflow: hidden; background: var(--off-white); }
+.wb-bk-bild img { width: 100%; height: 100%; object-fit: cover; }
+.wb-bk-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.wb-bk-tag { font-size: .66rem; text-transform: uppercase; letter-spacing: .05em; }
+.wb-bk-name { font-size: .85rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wb-bk-pos {
+  font-size: .7rem; font-weight: 700; color: var(--muted);
+  background: var(--off-white); border: 1px solid var(--mid);
+  border-radius: 50%; width: 22px; height: 22px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+/* Breite Kachel: spiegelt .hero-tile.is-wide auf der echten Startseite */
+.wb-bk-slot.is-breit { border-left: 3px solid var(--accent); }
+.wb-bk-slot-btns { display: flex; gap: .2rem; align-items: center; flex-shrink: 0; }
+.wb-bk-slot-btns button {
+  font: inherit; font-size: .8rem; cursor: pointer; line-height: 1;
+  background: transparent; border: 1px solid var(--mid); border-radius: 4px;
+  color: var(--muted); padding: .25rem .4rem;
+}
+.wb-bk-slot-btns button:hover { border-color: var(--accent); color: var(--black); }
+.wb-bk-breit.is-on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.wb-bk-add { flex-shrink: 0; }
+
+.wb-vorschau-karte { margin-top: 1.2rem; }
+.wb-vorschau { border: 1px solid var(--mid); border-radius: var(--radius); overflow: hidden; background: #fff; }
+.wb-vorschau iframe { width: 100%; height: 620px; border: 0; display: block; }
+
+@media (max-width: 900px) {
+  .wb-bk { grid-template-columns: 1fr; }
+  .wb-vorschau iframe { height: 420px; }
+}

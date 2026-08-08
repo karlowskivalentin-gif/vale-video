@@ -32,6 +32,7 @@ import { renderAdminInspiration } from "./views/admin-inspiration.js";
 import { renderAdminMoodboard } from "./views/admin-moodboard.js";
 import { renderAdminKunden } from "./views/admin-kunden.js";
 import { renderAdminKundeFeed } from "./views/admin-kunde-feed.js";
+import { renderAdminWebseite } from "./views/admin-webseite.js";
 
 // --- Zustand -----------------------------------------------------------
 let _user = null;
@@ -72,6 +73,7 @@ const ROUTES = {
   "/admin/moodboard": { rolle: "admin", titel: "Moodboard",       render: renderAdminMoodboard },
   "/admin/kunden":   { rolle: "admin", titel: "Kunden",           render: renderAdminKunden },
   "/admin/kunde-feed": { rolle: "admin", titel: "Kunden-Feed",     render: renderAdminKundeFeed },
+  "/admin/webseite": { rolle: "admin", titel: "Webseite",          render: renderAdminWebseite },
   // Kollaborator (externer Mitarbeiter: geteilte + eigene Mindmaps)
   "/gedanken":       { rolle: "kollaborator", titel: "Mindmap",   render: renderAdminGedanken },
   "/todos":          { rolle: "kollaborator", titel: "To-Dos",    render: renderTodos },
@@ -100,7 +102,8 @@ const NAV = {
     { href: "#/admin/inspiration", label: "Inspiration" },
     { href: "#/admin/moodboard", label: "Moodboard" },
     { href: "#/admin/kunden", label: "Kunden" },
-    { href: "#/admin/kunde-feed", label: "Kunden-Feed" }
+    { href: "#/admin/kunde-feed", label: "Kunden-Feed" },
+    { href: "#/admin/webseite", label: "Webseite" }
   ],
   kollaborator: [
     { href: "#/gedanken", label: "Mindmap" },

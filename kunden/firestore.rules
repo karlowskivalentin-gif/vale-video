@@ -372,6 +372,40 @@ service cloud.firestore {
       allow update, delete: if istAdmin();
     }
 
+    // =================================================================
+    // ÖFFENTLICHE WEBSITE (vale-video.de) — die EINZIGEN Collections mit
+    // Lesezugriff ohne Login. Sie enthalten ausschließlich Inhalte, die
+    // Valentin bewusst veröffentlicht; nie Kundendaten.
+    // =================================================================
+
+    // ---- webvideos (Posts der öffentlichen Website) ------------------
+    // Ein Doc = ein Video-Post (Link + Titel/Beschreibung/Kategorie).
+    // Gelesen wird NUR, was veröffentlicht ist — Entwürfe bleiben privat.
+    // WICHTIG: Wegen dieser Bedingung MUSS jede öffentliche Query ein
+    // where("veroeffentlicht","==",true) enthalten, sonst weist Firestore
+    // die gesamte Query ab (Rules filtern nicht, sie prüfen nur).
+    match /webvideos/{id} {
+      allow read:  if resource.data.veroeffentlicht == true || istAdmin();
+      allow write: if istAdmin();
+    }
+
+    // ---- webthumbs (Vorschaubilder zu webvideos) ---------------------
+    // Getrennt von webvideos, damit die Listen-Query der Website klein
+    // bleibt und nicht jedes base64-Bild mitschleppt.
+    match /webthumbs/{id} {
+      allow read:  if true;
+      allow write: if istAdmin();
+    }
+
+    // ---- webseite (Startseiten-Baukasten) ----------------------------
+    // Ein einziges Doc `startseite`: `kacheln` = veröffentlichter Stand,
+    // `entwurf` = Arbeitsstand. Beides ist nur eine Anordnung von
+    // Referenzen — nichts Schützenswertes.
+    match /webseite/{id} {
+      allow read:  if true;
+      allow write: if istAdmin();
+    }
+
     // ---- Alles andere: zu ------------------------------------------
     match /{document=**} {
       allow read, write: if false;

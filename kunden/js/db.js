@@ -1099,3 +1099,97 @@ export async function migriereAltbestand(seedEmails) {
   }
   return bericht;
 }
+
+// =====================================================================
+// ÖFFENTLICHE WEBSITE — Video-Posts, Vorschaubilder, Startseiten-Baukasten
+//
+// Diese drei Collections sind die EINZIGEN, die vale-video.de ohne Login
+// liest (siehe firestore.rules). Was hier landet, ist öffentlich.
+//
+// webvideos/{id}   ein Post: Link + Titel/Beschreibung/Kategorie
+// webthumbs/{id}   base64-Vorschaubild (getrennt, damit die Listen-Query
+//                  der Website klein bleibt)
+// webseite/startseite  Kachel-Anordnung der Startseite
+// =====================================================================
+const webvideosCol = () => collection(db, "webvideos");
+const webthumbsCol = () => collection(db, "webthumbs");
+
+export const WEB_KATEGORIEN = ["imagefilm", "reels", "objekt", "persoenlich"];
+
+export async function webvideoAnlegen(daten) {
+  return addDoc(webvideosCol(), {
+    titel:        daten.titel || "",
+    untertitel:   daten.untertitel || "",
+    beschreibung: daten.beschreibung || "",
+    url:          daten.url || "",
+    plattform:    daten.plattform || "andere",
+    kategorie:    WEB_KATEGORIEN.includes(daten.kategorie) ? daten.kategorie : "reels",
+    art:          daten.art || "",
+    ort:          daten.ort || "",
+    thumbUrl:     daten.thumbUrl || "",
+    thumbId:      daten.thumbId || "",
+    hochformat:   daten.hochformat === true,
+    veroeffentlicht: daten.veroeffentlicht !== false,   // Default: sofort live
+    erstelltAm:     serverTimestamp(),
+    aktualisiertAm: serverTimestamp()
+  });
+}
+
+export async function aktualisiereWebvideo(id, felder) {
+  return updateDoc(doc(db, "webvideos", id), { ...felder, aktualisiertAm: serverTimestamp() });
+}
+
+// Löscht den Post samt zugehörigem Vorschaubild — sonst bliebe der Blob
+// als Waise in webthumbs liegen.
+export async function loescheWebvideo(id, thumbId) {
+  if (thumbId) await deleteDoc(doc(db, "webthumbs", thumbId)).catch(() => {});
+  return deleteDoc(doc(db, "webvideos", id));
+}
+
+// Admin-Sicht: ALLE Posts inkl. Entwürfe (die Rules lassen das für Admin zu).
+export function beobachteWebvideos(callback, onError) {
+  return onSnapshot(
+    query(webvideosCol(), orderBy("erstelltAm", "desc")),
+    (snap) => callback(snapToArr(snap)),
+    onError || (() => {})
+  );
+}
+
+// --- Vorschaubilder ---------------------------------------------------
+// Nur nötig, wo die Plattform kein Thumbnail hergibt (TikTok/Instagram).
+export async function webthumbAnlegen({ base64, typ }) {
+  const ref = await addDoc(webthumbsCol(), {
+    base64, typ: typ || "image/webp", erstelltAm: serverTimestamp()
+  });
+  return ref.id;
+}
+
+export async function ladeWebthumb(id) {
+  const s = await getDoc(doc(db, "webthumbs", id));
+  return s.exists() ? { id: s.id, ...s.data() } : null;
+}
+
+// --- Startseiten-Baukasten -------------------------------------------
+// Ein Singleton-Doc. `kacheln` ist der veröffentlichte Stand (den die
+// Website liest), `entwurf` der Arbeitsstand im Baukasten.
+const startseiteRef = () => doc(db, "webseite", "startseite");
+
+export function beobachteStartseite(callback, onError) {
+  return onSnapshot(
+    startseiteRef(),
+    (s) => callback(s.exists() ? s.data() : { kacheln: [], entwurf: null }),
+    onError || (() => {})
+  );
+}
+
+export async function speichereStartseiteEntwurf(kacheln) {
+  return setDoc(startseiteRef(), { entwurf: kacheln, aktualisiertAm: serverTimestamp() }, { merge: true });
+}
+
+// Entwurf → live. Danach ist `entwurf` bewusst geleert, damit der Baukasten
+// nicht dauerhaft „ungespeicherte Änderungen" suggeriert.
+export async function veroeffentlicheStartseite(kacheln) {
+  return setDoc(startseiteRef(), {
+    kacheln, entwurf: null, veroeffentlichtAm: serverTimestamp()
+  }, { merge: true });
+}
