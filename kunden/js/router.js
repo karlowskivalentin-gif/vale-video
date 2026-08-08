@@ -4,7 +4,8 @@ import { beobachteAuth, logout, abgewieseneAdresse,
          istLoginLink, schliesseLoginLinkAb, setzePasswort } from "./auth.js";
 import { loeseEinladungEin, beobachteBenachrichtigungen, markiereBenachrichtigungenGelesen } from "./db.js";
 import { KOLLAB_MAP_ID, EINLADUNG_ID } from "./roles.js";
-import { getAktiv, setzeAktiv, abonniereKunden, getAktivKunde } from "./kunde-context.js";
+import { getAktiv, setzeAktiv, abonniereKunden, getAktivKunde,
+         getBeobachtet, setzeBeobachtet, getBeobachteterKunde } from "./kunde-context.js";
 import { kundenartVon } from "./status.js";
 import { mountFeedbackWidget, unmountFeedbackWidget } from "./feedback-widget.js";
 import { raeumeViewAuf, beiViewWechsel } from "./view-lifecycle.js";
@@ -114,10 +115,42 @@ function startRoute(rolle) {
   return "/aufgaben";
 }
 
+// --- Beobachtungsmodus -------------------------------------------------
+// Der Admin schaut durch die Augen eines Kunden: Routing, Nav und Views
+// verhalten sich wie für die Rolle „kunde", die Auth bleibt Admin. Die Ansicht
+// ist read-only (CSS-Guard `body.is-beobachtung`) — es soll nichts im Namen des
+// Kunden geschrieben werden.
+function istBeobachtung() {
+  return _rolle === "admin" && !!getBeobachtet();
+}
+
+// Rolle, nach der Routing/Nav/Startseite laufen (im Beobachtungsmodus: kunde).
+function effRolle() {
+  return istBeobachtung() ? "kunde" : _rolle;
+}
+
+// E-Mail, aus deren Sicht Feeds/Glocke gelesen werden. Im Beobachtungsmodus die
+// erste hinterlegte Adresse des Kunden — sonst die eigene.
+function sichtEmail() {
+  if (!istBeobachtung()) return _user && _user.email;
+  const k = getBeobachteterKunde();
+  const mail = k && Array.isArray(k.emails) && k.emails[0];
+  return mail || (_user && _user.email);
+}
+
+// Beobachtung beenden und zurück ins Arbeitsportal.
+function beendeBeobachtung() {
+  setzeBeobachtet(null);
+  // Hash-Wechsel rendert über hashchange; steht er schon richtig, selbst rendern.
+  if (location.hash === "#/admin/kunden") render();
+  else location.hash = "/admin/kunden";
+}
+
 // Kundenart (Branche) für Wording/Optionen: beim Admin die des aktiven Kunden
 // (aus dem kunde-context-Cache), beim Kunden die eigene (aus der Auth geladen).
 // Fallback ist immer "immobilien" (Bestandskunden ohne Feld, Cache noch leer).
 function aktuelleKundenart() {
+  if (istBeobachtung()) return kundenartVon(getBeobachteterKunde());
   if (_rolle === "admin") return kundenartVon(getAktivKunde());
   return kundenartVon(_info);
 }
@@ -148,21 +181,36 @@ function renderShell(aktiverPfad) {
     if (l.href === "#/admin/objekte") return "Filialen";
     return l.label;
   };
-  const links = (NAV[_rolle] || [])
+  const rolleJetzt = effRolle();
+  const beob = istBeobachtung();
+  const beobKunde = beob ? getBeobachteterKunde() : null;
+  const beobName = (beobKunde && (beobKunde.name || beobKunde.id)) || getBeobachtet() || "Kunde";
+
+  const links = (NAV[rolleJetzt] || [])
     .map(l => {
       const aktiv = ("#" + aktiverPfad) === l.href ? " is-active" : "";
       return `<a class="topnav-link${aktiv}" href="${l.href}">${label(l)}</a>`;
     })
     .join("");
 
-  const rollenLabel = _rolle === "admin" ? "Admin" : _rolle === "kollaborator" ? "Mitarbeiter" : "Kunde";
+  const rollenLabel = rolleJetzt === "admin" ? "Admin" : rolleJetzt === "kollaborator" ? "Mitarbeiter" : "Kunde";
 
   appEl().innerHTML = `
+    ${beob ? `
+    <div class="beob-rahmen" aria-hidden="true"></div>
+    <div class="beob-banner" role="status">
+      <span class="beob-punkt" aria-hidden="true"></span>
+      <span class="beob-text">
+        <strong>Beobachtungsmodus</strong> — du siehst das Portal als
+        <strong>${escapeHtmlR(beobName)}</strong>. Nur Ansicht, Aktionen sind gesperrt.
+      </span>
+      <button class="btn btn--sm beob-zurueck" id="beobZurueck" type="button">← Zurück zur Admin-Ansicht</button>
+    </div>` : ``}
     <header class="topbar">
-      <a class="brand" href="#${startRoute(_rolle)}">vale<span>—</span>video</a>
+      <a class="brand" href="#${startRoute(rolleJetzt)}">vale<span>—</span>video</a>
       <nav class="topnav">${links}</nav>
       <div class="topbar-right">
-        ${_rolle === "admin" ? `
+        ${rolleJetzt === "admin" ? `
         <span class="kunde-switch">
           <select id="kundeSwitch" class="kunde-switch-sel field-inline" title="Aktiver Kunde" aria-label="Aktiver Kunde"></select>
           <a class="btn btn--ghost btn--sm" href="#/admin/kunden" title="Kunden verwalten / neuen anlegen">＋</a>
@@ -202,6 +250,8 @@ function renderShell(aktiverPfad) {
     <main class="view" id="view"></main>`;
 
   document.getElementById("logoutBtn").addEventListener("click", () => logout());
+  const beobBtn = document.getElementById("beobZurueck");
+  if (beobBtn) beobBtn.addEventListener("click", beendeBeobachtung);
   wirePasswortPanel();
   wireGlocke();
   wireKundenSwitch();
@@ -215,24 +265,36 @@ function renderShell(aktiverPfad) {
 // ersten Kunden; weicht der dann vom Bau-Zustand ab, wird einmalig neu gebaut.
 function wireKundenSwitch() {
   const sel = document.getElementById("kundeSwitch");
-  if (!sel || _rolle !== "admin") return;
-  const gebautMit = getAktiv();
-  const gebautMitArt = aktuelleKundenart();
+  const beob = istBeobachtung();
+  if (_rolle !== "admin") return;
+  // Im Beobachtungsmodus fehlt das Dropdown (Kunden-Shell) — die Kundenliste
+  // wird trotzdem abonniert, sonst kennt das Banner nur die Doc-ID und die
+  // Kundenart bliebe auf dem Default stehen.
+  if (!sel && !beob) return;
+
+  const gebautMit     = beob ? getBeobachtet() : getAktiv();
+  const gebautMitArt  = aktuelleKundenart();
+  const gebautMitName = beob ? ((getBeobachteterKunde() || {}).name || null) : null;
 
   const unsub = abonniereKunden((kunden) => {
     const aktiv = getAktiv();
-    sel.innerHTML = kunden.length
-      ? kunden.map((k) =>
-          `<option value="${escapeHtmlR(k.id)}"${k.id === aktiv ? " selected" : ""}>${escapeHtmlR(k.name || k.id)}</option>`).join("")
-      : `<option value="">— noch kein Kunde —</option>`;
-    sel.value = aktiv || "";
+    if (sel) {
+      sel.innerHTML = kunden.length
+        ? kunden.map((k) =>
+            `<option value="${escapeHtmlR(k.id)}"${k.id === aktiv ? " selected" : ""}>${escapeHtmlR(k.name || k.id)}</option>`).join("")
+        : `<option value="">— noch kein Kunde —</option>`;
+      sel.value = aktiv || "";
+    }
     // Neu bauen, wenn der Default-Kunde gerade gesetzt wurde ODER die Shell noch
-    // mit unbekannter Kundenart gebaut wurde (Cache war beim ersten Paint leer).
-    if (aktiv !== gebautMit || aktuelleKundenart() !== gebautMitArt) render();
+    // mit unbekannter Kundenart/Namen gebaut wurde (Cache war beim ersten Paint leer).
+    const nameJetzt = beob ? ((getBeobachteterKunde() || {}).name || null) : null;
+    if ((beob ? getBeobachtet() : aktiv) !== gebautMit
+        || aktuelleKundenart() !== gebautMitArt
+        || nameJetzt !== gebautMitName) render();
   }, () => {});
   beiViewWechsel(unsub);
 
-  sel.addEventListener("change", () => { setzeAktiv(sel.value || null); render(); });
+  if (sel) sel.addEventListener("change", () => { setzeAktiv(sel.value || null); render(); });
 }
 
 // --- Benachrichtigungs-Glocke (Admin + Kollaborator) --------------------
@@ -249,6 +311,12 @@ function wireGlocke() {
   const zahl  = document.getElementById("glockeZahl");
   if (!btn || !panel || !_user) return;
 
+  // Im Beobachtungsmodus zeigt die Glocke die Nachrichten des Kunden (Admin darf
+  // sie per Rules lesen) — aber NICHTS wird als gelesen markiert, sonst räumt
+  // das Zuschauen dem Kunden die ungelesenen News ab.
+  const beob = istBeobachtung();
+  const mail = sichtEmail();
+
   let alle = [];
   function renderPanel() {
     panel.innerHTML = alle.length
@@ -260,7 +328,7 @@ function wireGlocke() {
           const haken = n.erledigt ? "✓ " : "";
           // Mit videoId → klickbar direkt zum betreffenden Video. Der Kunde landet
           // in seiner eigenen Video-Ansicht (#/video/…), Admin/Kollaborator im Backoffice.
-          const videoBasis = _rolle === "kunde" ? "#/video/" : "#/admin/video/";
+          const videoBasis = effRolle() === "kunde" ? "#/video/" : "#/admin/video/";
           return n.videoId
             ? `<a class="${klasse} glocke-item--link" href="${videoBasis}${encodeURIComponent(n.videoId)}">${haken}${inhalt}</a>`
             : `<div class="${klasse}">${haken}${inhalt}</div>`;
@@ -271,7 +339,7 @@ function wireGlocke() {
   panel.addEventListener("click", (e) => {
     if (e.target.closest("a.glocke-item")) panel.hidden = true;
   });
-  const unsub = beobachteBenachrichtigungen(_user.email, (liste) => {
+  const unsub = beobachteBenachrichtigungen(mail, (liste) => {
     alle = liste.sort((a, b) => {
       const ta = (a.erstelltAm && a.erstelltAm.seconds) || 0;
       const tb = (b.erstelltAm && b.erstelltAm.seconds) || 0;
@@ -288,6 +356,7 @@ function wireGlocke() {
     panel.hidden = !panel.hidden;
     if (!panel.hidden) {
       renderPanel();
+      if (beob) return;   // Zuschauen darf den Gelesen-Status des Kunden nicht ändern
       const ungelesen = alle.filter((n) => !n.gelesen).map((n) => n.id);
       if (ungelesen.length) markiereBenachrichtigungenGelesen(ungelesen).catch(() => {});
     }
@@ -345,6 +414,11 @@ function render() {
   // Listener der vorherigen View (onSnapshot) abbestellen.
   raeumeViewAuf();
 
+  // Orangener Rahmen + read-only-Guard, solange durch die Augen eines Kunden
+  // geschaut wird. Hier (nicht in renderShell), damit die Klasse auch auf dem
+  // Login-/Code-Screen sauber verschwindet.
+  document.body.classList.toggle("is-beobachtung", istBeobachtung());
+
   // Einladungs-Link (#/einladung/<mapId>): Ziel-Map merken, dann normaler
   // Ablauf (Login → Zugangscode-Screen löst gegen genau diese Map ein).
   const einladung = location.hash.match(/^#\/einladung\/([^/?#]+)/);
@@ -379,25 +453,39 @@ function render() {
   // Eingeloggt -> Routing
   let { route, id, query } = resolve(location.hash);
 
+  // Im Beobachtungsmodus gelten Routen/Nav der Rolle „kunde".
+  const rolleJetzt = effRolle();
+
   // Keine/unbekannte Route -> auf Startseite der Rolle
   if (!route) {
-    location.hash = startRoute(_rolle);
+    location.hash = startRoute(rolleJetzt);
     return;
   }
   // Falsche Rolle für diese Route -> auf eigene Startseite
-  if (route.rolle !== _rolle) {
-    location.hash = startRoute(_rolle);
+  if (route.rolle !== rolleJetzt) {
+    location.hash = startRoute(rolleJetzt);
     return;
   }
 
   const viewContainer = renderShell(location.hash.replace(/^#/, "").replace(/\?.*$/, "").replace(/^(\/video|\/admin\/video).*/, "$1"));
   // Aktiver Kunde (kundeId): Admin wählt ihn über den Umschalter; der Kunde
-  // bekommt seinen eigenen fest aus der Auth (kundenmitglieder-Lookup).
-  const kundeId = _rolle === "admin" ? getAktiv() : ((_info && _info.kundeId) || null);
-  route.render(viewContainer, { id, query, user: _user, rolle: _rolle, kollabMapId: (_info && _info.mapId) || null, kundeId, kundenart: aktuelleKundenart() });
+  // bekommt seinen eigenen fest aus der Auth (kundenmitglieder-Lookup);
+  // im Beobachtungsmodus ist es der beobachtete Kunde.
+  const kundeId = istBeobachtung()
+    ? getBeobachtet()
+    : (_rolle === "admin" ? getAktiv() : ((_info && _info.kundeId) || null));
+
+  // Die Views lesen aus `user` nur die E-Mail (Feeds, „meine Uploads"). Im
+  // Beobachtungsmodus ist das die des Kunden, damit die Sicht wirklich seine
+  // ist — geschrieben wird dabei nichts (read-only-Guard in der Shell).
+  const sichtUser = istBeobachtung()
+    ? { email: sichtEmail(), uid: _user.uid, beobachtung: true }
+    : _user;
+
+  route.render(viewContainer, { id, query, user: sichtUser, rolle: rolleJetzt, kollabMapId: (_info && _info.mapId) || null, kundeId, kundenart: aktuelleKundenart() });
 
   // Schwebende Feedback-Box nur für Kunden (Singleton, überlebt Routenwechsel).
-  if (_rolle === "kunde") mountFeedbackWidget({ user: _user, kundeId });
+  if (rolleJetzt === "kunde") mountFeedbackWidget({ user: sichtUser, kundeId });
   else unmountFeedbackWidget();
 }
 

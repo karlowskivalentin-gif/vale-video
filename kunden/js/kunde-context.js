@@ -52,6 +52,41 @@ export function beiKundenwechsel(cb) {
   return () => wechselCbs.delete(cb);
 }
 
+// =====================================================================
+// Beobachtungsmodus („durch die Augen des Kunden schauen")
+//
+// Der Admin sieht Nav, Routen und Views der Rolle „kunde" für EINEN Kunden —
+// weiterhin mit seiner eigenen Auth. Die Ansicht ist bewusst read-only
+// (Guard in styles.css: `body.is-beobachtung`), damit im Namen des Kunden
+// nichts ausgelöst oder geschrieben wird.
+//
+// Bewusst sessionStorage statt localStorage: der Modus endet spätestens mit
+// dem Tab und klebt nicht über Tage am Portal.
+// =====================================================================
+const SS_BEOB = "vv_beobachte_kunde";
+
+let _beobachtet = null;
+try { _beobachtet = sessionStorage.getItem(SS_BEOB) || null; } catch (_) { /* egal */ }
+
+// Doc-ID des gerade beobachteten Kunden — oder null (Normalbetrieb).
+export function getBeobachtet() {
+  return _beobachtet;
+}
+
+// Volles Doc des beobachteten Kunden aus dem Cache (null vor dem ersten Snapshot).
+export function getBeobachteterKunde() {
+  return _kundenListe.find((k) => k.id === _beobachtet) || null;
+}
+
+// Beobachtung starten (id) bzw. beenden (null). Der Aufrufer rendert danach neu.
+export function setzeBeobachtet(id) {
+  _beobachtet = id || null;
+  try {
+    if (_beobachtet) sessionStorage.setItem(SS_BEOB, _beobachtet);
+    else             sessionStorage.removeItem(SS_BEOB);
+  } catch (_) { /* egal */ }
+}
+
 // Abonniert die Kundenliste (Realtime). Sorgt beim ersten Laden dafür, dass ein
 // gültiger Kunde aktiv ist: fehlt einer oder wurde der aktive gelöscht, wird auf
 // den ersten Kunden der Liste zurückgefallen. Gibt die onSnapshot-Abmeldung zurück.

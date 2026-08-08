@@ -7,7 +7,7 @@
 import { beobachteKunden, kundeSpeichern, migriereAltbestand } from "../db.js";
 import { beiViewWechsel } from "../view-lifecycle.js";
 import { KUNDE_EMAILS } from "../roles.js";
-import { setzeAktiv } from "../kunde-context.js";
+import { setzeAktiv, setzeBeobachtet } from "../kunde-context.js";
 import { sendeKundenZugang } from "../auth.js";
 import { escapeHtml } from "../util.js";
 import { KUNDENARTEN, kundenartVon } from "../status.js";
@@ -250,6 +250,7 @@ function zeichne(el, kunden, zeigeForm, resendZugang) {
             <span class="row-name">${escapeHtml(k.name || k.id)} <span class="kd-art-badge">${art.emoji} ${escapeHtml(art.label)}</span></span>
             <span class="row-sub muted">${anz} Login${anz === 1 ? "" : "s"}${anz ? " · " + escapeHtml((k.emails || []).join(", ")) : ""}</span>
           </div>
+          <button class="btn btn--ghost btn--sm kd-beob" type="button" title="Das Portal aus der Sicht dieses Kunden ansehen (nur Ansicht)">👁 Ansicht einnehmen</button>
           <button class="btn btn--ghost btn--sm kd-send" type="button" title="Anmelde-Link (erneut) senden">Zugang senden</button>
           <button class="btn btn--ghost btn--sm kd-edit" type="button">Bearbeiten</button>
         </div>`;
@@ -261,5 +262,11 @@ function zeichne(el, kunden, zeigeForm, resendZugang) {
     const kunde = kunden.find((x) => x.id === id);
     row.querySelector(".kd-edit").addEventListener("click", () => zeigeForm(kunde));
     row.querySelector(".kd-send").addEventListener("click", (ev) => resendZugang(kunde, ev.currentTarget));
+    // Beobachtungsmodus starten: ab jetzt rendert der Router die Kunden-Shell
+    // für diesen Mandanten (siehe router.js → istBeobachtung()).
+    row.querySelector(".kd-beob").addEventListener("click", () => {
+      setzeBeobachtet(id);
+      location.hash = "/aufgaben";
+    });
   });
 }
