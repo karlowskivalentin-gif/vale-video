@@ -114,6 +114,40 @@ a { color: inherit; text-decoration: none; }
 .topnav-link:hover { color: var(--black); background: var(--off-white); }
 .topnav-link.is-active { color: var(--accent); background: rgba(226,98,44,0.08); }
 
+/* --- Gruppierte Admin-Nav (router.js: NAV.admin) ----------------------
+   16 gleichrangige Links passten in keinen Header. Jetzt: Pipeline direkt,
+   der Rest in vier Menüs. Kunden-/Kollaborator-Nav bleiben flach.          */
+.topnav-gruppe { position: relative; flex: 0 0 auto; }
+.topnav-gruppe-btn {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  font-family: var(--font); cursor: pointer;
+  background: transparent; border: 0;
+}
+/* Enthält das Menü die aktuelle Route, ist das auch zugeklappt sichtbar. */
+.topnav-gruppe.has-active > .topnav-gruppe-btn { color: var(--accent); }
+.topnav-gruppe.is-offen > .topnav-gruppe-btn { color: var(--black); background: var(--off-white); }
+.topnav-chevron { font-size: 0.6rem; transition: transform 0.15s ease; }
+.topnav-gruppe.is-offen .topnav-chevron { transform: rotate(180deg); }
+
+.topnav-panel {
+  position: absolute; top: calc(100% + 0.3rem); left: 0; z-index: 60;
+  display: flex; flex-direction: column; gap: 0.1rem;
+  min-width: 11rem; padding: 0.3rem;
+  background: var(--surface);
+  border: 1px solid var(--mid); border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+}
+.topnav-sub {
+  white-space: nowrap; padding: 0.45rem 0.7rem;
+  border-radius: 4px; font-size: 0.85rem; color: var(--muted);
+}
+.topnav-sub:hover { color: var(--black); background: var(--off-white); }
+.topnav-sub.is-active { color: var(--accent); background: rgba(226,98,44,0.08); font-weight: 600; }
+
+/* Solange ein Menü offen ist, darf .topnav nicht clippen — sonst schneidet
+   das overflow-x:auto von oben das aufgeklappte Panel ab. */
+.topnav.has-offen { overflow: visible; }
+
 .topbar-right {
   display: flex;
   align-items: center;
@@ -138,6 +172,41 @@ a { color: inherit; text-decoration: none; }
   border-radius: 999px;
 }
 .user-email { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* --- Benutzer-Menü rechts (router.js) ---------------------------------
+   E-Mail, „Passwort" und „Abmelden" standen früher offen nebeneinander und
+   kosteten zusammen fast 400 px Topbar-Breite — die fehlten der Nav, die
+   deshalb dauerhaft horizontal scrollen musste. Jetzt hinter einem Auslöser. */
+.user-menu { position: relative; flex: 0 0 auto; }
+.user-menu-btn {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  font-family: var(--font); cursor: pointer;
+  background: transparent; border: 1px solid var(--mid);
+  border-radius: 999px; padding: 0.25rem 0.55rem 0.25rem 0.35rem;
+}
+.user-menu-btn:hover { border-color: var(--accent); }
+.user-menu-btn.is-offen { border-color: var(--accent); background: var(--off-white); }
+.user-menu-btn.is-offen .topnav-chevron { transform: rotate(180deg); }
+.user-menu-panel {
+  position: absolute; top: calc(100% + 0.35rem); right: 0; z-index: 60;
+  display: flex; flex-direction: column; gap: 0.1rem;
+  min-width: 13rem; padding: 0.3rem;
+  background: var(--surface);
+  border: 1px solid var(--mid); border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+}
+.user-menu-mail {
+  font-size: 0.75rem; color: var(--muted);
+  padding: 0.4rem 0.65rem 0.5rem;
+  border-bottom: 1px solid var(--mid); margin-bottom: 0.2rem;
+  overflow-wrap: anywhere;
+}
+.user-menu-item {
+  font-family: var(--font); font-size: 0.85rem; text-align: left;
+  cursor: pointer; background: transparent; border: 0;
+  border-radius: 4px; padding: 0.45rem 0.65rem; color: var(--black);
+}
+.user-menu-item:hover { background: var(--off-white); }
 
 /* --- Buttons --------------------------------------------------------- */
 .btn {

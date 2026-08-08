@@ -87,23 +87,35 @@ const NAV = {
     { href: "#/objekt-melden", label: "Objekt melden" },
     { href: "#/kalender",      label: "Kalender" }
   ],
+  // Admin-Nav ist gruppiert: 16 gleichrangige Links waren keine Navigation
+  // mehr, sondern eine Liste — bei schmalem Fenster nur noch horizontal
+  // scrollbar erreichbar. Die Pipeline bleibt als tägliche Start-View direkt
+  // sichtbar, alles andere liegt thematisch in Menüs.
   admin: [
     { href: "#/admin/pipeline", label: "Pipeline" },
-    { href: "#/admin/archiv",   label: "Archiv" },
-    { href: "#/admin/objekte",  label: "Objekte" },
-    { href: "#/admin/kalender", label: "Kalender" },
-    { href: "#/admin/termine",  label: "Termine" },
-    { href: "#/admin/plaene",   label: "Pläne" },
-    { href: "#/admin/fokus",    label: "Fokus" },
-    { href: "#/admin/gedanken", label: "Gedanken" },
-    { href: "#/admin/todos",    label: "To-Dos" },
-    { href: "#/admin/stickies", label: "Stickies" },
-    { href: "#/admin/transkript", label: "Transkript" },
-    { href: "#/admin/inspiration", label: "Inspiration" },
-    { href: "#/admin/moodboard", label: "Moodboard" },
-    { href: "#/admin/kunden", label: "Kunden" },
-    { href: "#/admin/kunde-feed", label: "Kunden-Feed" },
-    { href: "#/admin/webseite", label: "Webseite" }
+    { gruppe: "Produktion", kinder: [
+      { href: "#/admin/objekte",  label: "Objekte" },
+      { href: "#/admin/plaene",   label: "Pläne" },
+      { href: "#/admin/archiv",   label: "Archiv" }
+    ]},
+    { gruppe: "Planung", kinder: [
+      { href: "#/admin/kalender", label: "Kalender" },
+      { href: "#/admin/termine",  label: "Termine" },
+      { href: "#/admin/fokus",    label: "Fokus" },
+      { href: "#/admin/todos",    label: "To-Dos" },
+      { href: "#/admin/stickies", label: "Stickies" }
+    ]},
+    { gruppe: "Ideen", kinder: [
+      { href: "#/admin/gedanken",    label: "Gedanken" },
+      { href: "#/admin/inspiration", label: "Inspiration" },
+      { href: "#/admin/moodboard",   label: "Moodboard" },
+      { href: "#/admin/transkript",  label: "Transkript" }
+    ]},
+    { gruppe: "Außen", kinder: [
+      { href: "#/admin/kunden",     label: "Kunden" },
+      { href: "#/admin/kunde-feed", label: "Kunden-Feed" },
+      { href: "#/admin/webseite",   label: "Webseite" }
+    ]}
   ],
   kollaborator: [
     { href: "#/gedanken", label: "Mindmap" },
@@ -189,10 +201,29 @@ function renderShell(aktiverPfad) {
   const beobKunde = beob ? getBeobachteterKunde() : null;
   const beobName = (beobKunde && (beobKunde.name || beobKunde.id)) || getBeobachtet() || "Kunde";
 
+  // Nav-Einträge sind entweder direkte Links oder Gruppen mit Untermenü.
+  // Kunden- und Kollaborator-Nav bleiben flach — dort sind es nur 3–4 Punkte.
+  const linkHtml = (l) => {
+    const aktiv = ("#" + aktiverPfad) === l.href ? " is-active" : "";
+    return `<a class="topnav-link${aktiv}" href="${l.href}">${label(l)}</a>`;
+  };
   const links = (NAV[rolleJetzt] || [])
     .map(l => {
-      const aktiv = ("#" + aktiverPfad) === l.href ? " is-active" : "";
-      return `<a class="topnav-link${aktiv}" href="${l.href}">${label(l)}</a>`;
+      if (!l.gruppe) return linkHtml(l);
+      // Enthält die Gruppe die aktuelle Route, wird sie mitmarkiert — sonst
+      // sieht man im zugeklappten Zustand nicht, wo man gerade ist.
+      const drin = l.kinder.some(k => ("#" + aktiverPfad) === k.href);
+      const unter = l.kinder.map(k => {
+        const aktiv = ("#" + aktiverPfad) === k.href ? " is-active" : "";
+        return `<a class="topnav-sub${aktiv}" href="${k.href}">${label(k)}</a>`;
+      }).join("");
+      return `
+        <div class="topnav-gruppe${drin ? " has-active" : ""}">
+          <button class="topnav-link topnav-gruppe-btn" type="button" aria-expanded="false">
+            ${escapeHtmlR(l.gruppe)}<span class="topnav-chevron" aria-hidden="true">▾</span>
+          </button>
+          <div class="topnav-panel" hidden>${unter}</div>
+        </div>`;
     })
     .join("");
 
@@ -218,13 +249,18 @@ function renderShell(aktiverPfad) {
           <select id="kundeSwitch" class="kunde-switch-sel field-inline" title="Aktiver Kunde" aria-label="Aktiver Kunde"></select>
           <a class="btn btn--ghost btn--sm" href="#/admin/kunden" title="Kunden verwalten / neuen anlegen">＋</a>
         </span>` : ``}
-        <span class="topbar-user" title="${_user.email}">
-          <span class="role-pill">${rollenLabel}</span>
-          <span class="user-email">${_user.email}</span>
-        </span>
         <button class="btn btn--ghost btn--sm glocke-btn" id="glockeBtn" type="button" title="Benachrichtigungen">🔔<span class="glocke-zahl" id="glockeZahl" hidden></span></button>
-        <button class="btn btn--ghost btn--sm" id="pwBtn" type="button">Passwort</button>
-        <button class="btn btn--ghost btn--sm" id="logoutBtn">Abmelden</button>
+        <div class="user-menu">
+          <button class="user-menu-btn" id="userMenuBtn" type="button" aria-expanded="false" title="${_user.email}">
+            <span class="role-pill">${rollenLabel}</span>
+            <span class="topnav-chevron" aria-hidden="true">▾</span>
+          </button>
+          <div class="user-menu-panel" id="userMenuPanel" hidden>
+            <div class="user-menu-mail">${_user.email}</div>
+            <button class="user-menu-item" id="pwBtn" type="button">Passwort ändern</button>
+            <button class="user-menu-item" id="logoutBtn" type="button">Abmelden</button>
+          </div>
+        </div>
       </div>
 
       <div class="glocke-panel" id="glockePanel" hidden></div>
@@ -258,7 +294,84 @@ function renderShell(aktiverPfad) {
   wirePasswortPanel();
   wireGlocke();
   wireKundenSwitch();
+  wireNavGruppen();
   return document.getElementById("view");
+}
+
+// --- Menüs im Kopf (Nav-Gruppen + Benutzer-Menü) -----------------------
+// Immer nur eins offen; schließt bei Klick daneben, bei ESC und nach der
+// Navigation. Die Document-Listener werden beim Routenwechsel wieder
+// abgemeldet, sonst sammeln sie sich mit jedem Shell-Neuaufbau an.
+// Läuft auch für Kunde/Kollaborator: deren Nav ist flach (keine Gruppen),
+// das Benutzer-Menü rechts haben sie aber genauso.
+function wireNavGruppen() {
+  const nav = document.querySelector(".topnav");
+  if (!nav) return;
+  const gruppen = [...nav.querySelectorAll(".topnav-gruppe")];
+
+  function schliesse() {
+    gruppen.forEach((g) => {
+      g.querySelector(".topnav-panel").hidden = true;
+      g.querySelector(".topnav-gruppe-btn").setAttribute("aria-expanded", "false");
+      g.classList.remove("is-offen");
+    });
+    // .topnav scrollt horizontal (overflow-x) und würde das absolut liegende
+    // Panel abschneiden — deshalb nur solange offen, wie ein Menü offen ist.
+    nav.classList.remove("has-offen");
+  }
+
+  gruppen.forEach((g) => {
+    const btn   = g.querySelector(".topnav-gruppe-btn");
+    const panel = g.querySelector(".topnav-panel");
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const oeffnen = panel.hidden;
+      schliesse();
+      if (oeffnen) {
+        panel.hidden = false;
+        btn.setAttribute("aria-expanded", "true");
+        g.classList.add("is-offen");
+        nav.classList.add("has-offen");
+      }
+    });
+    panel.addEventListener("click", schliesse);   // Unterpunkt gewählt → zu
+  });
+
+  // Benutzer-Menü rechts (E-Mail, Passwort, Abmelden) — hängt an derselben
+  // Schließ-Logik, damit nie zwei Menüs gleichzeitig offen stehen. E-Mail und
+  // die beiden Buttons kosteten in der Topbar zusammen fast 400 px; die
+  // fehlten der Nav, die deshalb dauerhaft horizontal scrollen musste.
+  const userBtn   = document.getElementById("userMenuBtn");
+  const userPanel = document.getElementById("userMenuPanel");
+  function schliesseAlles() {
+    schliesse();
+    if (userPanel) {
+      userPanel.hidden = true;
+      userBtn.setAttribute("aria-expanded", "false");
+      userBtn.classList.remove("is-offen");
+    }
+  }
+  if (userBtn && userPanel) {
+    userBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const oeffnen = userPanel.hidden;
+      schliesseAlles();
+      if (oeffnen) {
+        userPanel.hidden = false;
+        userBtn.setAttribute("aria-expanded", "true");
+        userBtn.classList.add("is-offen");
+      }
+    });
+  }
+
+  const aufKlick = () => schliesseAlles();
+  const aufTaste = (e) => { if (e.key === "Escape") schliesseAlles(); };
+  document.addEventListener("click", aufKlick);
+  document.addEventListener("keydown", aufTaste);
+  beiViewWechsel(() => {
+    document.removeEventListener("click", aufKlick);
+    document.removeEventListener("keydown", aufTaste);
+  });
 }
 
 // --- Kunden-Umschalter (nur Admin) -------------------------------------
