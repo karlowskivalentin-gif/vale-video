@@ -465,6 +465,27 @@ a.row-item:hover { background: var(--off-white); }
 .pl-item--verworfen { background: var(--error-bg); }
 .pl-item--verworfen .row-name { color: var(--error); }
 
+/* --- Drag & Drop: Video in einen anderen Monat ziehen (admin-pipeline.js) ---
+   Der Griff ist der EINZIGE Anfasser — die Karte selbst bleibt bedienbar
+   (Selects, Datumsfelder, Textareas). Dezent, bis man die Karte anfasst. */
+.pl-griff {
+  cursor: grab; user-select: none; flex-shrink: 0;
+  color: var(--mid); font-size: 1rem; line-height: 1;
+  padding: 0 .15rem; margin-right: .1rem;
+  transition: color .15s ease;
+}
+.pl-item:hover .pl-griff { color: var(--light); }
+.pl-griff:hover { color: var(--accent); }
+.pl-griff:active { cursor: grabbing; }
+.pl-item.is-zieht { opacity: .4; }
+/* Ziel-Sektion beim Darüberziehen — auch wenn sie zugeklappt ist. */
+.pl-monat.is-dropziel > .pl-monat-head {
+  border-color: var(--accent);
+  background: rgba(226, 98, 44, 0.08);
+  box-shadow: 0 0 0 3px rgba(226, 98, 44, 0.14);
+}
+.pl-monat.is-dropziel .pl-monat-label { color: var(--accent-dim); }
+
 /* Kundenart-Badge in der Kundenliste (🏠 Immobilien / ☕ Gastro) */
 .kd-art-badge {
   font-size: 0.68rem; font-weight: 700; color: var(--muted);

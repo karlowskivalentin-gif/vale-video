@@ -426,6 +426,66 @@ function zeichne(el, videos, kommMap, bongMap, ctx) {
       } finally { save.disabled = false; }
     });
   });
+
+  wireDragDrop(el, ctx);
+}
+
+// --- Drag & Drop: Video in einen anderen Monat schieben ----------------
+// Gezogen wird ausschließlich am Griff (⠿). Wäre die ganze Karte draggable,
+// ließen sich die Selects, Datumsfelder und Textareas darin nicht mehr
+// bedienen — der Browser würde jeden Klick darauf als Ziehversuch werten.
+// Drop-Ziel ist die ganze Monats-Sektion, also auch der Kopf einer
+// ZUGEKLAPPTEN Sektion: so kann man in einen Monat schieben, ohne ihn vorher
+// aufklappen zu müssen.
+function wireDragDrop(el, ctx) {
+  const { state } = ctx;
+  let gezogen = null;   // { id, monat } des gerade gezogenen Videos
+
+  el.querySelectorAll(".pl-item").forEach((item) => {
+    const griff = item.querySelector(".pl-griff");
+    if (!griff) return;
+    griff.addEventListener("mousedown", () => item.setAttribute("draggable", "true"));
+    griff.addEventListener("mouseup",   () => item.removeAttribute("draggable"));
+
+    item.addEventListener("dragstart", (e) => {
+      gezogen = { id: item.getAttribute("data-id"), monat: item.getAttribute("data-monat") };
+      item.classList.add("is-zieht");
+      e.dataTransfer.effectAllowed = "move";
+      // Ohne gesetzte Daten bricht Firefox das Ziehen sofort ab.
+      try { e.dataTransfer.setData("text/plain", gezogen.id); } catch (_) { /* egal */ }
+    });
+    item.addEventListener("dragend", () => {
+      item.classList.remove("is-zieht");
+      item.removeAttribute("draggable");
+      el.querySelectorAll(".pl-monat").forEach((s) => s.classList.remove("is-dropziel"));
+      gezogen = null;
+    });
+  });
+
+  el.querySelectorAll(".pl-monat").forEach((sek) => {
+    const ziel = sek.getAttribute("data-monat");
+    sek.addEventListener("dragover", (e) => {
+      if (!gezogen || gezogen.monat === ziel) return;   // eigener Monat = kein Ziel
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      sek.classList.add("is-dropziel");
+    });
+    sek.addEventListener("dragleave", (e) => {
+      // dragleave feuert auch beim Wechsel zwischen Kind-Elementen — nur
+      // aufheben, wenn der Zeiger die Sektion wirklich verlassen hat.
+      if (!sek.contains(e.relatedTarget)) sek.classList.remove("is-dropziel");
+    });
+    sek.addEventListener("drop", async (e) => {
+      if (!gezogen || gezogen.monat === ziel) return;
+      e.preventDefault();
+      sek.classList.remove("is-dropziel");
+      const id = gezogen.id;
+      gezogen = null;
+      state.offeneMonate.add(ziel);   // sonst wirkt die Karte verschwunden
+      try { await aktualisiereVideo(id, { monat: ziel }); }   // Observer zeichnet neu
+      catch (err) { console.error(err); alert("Monat konnte nicht gespeichert werden."); }
+    });
+  });
 }
 
 // Umschalter „Alle | Gebongt" (mit Zählern). Reine Anzeige/Filter.
@@ -618,8 +678,9 @@ function rowHtml(v, komms, notizen, istOffen, istOffenBong, istOffenTermin, kund
   const linksHtml = links.length ? `<div class="pl-links">${links.join("")}</div>` : "";
 
   return `
-    <div class="pl-item${verworfen}" data-id="${escapeHtml(v.id)}">
+    <div class="pl-item${verworfen}" data-id="${escapeHtml(v.id)}" data-monat="${escapeHtml(vMonat)}">
       <div class="pl-row">
+        <span class="pl-griff" title="Ziehen, um das Video in einen anderen Monat zu schieben" aria-hidden="true">⠿</span>
         <div class="pl-main">
           <a class="row-name" href="#/admin/video/${encodeURIComponent(v.id)}">${escapeHtml(v.titel || "Unbenanntes Video")}</a>
           <span class="row-sub muted">
