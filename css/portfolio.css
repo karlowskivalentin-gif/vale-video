@@ -631,3 +631,23 @@
   .detail-video.portrait .yt-wrap { width: 100%; max-width: 320px; height: auto; aspect-ratio: 9/16; }
   .video-quality-hint { padding: 0 1.5rem; }
 }
+
+/* ── Player-Fassade für Posts aus dem Portal (js/web-daten.js) ──
+   Erweitert die bestehende .yt-facade auf TikTok/Instagram/Vimeo. Vor dem
+   Klick liegt nur ein Bild da — erst danach wird ein fremdes Embed geladen. */
+.yt-kein-bild {
+  position: absolute; inset: 0;
+  background: linear-gradient(135deg, #1c1814, #2a241d);
+}
+.yt-ziel { position: absolute; inset: 0; display: none; }
+.yt-wrap.active .yt-ziel {
+  display: flex; align-items: center; justify-content: center;
+  overflow: auto; background: #000;
+}
+/* Die offiziellen Blockquotes von TikTok/Instagram bringen eigene Maße mit */
+.yt-ziel blockquote { max-width: 100%; }
+.yt-ziel .btn { position: relative; z-index: 2; }
+
+/* Vorschau-Modus im Baukasten-iframe: die Navigation würde dort nur stören
+   und beim Scrollen über die Kacheln wandern (js/startseite.js). */
+body.ist-vorschau nav { position: static; }

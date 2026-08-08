@@ -85,7 +85,10 @@
            </video> -->
     </div>
 
-    <!-- Projekt-Grid — aktuelles Hauptvisual -->
+    <!-- Projekt-Grid — aktuelles Hauptvisual.
+         Die folgenden Kacheln sind der Fallback: js/startseite.js ersetzt sie
+         durch die im Portal zusammengestellte Anordnung, sobald eine vorliegt.
+         Antwortet Firestore nicht, bleibt genau dieses Raster stehen. -->
     <div class="hero-grid">
       <a href="projekt-amsterdam.html" class="hero-tile is-wide">
         <img src="assets/images/thumb-amsterdam.webp" alt="Amsterdam Reel" />
@@ -396,5 +399,6 @@
   </footer>
 
   <script src="js/main.js"></script>
+  <script type="module" src="js/startseite.js"></script>
 </body>
 </html>

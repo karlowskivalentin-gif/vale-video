@@ -70,8 +70,13 @@
       <button class="filter-chip is-active" data-filter="all">Alle</button>
       <button class="filter-chip" data-filter="imagefilm">Imagefilm</button>
       <button class="filter-chip" data-filter="reels">Reels</button>
+      <button class="filter-chip" data-filter="objekt">Objektvideo</button>
+      <button class="filter-chip" data-filter="persoenlich">Persönlich</button>
     </div>
 
+    <!-- Neue Posts aus dem Portal werden von js/portfolio-posts.js VOR die
+         folgenden Karten gehängt. Diese sieben bleiben statisches HTML —
+         sie sind die SEO-Basis und stehen ohne JavaScript im Quelltext. -->
     <div class="work-grid" id="workGrid">
       <a href="projekt-clubpilates.html" class="work-card" data-category="reels">
         <img loading="lazy" src="assets/images/thumb-clubpilates.webp" alt="Club Pilates × Fibo 2026" />
@@ -101,7 +106,7 @@
           <p class="work-card-name">Bistro Zicke Düsseldorf</p>
         </div>
       </a>
-      <a href="projekt-amsterdam.html" class="work-card" data-category="reels">
+      <a href="projekt-amsterdam.html" class="work-card" data-category="persoenlich">
         <img loading="lazy" src="assets/images/thumb-amsterdam.webp" alt="Amsterdam by Day" />
         <div class="work-card-overlay">
           <p class="work-card-tag">Persönlich · Cinematic Travel</p>
@@ -115,7 +120,7 @@
           <p class="work-card-name">Goldhaus</p>
         </div>
       </a>
-      <a href="projekt-pia.html" class="work-card" data-category="imagefilm">
+      <a href="projekt-pia.html" class="work-card" data-category="persoenlich">
         <img loading="lazy" src="assets/images/thumb-pia.webp" alt="Pia — Zuhause in Urdenbach" />
         <div class="work-card-overlay">
           <p class="work-card-tag">Persönlich · Objektfilm</p>
@@ -141,5 +146,6 @@
   </footer>
 
   <script src="js/main.js"></script>
+  <script type="module" src="js/portfolio-posts.js"></script>
 </body>
 </html>

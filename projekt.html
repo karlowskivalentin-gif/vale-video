@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Projekt — vale-video</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/portfolio.css" />
+
+  <link rel="icon" href="/favicon.ico" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="vale-video" />
+  <meta property="og:image" content="https://vale-video.de/assets/images/og-default.jpg" />
+  <meta property="og:locale" content="de_DE" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <!-- Diese Seite rendert ihren Inhalt aus Firestore. Titel/og-Tags werden
+       unten per JS nachgezogen; für Social-Crawler, die kein JS ausführen,
+       bleibt die Standard-Vorschau stehen. Die sieben handgebauten
+       projekt-*.html sind davon nicht betroffen. -->
+  <meta name="robots" content="index, follow" />
+</head>
+<body>
+
+  <nav>
+    <a href="index.html" class="nav-logo">vale<span>—</span>video</a>
+    <ul class="nav-links">
+      <li><a href="portfolio.html" class="nav-active">Portfolio</a></li>
+      <li><a href="about.html">About</a></li>
+      <li><a href="contact.html">Kontakt</a></li>
+      <li><a href="contact.html" class="nav-cta">Projekt anfragen</a></li>
+    </ul>
+  </nav>
+
+  <a href="portfolio.html" class="back-link">
+    <div class="back-line"></div>
+    Zurück zum Portfolio
+  </a>
+
+  <div id="projektInhalt">
+    <section class="detail-hero">
+      <div class="detail-hero-gradient"></div>
+      <div class="detail-hero-content">
+        <p class="detail-tag">Lädt …</p>
+      </div>
+    </section>
+  </div>
+
+  <!-- CTA-Band -->
+  <section class="cta-band">
+    <h2>Dein Projekt könnte das nächste sein. Lass uns <em>reden.</em></h2>
+    <div class="cta-band-actions">
+      <a href="contact.html" class="btn btn--accent">Projekt anfragen</a>
+      <a href="https://wa.me/491782670400?text=Hi%20Valentin%2C%20ich%20habe%20ein%20Videoprojekt%20im%20Kopf." target="_blank" rel="noopener" class="btn btn--whatsapp">Per WhatsApp schreiben</a>
+    </div>
+  </section>
+
+  <footer>
+    <span class="footer-logo">vale<span>—</span>video</span>
+    <span class="footer-copy">© 2026 Valentin Karlowski</span>
+    <a class="footer-login" href="kunden/">Kundenlogin</a>
+  </footer>
+
+  <script type="module">
+    import { ladeWebvideo, postBild, playerHtml, aktivierePlayer, escapeHtml } from "./js/web-daten.js";
+
+    const box = document.getElementById("projektInhalt");
+    const id  = new URLSearchParams(location.search).get("id");
+
+    function nichtGefunden(text) {
+      box.innerHTML = `
+        <section class="detail-hero">
+          <div class="detail-hero-gradient"></div>
+          <div class="detail-hero-content">
+            <p class="detail-tag">Nicht gefunden</p>
+            <h1 class="detail-title">Dieses Projekt<br/><em>gibt es nicht</em></h1>
+          </div>
+        </section>
+        <div class="detail-body">
+          <div class="detail-meta"></div>
+          <div class="detail-text">
+            <p>${escapeHtml(text)}</p>
+            <p><a class="btn btn--accent" href="portfolio.html">Zum Portfolio</a></p>
+          </div>
+        </div>`;
+    }
+
+    if (!id) {
+      nichtGefunden("Kein Projekt angegeben.");
+    } else {
+      const v = await ladeWebvideo(id);
+      if (!v || v.veroeffentlicht !== true) {
+        nichtGefunden("Der Link führt ins Leere — vielleicht wurde das Projekt entfernt.");
+      } else {
+        const bild = await postBild(v);
+
+        // Titel und Social-Tags nachziehen (greift für Besucher, nicht für
+        // Crawler ohne JS — siehe Hinweis im <head>).
+        document.title = `${v.titel || "Projekt"} — vale-video`;
+        const setzeMeta = (attr, name, wert) => {
+          let el = document.head.querySelector(`meta[${attr}="${name}"]`);
+          if (!el) { el = document.createElement("meta"); el.setAttribute(attr, name); document.head.appendChild(el); }
+          el.setAttribute("content", wert);
+        };
+        setzeMeta("property", "og:title", `${v.titel || "Projekt"} — vale-video`);
+        setzeMeta("property", "og:description", v.beschreibung || "");
+        setzeMeta("name", "description", (v.beschreibung || "").slice(0, 160));
+        if (bild && /^https?:/.test(bild)) setzeMeta("property", "og:image", bild);
+
+        // Meta-Blöcke nur zeigen, wo es auch etwas zu zeigen gibt — leere
+        // Spalten wirken auf einer Detailseite wie ein Fehler.
+        const meta = [
+          v.art ? { label: "Art", wert: v.art } : null,
+          v.kategorie ? { label: "Genre", wert: {
+            imagefilm: "Imagefilm", reels: "Social Reel",
+            objekt: "Objektvideo", persoenlich: "Persönliches Projekt"
+          }[v.kategorie] || v.kategorie } : null,
+          v.ort ? { label: "Ort", wert: v.ort } : null
+        ].filter(Boolean);
+
+        box.innerHTML = `
+          <section class="detail-hero">
+            ${bild ? `<div class="detail-hero-bg"><img src="${escapeHtml(bild)}" alt="${escapeHtml(v.titel || "")}" /></div>` : ""}
+            <div class="detail-hero-gradient"></div>
+            <div class="detail-hero-content">
+              ${v.untertitel ? `<p class="detail-tag">${escapeHtml(v.untertitel)}</p>` : ""}
+              <h1 class="detail-title">${escapeHtml(v.titel || "")}</h1>
+            </div>
+          </section>
+
+          ${(meta.length || v.beschreibung) ? `
+          <div class="detail-body">
+            <div class="detail-meta">
+              ${meta.map((m) => `
+                <div class="meta-block">
+                  <p class="meta-label">${escapeHtml(m.label)}</p>
+                  <p class="meta-val">${escapeHtml(m.wert)}</p>
+                </div>`).join("")}
+            </div>
+            <div class="detail-text">
+              ${(v.beschreibung || "").split(/\n{2,}/).filter(Boolean)
+                 .map((abs) => `<p>${escapeHtml(abs)}</p>`).join("")}
+            </div>
+          </div>` : ""}
+
+          <div class="detail-video${v.hochformat ? " portrait" : ""}">
+            ${v.hochformat ? `<div class="yt-item">${playerHtml(v, bild)}</div>` : playerHtml(v, bild)}
+          </div>`;
+
+        aktivierePlayer(box);
+      }
+    }
+  </script>
+  <script src="js/main.js"></script>
+</body>
+</html>
