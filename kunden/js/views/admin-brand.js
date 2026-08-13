@@ -7,7 +7,8 @@ import { beobachteBrandSkripte, brandSkriptAnlegen, loescheBrandSkript, ladeForm
 import { beiViewWechsel } from "../view-lifecycle.js";
 import { escapeHtml, formatDatum } from "../util.js";
 import { STATUS_LABEL, PLATTFORMEN, labelVon, berechneFortschritt,
-         gesamtDauer, dauerLabel, istAbgeschickt, takesAusFormat, AUFWAND } from "../brandplan.js";
+         gesamtDauer, dauerLabel, istAbgeschickt, takesAusFormat, AUFWAND,
+         plattformenVon, postVon } from "../brandplan.js";
 
 const FILTER = [
   { id: "alle",       label: "Alle" },
@@ -97,6 +98,8 @@ export function renderAdminBrand(container) {
         titel: "",
         formatId: format ? format.id : null,
         formatName: format ? (format.name || "") : "",
+        // Das Format bringt seine Kanäle gleich mit — änderbar bleibt es.
+        plattformen: (format && Array.isArray(format.plattformen)) ? format.plattformen.slice() : [],
         takes: format ? takesAusFormat(format) : []
       });
       location.hash = `/admin/skript/${encodeURIComponent(ref.id)}`;
@@ -117,11 +120,19 @@ export function renderAdminBrand(container) {
     const st = STATUS_LABEL[s.status] || STATUS_LABEL.idee;
     const fort = berechneFortschritt(s);
     const takes = Array.isArray(s.takes) ? s.takes : [];
+    // Kanäle: wo das Video schon raus ist, bekommt einen Haken — so sieht man
+    // in der Übersicht, was noch aussteht, ohne das Skript zu öffnen.
+    const kanaele = plattformenVon(s);
+    const raus = kanaele.filter((p) => postVon(s.checkliste, p).raus).length;
+    const kanalText = kanaele
+      .map((p) => `${labelVon(PLATTFORMEN, p) || p}${postVon(s.checkliste, p).raus ? " ✓" : ""}`)
+      .join(", ");
     const teile = [
-      labelVon(PLATTFORMEN, s.plattform),
+      kanalText || "keine Plattform",
       s.formatName ? `Format: ${s.formatName}` : "",
       takes.length ? `${takes.length} Take${takes.length === 1 ? "" : "s"}` : "noch keine Takes",
       gesamtDauer(takes) ? `ca. ${dauerLabel(gesamtDauer(takes))}` : "",
+      raus && raus < kanaele.length ? `${raus}/${kanaele.length} raus` : "",
       s.aktualisiertAm ? formatDatum(s.aktualisiertAm) : ""
     ].filter(Boolean);
     const href = `#/admin/skript/${encodeURIComponent(s.id)}`;

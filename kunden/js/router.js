@@ -325,33 +325,72 @@ function wireNavGruppen() {
   const nav = document.querySelector(".topnav");
   if (!nav) return;
   const gruppen = [...nav.querySelectorAll(".topnav-gruppe")];
+  // Panels werden beim Öffnen aus der Nav gehängt (s.u.) — deshalb hier
+  // einmal merken, welches Panel zu welcher Gruppe gehört.
+  const panelVon = new Map(gruppen.map((g) => [g, g.querySelector(".topnav-panel")]));
 
   function schliesse() {
     gruppen.forEach((g) => {
-      g.querySelector(".topnav-panel").hidden = true;
+      const panel = panelVon.get(g);
+      panel.hidden = true;
+      panel.classList.remove("topnav-panel--frei");
+      panel.style.top = "";
+      panel.style.left = "";
+      if (panel.parentNode !== g) g.appendChild(panel);   // zurück in die Gruppe
       g.querySelector(".topnav-gruppe-btn").setAttribute("aria-expanded", "false");
       g.classList.remove("is-offen");
     });
-    // .topnav scrollt horizontal (overflow-x) und würde das absolut liegende
-    // Panel abschneiden — deshalb nur solange offen, wie ein Menü offen ist.
-    nav.classList.remove("has-offen");
+  }
+
+  // Das Panel wird an <body> gehängt und fest am Viewport positioniert.
+  //
+  // Vorher lag es absolut IN der Nav. Die scrollt bei schmalen Fenstern
+  // horizontal (overflow-x), was das Panel abgeschnitten hätte — dagegen
+  // wurde beim Öffnen auf overflow:visible umgeschaltet. Genau das war der
+  // Fehler: Ein Container, der sein overflow verliert, verliert auch seine
+  // Scroll-Position. Die Nav sprang also im Moment des Antippens zurück an
+  // den Anfang, und die weiter rechts liegenden Menüs („Außen", „Personal
+  // Brand") rutschten unter dem Finger weg — auf dem Handy unbenutzbar.
+  // Außerhalb der Nav gibt es weder Clipping noch Scroll-Sprung, und die
+  // x-Position lässt sich am Fensterrand begrenzen.
+  function oeffne(g) {
+    const btn   = g.querySelector(".topnav-gruppe-btn");
+    const panel = panelVon.get(g);
+    document.body.appendChild(panel);
+    panel.classList.add("topnav-panel--frei");
+    panel.hidden = false;
+    const r = btn.getBoundingClientRect();
+    const breite = panel.offsetWidth;
+    panel.style.top  = Math.round(r.bottom + 6) + "px";
+    panel.style.left = Math.round(Math.max(8, Math.min(r.left, window.innerWidth - breite - 8))) + "px";
+    btn.setAttribute("aria-expanded", "true");
+    g.classList.add("is-offen");
   }
 
   gruppen.forEach((g) => {
     const btn   = g.querySelector(".topnav-gruppe-btn");
-    const panel = g.querySelector(".topnav-panel");
+    const panel = panelVon.get(g);
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
       const oeffnen = panel.hidden;
       schliesse();
-      if (oeffnen) {
-        panel.hidden = false;
-        btn.setAttribute("aria-expanded", "true");
-        g.classList.add("is-offen");
-        nav.classList.add("has-offen");
-      }
+      if (oeffnen) oeffne(g);
     });
     panel.addEventListener("click", schliesse);   // Unterpunkt gewählt → zu
+  });
+
+  // Ein fest positioniertes Panel wandert nicht mit, wenn darunter gescrollt
+  // oder das Fenster gedreht wird — dann lieber zu.
+  const beiBewegung = () => schliesse();
+  nav.addEventListener("scroll", beiBewegung, { passive: true });
+  window.addEventListener("scroll", beiBewegung, { passive: true });
+  window.addEventListener("resize", beiBewegung);
+  beiViewWechsel(() => {
+    window.removeEventListener("scroll", beiBewegung);
+    window.removeEventListener("resize", beiBewegung);
+    // Beim Routenwechsel wird die Shell neu gebaut. Ein Panel, das gerade am
+    // <body> hängt, wäre sonst verwaist und bliebe sichtbar stehen.
+    document.querySelectorAll("body > .topnav-panel").forEach((p) => p.remove());
   });
 
   // Benutzer-Menü rechts (E-Mail, Passwort, Abmelden) — hängt an derselben

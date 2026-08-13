@@ -17,7 +17,8 @@ import {
   leererTake, leeresBroll, syncTakes, verschiebeTakes, sortierteTakes,
   istLosgeloest, istVerwaist, berechneFortschritt, takeFehlendeFelder,
   gesamtDauer, dauerLabel, labelVon, takeChips, merkmaleVonTake, brollSpanne,
-  markiertesHtml, drehplanText, kopiere, istAbgeschickt, takesAusFormat
+  markiertesHtml, drehplanText, kopiere, istAbgeschickt, takesAusFormat,
+  plattformenVon, postVon
 } from "../brandplan.js";
 
 export function renderAdminBrandSkript(container, ctx) {
@@ -49,7 +50,7 @@ export function renderAdminBrandSkript(container, ctx) {
     // --- Arbeitszustand ------------------------------------------------
     const state = {
       titel:      skript.titel || "",
-      plattform:  skript.plattform || "reel",
+      plattformen: plattformenVon(skript),
       status:     skript.status || "idee",
       text:       skript.text || "",
       kiPrompt:   skript.kiPrompt || "",
@@ -65,8 +66,9 @@ export function renderAdminBrandSkript(container, ctx) {
     // umgeschrieben worden sein.
     state.takes = syncTakes(state.text, state.takes);
 
-    const offeneTakes = new Set();     // aufgeklappte Take-Karten
-    const auswahl     = new Set();     // für „+ B-Roll über Auswahl"
+    const offeneTakes    = new Set();  // aufgeklappte Take-Karten
+    const offeneKanaele  = new Set();  // Kanäle mit sichtbarer Caption-Ausnahme
+    const auswahl        = new Set();  // für „+ B-Roll über Auswahl"
     let offenesBroll  = null;          // aufgeklapptes B-Roll-Band
     let aktivesPanel  = null;          // 'einfuegen' | 'fassungen' | 'prompt'
     let hinweisText   = "";
@@ -79,7 +81,7 @@ export function renderAdminBrandSkript(container, ctx) {
 
     function felder() {
       return {
-        titel: state.titel, plattform: state.plattform, status: state.status,
+        titel: state.titel, plattformen: state.plattformen, status: state.status,
         text: state.text, kiPrompt: state.kiPrompt,
         formatId: state.formatId, formatName: state.formatName,
         fassungen: state.fassungen, takes: state.takes, broll: state.broll,
@@ -288,11 +290,16 @@ export function renderAdminBrandSkript(container, ctx) {
           <span class="bs-stand muted" id="bsStand">${escapeHtml(speicherStand)}</span>
         </div>
         <div class="bs-kopf-meta">
-          <label class="bs-mini-feld">Plattform
-            <select id="bsPlattform" ${ro() ? "disabled" : ""}>
-              ${PLATTFORMEN.map((p) => `<option value="${p.id}"${p.id === state.plattform ? " selected" : ""}>${p.label}</option>`).join("")}
-            </select>
-          </label>
+          <div class="bs-mini-feld">Plattformen
+            <div class="bs-plat-wahl">
+              ${PLATTFORMEN.map((p) => {
+                const an = state.plattformen.includes(p.id);
+                return `<label class="bs-plat${an ? " is-an" : ""}">
+                  <input type="checkbox" data-plat="${p.id}" ${an ? "checked" : ""} ${ro() ? "disabled" : ""} />${p.label}
+                </label>`;
+              }).join("")}
+            </div>
+          </div>
           <label class="bs-mini-feld">Format
             <select id="bsFormat" ${ro() ? "disabled" : ""}>
               <option value="">— frei, ohne Format —</option>
@@ -340,8 +347,16 @@ export function renderAdminBrandSkript(container, ctx) {
       const titelInp = kopf.querySelector("#bsTitel");
       if (titelInp) titelInp.addEventListener("input", () => { state.titel = titelInp.value; speichere(); });
 
-      const plat = kopf.querySelector("#bsPlattform");
-      if (plat) plat.addEventListener("change", () => { state.plattform = plat.value; speichere(); });
+      // Plattform an-/abwählen wirkt auf Checkliste (Termin-Zeilen) und
+      // Fortschritt — deshalb beides neu zeichnen.
+      kopf.querySelectorAll("[data-plat]").forEach((el) => el.addEventListener("change", () => {
+        const p = el.getAttribute("data-plat");
+        state.plattformen = el.checked
+          ? [...new Set([...state.plattformen, p])]
+          : state.plattformen.filter((x) => x !== p);
+        zeichneKopf(); zeichneCheck();
+        speichere();
+      }));
 
       const fmt = kopf.querySelector("#bsFormat");
       if (fmt) fmt.addEventListener("change", () => waehleFormat(fmt.value));
@@ -416,6 +431,11 @@ export function renderAdminBrandSkript(container, ctx) {
       const format = formate.find((x) => x.id === neueId) || null;
       state.formatId   = format ? format.id : null;
       state.formatName = format ? (format.name || "") : "";
+      // Das Format weiß, für welche Kanäle es taugt — übernehmen, solange
+      // noch nichts eigenes gewählt ist.
+      if (format && !state.plattformen.length && Array.isArray(format.plattformen)) {
+        state.plattformen = format.plattformen.slice();
+      }
       if (format && !state.takes.length) {
         state.takes = takesAusFormat(format);
         melde(`Gerüst aus „${format.name}" angelegt — markiere im Skript die Passagen und ordne sie den Takes zu.`);
@@ -572,20 +592,11 @@ export function renderAdminBrandSkript(container, ctx) {
             </div>`;
         }).join("")}
         <div class="bs-check-post">
-          ${POST_ITEMS.map((item) => {
-            const wert = cl[item.id] || "";
-            const ok = String(wert).trim();
-            if (item.id === "postDatum") {
-              return `<label class="bs-feld bs-check-feld${ok ? " is-ok" : ""}">${item.label}
-                <input type="date" data-post="${item.id}" value="${escapeHtml(wert)}" ${ro() ? "disabled" : ""} /></label>`;
-            }
-            if (item.id === "caption") {
-              return `<label class="bs-feld bs-check-feld${ok ? " is-ok" : ""}">${item.label}
-                <textarea data-post="${item.id}" rows="2" placeholder="Was steht unter dem Video?" ${ro() ? "disabled" : ""}>${escapeHtml(wert)}</textarea></label>`;
-            }
-            return `<label class="bs-feld bs-check-feld${ok ? " is-ok" : ""}">${item.label}
-              <input type="text" data-post="${item.id}" value="${escapeHtml(wert)}" placeholder="#immobilien #videografie" ${ro() ? "disabled" : ""} /></label>`;
-          }).join("")}
+          <label class="bs-feld bs-check-feld${String(cl.caption || "").trim() ? " is-ok" : ""}">Caption / Beschreibung
+            <textarea data-post="caption" rows="2" placeholder="Was steht unter dem Video?" ${ro() ? "disabled" : ""}>${escapeHtml(cl.caption || "")}</textarea></label>
+          <label class="bs-feld bs-check-feld${String(cl.hashtags || "").trim() ? " is-ok" : ""}">Hashtags / Keywords
+            <input type="text" data-post="hashtags" value="${escapeHtml(cl.hashtags || "")}" placeholder="#immobilien #videografie" ${ro() ? "disabled" : ""} /></label>
+          ${veroeffentlichungHtml()}
         </div>`;
 
       box.querySelectorAll(".bs-check-sel").forEach((sel) => sel.addEventListener("change", () => {
@@ -599,6 +610,70 @@ export function renderAdminBrandSkript(container, ctx) {
         el.closest(".bs-check-feld").classList.toggle("is-ok", !!el.value.trim());
         speichere();
       }));
+      wireVeroeffentlichung(box);
+    }
+
+    // --- Veröffentlichung: eine Zeile je gewählter Plattform -------------
+    // Termin und „raus"-Haken stehen pro Kanal, Caption/Hashtags sind
+    // gemeinsam — wer für einen Kanal etwas anderes will, klappt die
+    // Ausnahme auf. Leer bedeutet dort immer: der gemeinsame Text gilt.
+    function veroeffentlichungHtml() {
+      const cl = state.checkliste;
+      if (!state.plattformen.length) {
+        return `<p class="muted bs-veroeff-leer">Wähle oben mindestens eine Plattform — dann kannst du
+          hier je Kanal den Termin setzen und abhaken, wo das Video schon raus ist.</p>`;
+      }
+      return `
+        <div class="bs-veroeff">
+          <span class="bs-feld-titel">Veröffentlichung</span>
+          ${state.plattformen.map((p) => {
+            const eintrag = postVon(cl, p);
+            const eigen = !!(eintrag.caption || eintrag.hashtags);
+            return `
+              <div class="bs-kanal${eintrag.raus ? " is-raus" : ""}${eigen ? " has-eigen" : ""}" data-kanal="${escapeHtml(p)}">
+                <div class="bs-kanal-zeile">
+                  <span class="bs-kanal-name">${escapeHtml(labelVon(PLATTFORMEN, p) || p)}</span>
+                  <input class="bs-kanal-datum" type="date" data-kf="datum"
+                    value="${escapeHtml(eintrag.datum)}" ${ro() ? "disabled" : ""} />
+                  <label class="bs-kanal-raus" title="Ist auf diesem Kanal schon raus">
+                    <input type="checkbox" data-kf="raus" ${eintrag.raus ? "checked" : ""} ${ro() ? "disabled" : ""} /> raus
+                  </label>
+                  ${ro() ? "" : `<button class="bs-kanal-eigen" type="button" title="Eigene Caption für diesen Kanal">✎</button>`}
+                </div>
+                ${eigen || offeneKanaele.has(p) ? `
+                  <div class="bs-kanal-eigen-felder">
+                    <label class="bs-feld">Eigene Caption (leer = gemeinsame)
+                      <textarea data-kf="caption" rows="2" ${ro() ? "disabled" : ""}>${escapeHtml(eintrag.caption)}</textarea></label>
+                    <label class="bs-feld">Eigene Hashtags (leer = gemeinsame)
+                      <input type="text" data-kf="hashtags" value="${escapeHtml(eintrag.hashtags)}" ${ro() ? "disabled" : ""} /></label>
+                  </div>` : ""}
+              </div>`;
+          }).join("")}
+        </div>`;
+    }
+
+    function wireVeroeffentlichung(box) {
+      box.querySelectorAll(".bs-kanal").forEach((zeile) => {
+        const p = zeile.getAttribute("data-kanal");
+        const auf = zeile.querySelector(".bs-kanal-eigen");
+        if (auf) auf.addEventListener("click", () => {
+          if (offeneKanaele.has(p)) offeneKanaele.delete(p); else offeneKanaele.add(p);
+          zeichneCheck();
+        });
+        zeile.querySelectorAll("[data-kf]").forEach((el) => {
+          const feld = el.getAttribute("data-kf");
+          const ereignis = el.type === "checkbox" ? "change" : "input";
+          el.addEventListener(ereignis, () => {
+            if (!state.checkliste.posts) state.checkliste.posts = {};
+            const eintrag = { ...postVon(state.checkliste, p) };
+            eintrag[feld] = el.type === "checkbox" ? el.checked : el.value;
+            state.checkliste.posts[p] = eintrag;
+            if (feld === "raus") zeile.classList.toggle("is-raus", el.checked);
+            if (feld === "datum") zeichneKopf();
+            speichere();
+          });
+        });
+      });
     }
 
     // =====================================================================

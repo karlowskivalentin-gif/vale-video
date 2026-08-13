@@ -70,11 +70,42 @@ export const STORY_ITEMS = [
 ];
 
 // Checklisten-Punkte auf Skript-Ebene (keine Take-Zuordnung, nur ausfüllen).
+// „termine" ist der Sonderfall: erfüllt erst, wenn JEDE gewählte Plattform
+// ihr Datum hat. Ein Video, das auf drei Kanälen laufen soll, ist nicht
+// fertig geplant, solange für zwei davon kein Termin steht.
 export const POST_ITEMS = [
-  { id: "caption",   label: "Caption / Beschreibung" },
-  { id: "hashtags",  label: "Hashtags / Keywords" },
-  { id: "postDatum", label: "Geplantes Post-Datum" }
+  { id: "caption",  label: "Caption / Beschreibung" },
+  { id: "hashtags", label: "Hashtags / Keywords" },
+  { id: "termine",  label: "Post-Termine" }
 ];
+
+// --- Plattformen eines Skripts ----------------------------------------
+// Immer über diesen Helfer lesen: früher stand hier ein einzelnes Feld
+// `plattform`, heute die Liste `plattformen`. Schon angelegte Skripte
+// sollen weiterlaufen, ohne dass jemand sie anfassen muss.
+export function plattformenVon(skript) {
+  const s = skript || {};
+  if (Array.isArray(s.plattformen) && s.plattformen.length) return s.plattformen.slice();
+  if (s.plattform) return [s.plattform];
+  return [];
+}
+
+// Pro Plattform: { datum, raus, caption, hashtags } — fehlende Einträge
+// kommen als leer zurück, damit die UI nie auf undefined stößt.
+export function postVon(checkliste, plattformId) {
+  const p = ((checkliste && checkliste.posts) || {})[plattformId] || {};
+  return {
+    datum:    p.datum || "",
+    raus:     !!p.raus,
+    caption:  p.caption || "",
+    hashtags: p.hashtags || ""
+  };
+}
+
+// Was am Ende unter dem Video steht: die Ausnahme sticht das Gemeinsame.
+export function textFuerPlattform(checkliste, plattformId, feld) {
+  return postVon(checkliste, plattformId)[feld] || String((checkliste && checkliste[feld]) || "");
+}
 
 export const STANDARD_PROMPT =
   "Du bist Skript-Doktor für kurze Social-Media-Videos. Schreibe das folgende Rohskript "
@@ -313,9 +344,22 @@ export function berechneFortschritt(skript) {
     if (cl[item.id] && bekannteTids.has(cl[item.id])) clErledigt++;
     else fehlt.push(`${item.label} ist noch keiner Take-Passage zugeordnet`);
   });
+
+  const plattformen = plattformenVon(s);
   POST_ITEMS.forEach((item) => {
-    if (String(cl[item.id] || "").trim()) clErledigt++;
-    else fehlt.push(`${item.label} fehlt`);
+    if (item.id !== "termine") {
+      if (String(cl[item.id] || "").trim()) clErledigt++;
+      else fehlt.push(`${item.label} fehlt`);
+      return;
+    }
+    // Termine: jede gewählte Plattform braucht ihr Datum.
+    if (!plattformen.length) {
+      fehlt.push("Noch keine Plattform gewählt — wo soll das Video hin?");
+      return;
+    }
+    const ohne = plattformen.filter((p) => !postVon(cl, p).datum);
+    if (!ohne.length) clErledigt++;
+    else fehlt.push(`Post-Termin fehlt für ${ohne.map((p) => labelVon(PLATTFORMEN, p) || p).join(", ")}`);
   });
   const clGesamt = STORY_ITEMS.length + POST_ITEMS.length;
 
@@ -437,7 +481,8 @@ export function drehplanText(skript) {
   const s = skript || {};
   const sortiert = sortierteTakes(s.takes);
   const zeilen = [];
-  zeilen.push(`${s.titel || "Ohne Titel"} — ${labelVon(PLATTFORMEN, s.plattform) || "Video"}`);
+  const kanaele = plattformenVon(s).map((p) => labelVon(PLATTFORMEN, p) || p);
+  zeilen.push(`${s.titel || "Ohne Titel"} — ${kanaele.join(" · ") || "Video"}`);
   zeilen.push(`Gesamtlänge ca. ${dauerLabel(gesamtDauer(s.takes))} · ${sortiert.length} Takes`);
   zeilen.push("");
   sortiert.forEach((take, i) => {
@@ -463,10 +508,26 @@ export function drehplanText(skript) {
     });
     zeilen.push("");
   }
+  // Veröffentlichung: pro Kanal Termin, Status und der Text, der wirklich
+  // druntergesetzt wird (Ausnahme sticht das Gemeinsame).
   const cl = s.checkliste || {};
+  const kanalIds = plattformenVon(s);
+  if (kanalIds.length) {
+    zeilen.push("VERÖFFENTLICHUNG");
+    kanalIds.forEach((p) => {
+      const eintrag = postVon(cl, p);
+      const teile = [eintrag.datum || "kein Termin"];
+      if (eintrag.raus) teile.push("✓ raus");
+      zeilen.push(`  • ${labelVon(PLATTFORMEN, p) || p}: ${teile.join(" · ")}`);
+      const cap = textFuerPlattform(cl, p, "caption");
+      const tags = textFuerPlattform(cl, p, "hashtags");
+      if (eintrag.caption)  zeilen.push(`    Caption: ${cap}`);
+      if (eintrag.hashtags) zeilen.push(`    Hashtags: ${tags}`);
+    });
+    zeilen.push("");
+  }
   if (cl.caption)  zeilen.push(`CAPTION: ${cl.caption}`);
   if (cl.hashtags) zeilen.push(`HASHTAGS: ${cl.hashtags}`);
-  if (cl.postDatum) zeilen.push(`POST AM: ${cl.postDatum}`);
   return zeilen.join("\n").trim();
 }
 

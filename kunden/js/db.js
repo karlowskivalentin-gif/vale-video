@@ -1287,7 +1287,10 @@ const brandskripteCol = () => collection(db, "brandskripte");
 export async function brandSkriptAnlegen(daten = {}) {
   return addDoc(brandskripteCol(), {
     titel:      daten.titel || "",
-    plattform:  daten.plattform || "reel",
+    // Ein Video läuft oft auf mehreren Kanälen — deshalb eine Liste. Ältere
+    // Dokumente mit einzelnem `plattform`-Feld liest brandplan.js weiterhin
+    // (plattformenVon), sie müssen nicht angefasst werden.
+    plattformen: Array.isArray(daten.plattformen) ? daten.plattformen : [],
     status:     daten.status || "idee",
     text:       daten.text || "",
     kiPrompt:   daten.kiPrompt || "",
