@@ -33,6 +33,10 @@ import { renderAdminMoodboard } from "./views/admin-moodboard.js";
 import { renderAdminKunden } from "./views/admin-kunden.js";
 import { renderAdminKundeFeed } from "./views/admin-kunde-feed.js";
 import { renderAdminWebseite } from "./views/admin-webseite.js";
+import { renderAdminBrand } from "./views/admin-brand.js";
+import { renderAdminBrandSkript } from "./views/admin-brand-skript.js";
+import { renderAdminShoot } from "./views/admin-shoot.js";
+import { renderAdminFormate } from "./views/admin-formate.js";
 
 // --- Zustand -----------------------------------------------------------
 let _user = null;
@@ -74,6 +78,11 @@ const ROUTES = {
   "/admin/kunden":   { rolle: "admin", titel: "Kunden",           render: renderAdminKunden },
   "/admin/kunde-feed": { rolle: "admin", titel: "Kunden-Feed",     render: renderAdminKundeFeed },
   "/admin/webseite": { rolle: "admin", titel: "Webseite",          render: renderAdminWebseite },
+  // Personal Brand: eigene Videos planen (Skriptwerkstatt + Formate + Dreh)
+  "/admin/brand":    { rolle: "admin", titel: "Skripte",           render: renderAdminBrand },
+  "/admin/skript":   { rolle: "admin", titel: "Skript",            render: renderAdminBrandSkript, param: true },
+  "/admin/shoot":    { rolle: "admin", titel: "Shoot-Modus",       render: renderAdminShoot, param: true },
+  "/admin/formate":  { rolle: "admin", titel: "Formate",           render: renderAdminFormate },
   // Kollaborator (externer Mitarbeiter: geteilte + eigene Mindmaps)
   "/gedanken":       { rolle: "kollaborator", titel: "Mindmap",   render: renderAdminGedanken },
   "/todos":          { rolle: "kollaborator", titel: "To-Dos",    render: renderTodos },
@@ -115,6 +124,12 @@ const NAV = {
       { href: "#/admin/kunden",     label: "Kunden" },
       { href: "#/admin/kunde-feed", label: "Kunden-Feed" },
       { href: "#/admin/webseite",   label: "Webseite" }
+    ]},
+    // Eigene Sachen — nicht unter „Ideen", weil hier nicht gesammelt, sondern
+    // produziert wird (und weil später Post-Planung/Zahlen dazukommen sollen).
+    { gruppe: "Personal Brand", kinder: [
+      { href: "#/admin/brand",   label: "Skripte" },
+      { href: "#/admin/formate", label: "Formate" }
     ]}
   ],
   kollaborator: [
@@ -183,6 +198,8 @@ function resolve(hash) {
   if (pfad.startsWith("/admin/video/")) return { route: ROUTES["/admin/video"], id: decodeURIComponent(pfad.slice("/admin/video/".length)), query };
   if (pfad.startsWith("/admin/drehtag/")) return { route: ROUTES["/admin/drehtag"], id: decodeURIComponent(pfad.slice("/admin/drehtag/".length)), query };
   if (pfad.startsWith("/admin/plan/"))  return { route: ROUTES["/admin/plan"],  id: decodeURIComponent(pfad.slice("/admin/plan/".length)), query };
+  if (pfad.startsWith("/admin/skript/")) return { route: ROUTES["/admin/skript"], id: decodeURIComponent(pfad.slice("/admin/skript/".length)), query };
+  if (pfad.startsWith("/admin/shoot/"))  return { route: ROUTES["/admin/shoot"],  id: decodeURIComponent(pfad.slice("/admin/shoot/".length)), query };
   return { route: ROUTES[pfad] || null, id: null, query };
 }
 
@@ -583,7 +600,11 @@ function render() {
     return;
   }
 
-  const viewContainer = renderShell(location.hash.replace(/^#/, "").replace(/\?.*$/, "").replace(/^(\/video|\/admin\/video).*/, "$1"));
+  // Aktiver Nav-Pfad: Param-Routen auf ihre Listen-Route zurückführen, sonst
+  // ist beim Bearbeiten kein Menüpunkt markiert (Skript/Shoot → „Skripte").
+  const viewContainer = renderShell(location.hash.replace(/^#/, "").replace(/\?.*$/, "")
+    .replace(/^(\/video|\/admin\/video).*/, "$1")
+    .replace(/^\/admin\/(skript|shoot).*/, "/admin/brand"));
   // Aktiver Kunde (kundeId): Admin wählt ihn über den Umschalter; der Kunde
   // bekommt seinen eigenen fest aus der Auth (kundenmitglieder-Lookup);
   // im Beobachtungsmodus ist es der beobachtete Kunde.

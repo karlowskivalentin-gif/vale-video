@@ -224,6 +224,21 @@ service cloud.firestore {
       allow read, write: if istAdmin();
     }
 
+    // ---- brandskripte (Personal-Brand-Skriptwerkstatt, Admin-only) ---
+    // Valentins eigene Video-Planung: Rohskript, Takes mit Kamera-Infos,
+    // B-Roll-Bänder, Planungs-Checkliste, Shoot-Modus. Hat mit Kunden
+    // nichts zu tun — gleiche Vertrauensgrenze wie gedanken/plaene.
+    match /brandskripte/{id} {
+      allow read, write: if istAdmin();
+    }
+
+    // ---- formate (Baupläne für eigene Videos, Admin-only) ------------
+    // Wiederverwendbare Rezepte: Beats (= Take-Gerüst), Material-Bedarf,
+    // Hook-Vorlagen, Referenzen auf /inspirationen. Gehört zu brandskripte.
+    match /formate/{id} {
+      allow read, write: if istAdmin();
+    }
+
     // ---- moodboard (Kanal-Haftnotizen, Admin-only) -------------------
     // Persönliche Pinnwand mit Inspirations-YouTube-Kanälen (was gefällt,
     // was nachahmen). Der Kunde sieht das NIE.

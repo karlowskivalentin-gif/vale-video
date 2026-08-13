@@ -1257,3 +1257,136 @@ export async function setzeStatischZuordnung(ref, { ordnerId, reihenfolge }) {
 export function beobachteStatisch(callback, onError) {
   return onSnapshot(webstatischCol(), (snap) => callback(snapToArr(snap)), onError || (() => {}));
 }
+
+// =====================================================================
+// BRANDSKRIPTE — Personal-Brand-Skriptwerkstatt (Admin-only)
+//
+// Ein Dokument = ein geplantes eigenes Video, vom Rohskript bis zum Dreh.
+// Bewusst NICHT an /videos oder /plaene gehängt: dort steckt die komplette
+// Kunden-Maschinerie (Freigabe-Stufen, Entwurfsnummern, planSnapshot), von
+// der hier nichts gebraucht wird.
+//
+//   titel      (string)
+//   plattform  ('reel'|'short'|'tiktok'|'youtube'|'linkedin')
+//   status     ('idee'|'rohfassung'|'drehreif'|'gedreht'|'veroeffentlicht')
+//   text       (string)  — der aktuelle Arbeitstext (Rohskript / KI-Fassung)
+//   kiPrompt   (string)  — Prompt-Vorlage für „Mit KI-Prompt kopieren"
+//   fassungen  (array)   — Verlauf [{ text, notiz, erstelltAm: ISO-String }]
+//   takes      (array)   — Dreh-Einheiten, s. brandplan.js (leererTake)
+//   broll      (array)   — B-Roll-Bänder über einen Take-Bereich (vonTid…bisTid)
+//   checkliste (object)  — { hook, kernaussage, cta: tid|null,
+//                            caption, hashtags, postDatum: string }
+//   notiz      (string)
+//
+// serverTimestamp() ist in Array-Elementen nicht erlaubt — Zeitstempel
+// innerhalb von `fassungen` sind deshalb ISO-Strings.
+// Rechte: ausschließlich Admin (siehe firestore.rules: /brandskripte).
+// =====================================================================
+const brandskripteCol = () => collection(db, "brandskripte");
+
+export async function brandSkriptAnlegen(daten = {}) {
+  return addDoc(brandskripteCol(), {
+    titel:      daten.titel || "",
+    plattform:  daten.plattform || "reel",
+    status:     daten.status || "idee",
+    text:       daten.text || "",
+    kiPrompt:   daten.kiPrompt || "",
+    // Herkunfts-Format: die ID zeigt auf /formate, der Name wird mitkopiert,
+    // damit Liste und Editor ihn ohne Nachladen anzeigen können (und er
+    // erhalten bleibt, falls das Format später gelöscht wird).
+    formatId:   daten.formatId || null,
+    formatName: daten.formatName || "",
+    fassungen:  [],
+    takes:      Array.isArray(daten.takes) ? daten.takes : [],
+    broll:      [],
+    checkliste: daten.checkliste || {},
+    notiz:      daten.notiz || "",
+    erstelltAm:     serverTimestamp(),
+    aktualisiertAm: serverTimestamp()
+  });
+}
+
+export async function ladeBrandSkript(id) {
+  const s = await getDoc(doc(db, "brandskripte", id));
+  return s.exists() ? { id: s.id, ...s.data() } : null;
+}
+
+export async function aktualisiereBrandSkript(id, felder) {
+  return updateDoc(doc(db, "brandskripte", id), { ...felder, aktualisiertAm: serverTimestamp() });
+}
+
+export async function loescheBrandSkript(id) {
+  return deleteDoc(doc(db, "brandskripte", id));
+}
+
+export function beobachteBrandSkripte(callback, onError) {
+  return onSnapshot(
+    query(brandskripteCol(), orderBy("aktualisiertAm", "desc")),
+    (snap) => callback(snapToArr(snap)),
+    onError || (() => {})
+  );
+}
+
+// =====================================================================
+// FORMATE — wiederverwendbare Baupläne für eigene Videos (Admin-only)
+//
+// Ein Format ist ein Rezept, keine Linksammlung: seine `beats` werden beim
+// Anlegen eines Skripts direkt zum Take-Gerüst (brandplan.js → takesAusFormat).
+//
+//   name           (string)
+//   beschreibung   (string)  — wofür das Format gut ist
+//   plattformen    (array)   — Plattform-IDs, für die es taugt
+//   talkingHead    (bool)    — muss ich dafür vor die Kamera?
+//   materialBedarf (string)  — welches Footage gebraucht wird
+//   aufwand        ('schnell'|'mittel'|'gross')
+//   beats          (array)   — [{ bid, label, hinweis, groesse, perspektive, bewegung, dauer }]
+//   hooks          (array)   — Hook-Vorlagen [{ hid, text }]
+//   inspirationIds (array)   — Referenzen auf /inspirationen (keine Doppelpflege)
+//   links          (array)   — zusätzliche Referenz-Links [{ url }]
+//
+// Rechte: ausschließlich Admin (siehe firestore.rules: /formate).
+// =====================================================================
+const formateCol = () => collection(db, "formate");
+
+export async function formatAnlegen(daten = {}) {
+  return addDoc(formateCol(), {
+    name:           daten.name || "",
+    beschreibung:   daten.beschreibung || "",
+    plattformen:    Array.isArray(daten.plattformen) ? daten.plattformen : [],
+    talkingHead:    daten.talkingHead !== false,
+    materialBedarf: daten.materialBedarf || "",
+    aufwand:        daten.aufwand || "mittel",
+    beats:          Array.isArray(daten.beats) ? daten.beats : [],
+    hooks:          Array.isArray(daten.hooks) ? daten.hooks : [],
+    inspirationIds: Array.isArray(daten.inspirationIds) ? daten.inspirationIds : [],
+    links:          Array.isArray(daten.links) ? daten.links : [],
+    erstelltAm:     serverTimestamp(),
+    aktualisiertAm: serverTimestamp()
+  });
+}
+
+export async function ladeFormat(id) {
+  const s = await getDoc(doc(db, "formate", id));
+  return s.exists() ? { id: s.id, ...s.data() } : null;
+}
+
+export async function ladeFormate() {
+  const snap = await getDocs(query(formateCol(), orderBy("name")));
+  return snapToArr(snap);
+}
+
+export async function aktualisiereFormat(id, felder) {
+  return updateDoc(doc(db, "formate", id), { ...felder, aktualisiertAm: serverTimestamp() });
+}
+
+export async function loescheFormat(id) {
+  return deleteDoc(doc(db, "formate", id));
+}
+
+export function beobachteFormate(callback, onError) {
+  return onSnapshot(
+    formateCol(),
+    (snap) => callback(snapToArr(snap).sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "de"))),
+    onError || (() => {})
+  );
+}

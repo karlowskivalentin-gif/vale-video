@@ -42,6 +42,10 @@ Wenn Valentin ein Feature seines Arbeitsportals beim Namen nennt, ist das die Da
 | Sticky Notes / Stickies    | `/admin/stickies`    | `todos.js` (Modus `sticky`) |
 | Transkript                 | `/admin/transkript`  | `admin-transkript.js`     |
 | Inspiration                | `/admin/inspiration` | `admin-inspiration.js`    |
+| **Skripte** (Personal Brand) | `/admin/brand`     | `admin-brand.js`          |
+| Skript-Werkstatt (einzeln) | `/admin/skript/:id`  | `admin-brand-skript.js`   |
+| Shoot-Modus                | `/admin/shoot/:id`   | `admin-shoot.js`          |
+| Formate                    | `/admin/formate`     | `admin-formate.js`        |
 
 Kunden-Views (Referenz): `kunde-aufgaben.js`, `kunde-objekt-melden.js`,
 `kunde-kalender.js`, `kunde-video-detail.js`.
@@ -50,6 +54,10 @@ Kunden-Views (Referenz): `kunde-aufgaben.js`, `kunde-objekt-melden.js`,
 
 - `js/router.js` — Routen-Tabelle, Nav pro Rolle, Rollen-Guard. **Neue View →
   hier registrieren** (Import + `ROUTES` + ggf. `NAV`).
+- `js/brandplan.js` — Kernlogik der Personal-Brand-Werkstatt (Takes an den Text
+  nachführen, Fortschrittsformel, Feld-Listen, Drehplan-Text). Rein rechnend,
+  wird von Liste, Editor und Shoot-Modus geteilt — die Fortschrittsformel darf
+  es nur **einmal** geben.
 - `js/roles.js` — Rollen-/Allowlist-Logik (wer ist admin/kunde/kollaborator).
 - `js/auth.js` — Login (Google + E-Mail-Link + Passwort).
 - `js/db.js` — Firestore-Zugriffe. `js/status.js`, `js/drive.js`, `js/email.js`,
