@@ -321,7 +321,10 @@ export function renderAdminBrandSkript(container, ctx) {
         <details class="bs-fehlt">
           <summary>Das fehlt noch (${f.fehlt.length})</summary>
           <ul>${f.fehlt.map((z) => `<li>${escapeHtml(z)}</li>`).join("")}</ul>
-        </details>` : `<p class="bs-fertig-hinweis">Alles geplant — du kannst abschicken.</p>`}
+        </details>`
+        : `<p class="bs-fertig-hinweis">${ro()
+            ? "Abgeschickt — der Plan steht. Zum Ändern erst wieder öffnen."
+            : "Alles geplant — du kannst abschicken."}</p>`}
 
         <div class="action-btns bs-kopf-aktionen">
           ${ro() ? `

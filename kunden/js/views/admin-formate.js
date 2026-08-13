@@ -304,6 +304,20 @@ export function renderAdminFormate(container, ctx = {}) {
       if (offen !== fid) return;
 
       // --- Einfache Felder ------------------------------------------------
+      // Die Chip-Zeile über dem Editor fasst zusammen, was in den Feldern steht —
+      // sie muss sofort mitziehen, sonst behauptet sie „Talking Head", während
+      // die Checkbox darunter schon aus ist.
+      function frischeChips() {
+        const zeile = karte.querySelector(".bs-chips");
+        if (!zeile) return;
+        const chips = [
+          f.talkingHead === false ? "Kein Talking Head" : "Talking Head",
+          labelVon(AUFWAND, f.aufwand),
+          ...f.plattformen.map((p) => labelVon(PLATTFORMEN, p)).filter(Boolean)
+        ].filter(Boolean);
+        zeile.innerHTML = chips.map((c) => `<span class="bs-chip">${escapeHtml(c)}</span>`).join("");
+      }
+
       karte.querySelectorAll("[data-k]").forEach((el) => {
         const k = el.getAttribute("data-k");
         const ereignis = (el.type === "checkbox" || el.tagName === "SELECT") ? "change" : "input";
@@ -313,6 +327,7 @@ export function renderAdminFormate(container, ctx = {}) {
             const titel = karte.querySelector(".fm-titel");
             if (titel) titel.textContent = f.name || "Neues Format";
           }
+          if (k === "talkingHead" || k === "aufwand") frischeChips();
           speichere(f);
         });
       });
@@ -322,6 +337,7 @@ export function renderAdminFormate(container, ctx = {}) {
         f.plattformen = el.checked
           ? [...new Set([...f.plattformen, p])]
           : f.plattformen.filter((x) => x !== p);
+        frischeChips();
         speichere(f);
       }));
 
