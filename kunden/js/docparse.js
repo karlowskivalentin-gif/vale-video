@@ -80,12 +80,36 @@ async function docxDocumentXml(arrayBuffer) {
   return dec.decode(xmlBytes);
 }
 
+// XML-Entities zurückübersetzen. &amp; MUSS zuletzt kommen, sonst wird aus dem
+// Literal „&lt;" (= &amp;lt;) versehentlich ein echtes „<".
+function decodeEntities(s) {
+  return s
+    .replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&apos;/g, "'")
+    .replace(/&amp;/g, "&");
+}
+
+// Ein Absatz → Text. WICHTIG: nur das echte <w:t>-Tag treffen — nach „w:t" muss
+// „>" oder ein Leerzeichen (Attribute wie xml:space="preserve") folgen. Ohne
+// diese Grenze matchen auch <w:tbl>, <w:tblPr>, <w:tblW>, <w:tc>, <w:tcPr>,
+// <w:tr>, <w:top> … und ziehen das komplette Tabellen-Markup als „Text" mit in
+// die Ausgabe (genau das war der Bug bei Skripten mit Beat-Tabellen).
+// <w:tab/> und <w:br/> stehen ZWISCHEN den <w:t>-Knoten — deshalb wird der
+// Absatz in einem Durchlauf tokenisiert, damit die Reihenfolge stimmt.
+const ABSATZ_TOKEN = /<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>|<w:tab\s*\/>|<w:(?:br|cr)\s*\/>/g;
+
+function docxAbsatzZuText(p) {
+  let out = "";
+  for (const m of p.matchAll(ABSATZ_TOKEN)) {
+    if (m[1] !== undefined)             out += decodeEntities(m[1]);
+    else if (m[0].startsWith("<w:tab")) out += "\t";
+    else                                out += "\n";
+  }
+  return out;
+}
+
 function docxXmlZuText(xml) {
-  const paras = xml.split("</w:p>").map((p) => {
-    const t = [...p.matchAll(/<w:t[^>]*>([\s\S]*?)<\/w:t>/g)].map((m) => m[1]).join("");
-    return t.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'");
-  });
-  return paras.join("\n").trim();
+  return xml.split("</w:p>").map(docxAbsatzZuText).join("\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
 export async function textAusDocx(arrayBuffer) {
