@@ -62,8 +62,17 @@ Kunden-Views (Referenz): `kunde-aufgaben.js`, `kunde-objekt-melden.js`,
 - `js/auth.js` — Login (Google + E-Mail-Link + Passwort).
 - `js/db.js` — Firestore-Zugriffe. `js/status.js`, `js/drive.js`, `js/email.js`,
   `js/ics.js`, `js/embeds.js`, `js/util.js`, `js/view-lifecycle.js` = Helfer.
-- `firestore.rules` — **gehört in die Firebase-Console** (`firebase deploy`),
-  **nicht** aufs Hosting. Vom Datei-Deploy ausgeschlossen.
+- `js/dateien.js` — große Dateien (Exposé-PDFs, 2–5 MB) **blockweise in
+  Firestore**: Kopf-Dokument `dateien/<id>` + Rohdaten als Base64 in der
+  Subcollection `teile` (500 KB pro Block, Limit 10 MB). Nötig, weil ein
+  Firestore-Dokument max. 1 MiB fasst und `docparse.js` Anhänge als Base64
+  direkt ins Dokument legt (max. 700 KB). Cloud Storage wäre der Lehrbuchweg,
+  verlangt aber den **Blaze-Plan** — das Projekt läuft auf Spark
+  (`billingEnabled: false`, geprüft 2026-08-17). Im Objekt steht nur
+  `expose = {dateiId,name,typ,groesse,teile}`.
+- `firestore.rules` — **gehört in die Firebase-Console** (`firebase deploy
+  --only firestore:rules`), **nicht** aufs Hosting. Vom Datei-Deploy
+  ausgeschlossen.
 
 ## Deploy & Regeln
 
@@ -72,5 +81,8 @@ Kunden-Views (Referenz): `kunde-aufgaben.js`, `kunde-objekt-melden.js`,
 - `../CLAUDE.md` (Read-only-Regel für Fremd-Inhalte, Cross-Platform) und
   `../../_ARCHITEKTUR.md` gelten auch hier.
 - Realer Stand: Pilotphase — ein echter Kunde (Deussen-Immobilien), Rest Testzugänge.
-  EmailJS-Auto-Versand steht bewusst auf Kill-Switch. Kein Datei-Upload im Portal
-  (Medien via Google-Drive-/YouTube-Links).
+  EmailJS-Auto-Versand steht bewusst auf Kill-Switch. Bewegtbild kommt weiterhin
+  nur als Google-Drive-/YouTube-Link ins Portal; **Dokumente** dagegen werden
+  hochgeladen — kleine Anhänge als Base64 ins Firestore-Dokument (`docparse.js`,
+  ≤ 700 KB), Exposés blockweise über `js/dateien.js` (≤ 10 MB). Kein Firebase
+  Storage, solange das Projekt auf Spark läuft.

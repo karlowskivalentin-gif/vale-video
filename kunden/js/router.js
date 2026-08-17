@@ -37,6 +37,7 @@ import { renderAdminBrand } from "./views/admin-brand.js";
 import { renderAdminBrandSkript } from "./views/admin-brand-skript.js";
 import { renderAdminShoot } from "./views/admin-shoot.js";
 import { renderAdminFormate } from "./views/admin-formate.js";
+import { renderAdminSpringseil } from "./views/admin-springseil.js";
 
 // --- Zustand -----------------------------------------------------------
 let _user = null;
@@ -83,6 +84,8 @@ const ROUTES = {
   "/admin/skript":   { rolle: "admin", titel: "Skript",            render: renderAdminBrandSkript, param: true },
   "/admin/shoot":    { rolle: "admin", titel: "Shoot-Modus",       render: renderAdminShoot, param: true },
   "/admin/formate":  { rolle: "admin", titel: "Formate",           render: renderAdminFormate },
+  // Privat: eigenes Training (Intervall-Timer + Historie), nur Valentin
+  "/admin/springseil": { rolle: "admin", titel: "Springseil",      render: renderAdminSpringseil },
   // Kollaborator (externer Mitarbeiter: geteilte + eigene Mindmaps)
   "/gedanken":       { rolle: "kollaborator", titel: "Mindmap",   render: renderAdminGedanken },
   "/todos":          { rolle: "kollaborator", titel: "To-Dos",    render: renderTodos },
@@ -130,6 +133,10 @@ const NAV = {
     { gruppe: "Personal Brand", kinder: [
       { href: "#/admin/brand",   label: "Skripte" },
       { href: "#/admin/formate", label: "Formate" }
+    ]},
+    // Privat, kein Arbeitskram — deshalb eine eigene Gruppe.
+    { gruppe: "Training", kinder: [
+      { href: "#/admin/springseil", label: "Springseil" }
     ]}
   ],
   kollaborator: [

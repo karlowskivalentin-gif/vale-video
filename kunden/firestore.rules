@@ -120,6 +120,55 @@ service cloud.firestore {
       allow update, delete: if istAdmin();
     }
 
+    // ---- dateien --------------------------------------------------------
+    // Große Dateien (Exposé-PDFs), blockweise abgelegt — siehe js/dateien.js.
+    // Cloud Storage wäre der Lehrbuchweg, verlangt aber den Blaze-Plan; das
+    // Projekt läuft auf Spark. Deshalb: ein Kopf-Dokument mit Metadaten und
+    // die Rohdaten als Base64 in der Subcollection `teile`.
+    //
+    // Kundengetrennt wie `objekte`: lesen darf, wem die Datei gehört.
+    // Unveränderlich nach dem Anlegen — eine gemeldete Unterlage soll nicht
+    // nachträglich still ausgetauscht werden können; aufräumen darf der Admin.
+    match /dateien/{dateiId} {
+      allow read:   if gehoertMir(resource);
+      allow create: if istErlaubt()
+                    && request.resource.data.hochgeladenVon.lower() == email()
+                    && (istAdmin() || request.resource.data.kundeId == kundeVon());
+      allow update, delete: if istAdmin();
+
+      // ---- teile (Subcollection) ---------------------------------------
+      // Der Kopf entsteht ERST NACH den Blöcken (sonst zeigte er auf
+      // Unvollständiges), deshalb kann die create-Regel hier nicht per get()
+      // auf den Kopf prüfen — der existiert zu diesem Zeitpunkt noch nicht.
+      // Grenze ist daher: eingeloggt + erlaubt, plus Blockgröße. Lesen ist
+      // dagegen streng an den Kopf gebunden.
+      function dateiKunde() {
+        return get(/databases/$(database)/documents/dateien/$(dateiId))
+                 .data.get('kundeId', 'deussen');
+      }
+      match /teile/{teilId} {
+        allow read:   if istAdmin()
+                      || (istKunde()
+                          && exists(/databases/$(database)/documents/dateien/$(dateiId))
+                          && dateiKunde() == kundeVon());
+        // 900 KB Reserve unter der 1-MiB-Dokumentgrenze; js/dateien.js schneidet
+        // bei 500 KB Rohdaten (~667 KB Base64).
+        allow create: if istErlaubt() && request.resource.data.b64.size() < 900000;
+        allow update, delete: if istAdmin();
+      }
+    }
+
+    // ---- training / trainingKonfig --------------------------------------
+    // Valentins eigene Trainingseinheiten (Springseil-Timer) und die zuletzt
+    // benutzten Timer-Einstellungen. Streng privat: kein Kunde, kein
+    // Kollaborator hat hier etwas zu suchen — nur der Admin.
+    match /training/{einheitId} {
+      allow read, write: if istAdmin();
+    }
+    match /trainingKonfig/{art} {
+      allow read, write: if istAdmin();
+    }
+
     // ---- videos ------------------------------------------------------
     // Kundengetrennt (= die Pipeline). Der Kunde liest/aktualisiert nur Videos
     // seiner eigenen kundeId; die kundeId selbst darf er nie ändern.

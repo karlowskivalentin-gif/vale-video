@@ -10,7 +10,7 @@
 import { db, auth } from "./firebase-init.js";
 import {
   collection, collectionGroup, doc, addDoc, setDoc, getDoc, getDocs, updateDoc, deleteDoc,
-  query, where, orderBy, onSnapshot, serverTimestamp, writeBatch, arrayUnion
+  query, where, orderBy, limit, onSnapshot, serverTimestamp, writeBatch, arrayUnion
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import {
   STATUS, OBJEKT_STATUS,
@@ -26,12 +26,16 @@ const snapToArr = (snap) => snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 // =====================================================================
 const objekteCol = () => collection(db, "objekte");
 
-export async function objektMelden({ adresse, objektTyp, beschreibung, link, gemeldetVon, kundeId, produktionsMonat }) {
+// `expose` ist der Verweis auf eine im Storage liegende Datei (siehe
+// js/storage.js): { url, pfad, name, typ, groesse }. Die Datei selbst kann
+// NICHT ins Dokument — ein Exposé-PDF sprengt die 1-MiB-Grenze von Firestore.
+export async function objektMelden({ adresse, objektTyp, beschreibung, link, gemeldetVon, kundeId, produktionsMonat, expose }) {
   return addDoc(objekteCol(), {
     adresse:      adresse || "",
     objektTyp:    objektTyp || "",
     beschreibung: beschreibung || "",
     link:         link || "",
+    expose:       expose || null,
     gemeldetVon:  gemeldetVon,
     kundeId:      kundeId || null,   // Mandant, zu dem dieses gemeldete Objekt gehört
     status:       OBJEKT_STATUS.EINGEGANGEN,
@@ -1392,4 +1396,39 @@ export function beobachteFormate(callback, onError) {
     (snap) => callback(snapToArr(snap).sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "de"))),
     onError || (() => {})
   );
+}
+
+// =====================================================================
+// TRAINING — Valentins eigene Einheiten (Springseil-Timer). Rein privat:
+// die Rules geben `training` und `trainingKonfig` nur dem Admin.
+// Ein Dokument = eine absolvierte Einheit; `trainingKonfig/<art>` hält die
+// zuletzt benutzten Timer-Einstellungen, damit sie auf jedem Gerät gleich sind.
+// =====================================================================
+const trainingCol = () => collection(db, "training");
+
+export async function speichereTraining(daten) {
+  return addDoc(trainingCol(), { ...daten, erstelltAm: serverTimestamp() });
+}
+
+// Neueste zuerst. `anzahl` begrenzt, damit die Historie nach Jahren nicht
+// unbemerkt zu einem Megabyte-Download wird.
+export function beobachteTrainings(callback, onError, anzahl = 400) {
+  return onSnapshot(
+    query(trainingCol(), orderBy("erstelltAm", "desc"), limit(anzahl)),
+    (snap) => callback(snapToArr(snap)),
+    onError || (() => {})
+  );
+}
+
+export async function loescheTraining(id) {
+  return deleteDoc(doc(db, "training", id));
+}
+
+export async function ladeTrainingKonfig(art) {
+  const snap = await getDoc(doc(db, "trainingKonfig", art));
+  return snap.exists() ? snap.data() : null;
+}
+
+export async function speichereTrainingKonfig(art, konfig) {
+  return setDoc(doc(db, "trainingKonfig", art), { ...konfig, aktualisiertAm: serverTimestamp() });
 }

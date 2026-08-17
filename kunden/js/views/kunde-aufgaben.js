@@ -159,7 +159,9 @@ function zeichneObjekte(el, objekte, istGastro) {
             <span class="row-name">${escapeHtml(o.adresse || "Ohne Adresse")}</span>
             <span class="row-sub muted">${escapeHtml(o.objektTyp || "")}${
               o.erstelltAm ? " · gemeldet " + escapeHtml(formatDatum(o.erstelltAm)) : ""
-            } · Produktion ${escapeHtml(monatsLabel(objektProduktionsMonat(o)))}</span>
+            } · Produktion ${escapeHtml(monatsLabel(objektProduktionsMonat(o)))}${
+              o.expose && o.expose.dateiId ? " · 📎 Exposé liegt bei" : ""
+            }</span>
           </span>
           <span class="pill pill--${objektTon(o.status)}">${escapeHtml(o.status || OBJEKT_STATUS.EINGEGANGEN)}</span>
         </div>`).join("")}

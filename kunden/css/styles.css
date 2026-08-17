@@ -2439,10 +2439,33 @@ a.news-item:hover { background: var(--off-white); }
 .dreh-beat--gross .dreh-beat-titel { font-size: 1.05rem; }
 .dreh-beat--gross .dreh-beat-text { margin-left: 2.1rem; }
 
-/* --- Exposé-OCR ----------------------------------------------------- */
+/* --- Exposé-Verarbeitung (Auslesen + Upload-Fortschritt) ------------- */
 .ocr-card { margin-bottom: 1.25rem; }
 .ocr-progress { margin-top: 0.7rem; height: 6px; border-radius: 999px; background: var(--mid); overflow: hidden; }
 .ocr-progress-bar { height: 100%; width: 0; background: var(--accent); transition: width .2s ease; }
+
+/* --- Objekt melden: Umschalter Exposé-Upload / Formular -------------- */
+.melde-wege { display: flex; gap: 0.4rem; flex-wrap: wrap; margin: 0 0 1rem; }
+.melde-weg {
+  flex: 1 1 12rem; padding: 0.6rem 0.9rem; cursor: pointer; text-align: center;
+  border: 1px solid var(--mid); border-radius: var(--radius);
+  background: var(--surface); color: var(--black);
+  font: inherit; font-size: 0.92rem; font-weight: 500;
+  transition: border-color .15s ease, background .15s ease;
+}
+.melde-weg:hover { border-color: var(--accent); }
+.melde-weg.is-aktiv { border-color: var(--accent); background: rgba(226,98,44,0.08); }
+.melde-weg:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.expose-card { margin-bottom: 1.25rem; }
+.expose-datei {
+  display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+  padding: 0.6rem 0.8rem; background: var(--off-white);
+  border: 1px solid var(--mid); border-radius: var(--radius);
+}
+.expose-datei-icon { font-size: 1.1rem; }
+.expose-datei-name { flex: 1 1 8rem; font-size: 0.92rem; font-weight: 500; word-break: break-all; }
+.expose-datei-groesse { font-size: 0.8rem; white-space: nowrap; }
 
 /* --- Datei-Viewer (Blob-basiert, portal-eigen) ---------------------- */
 .datei-pdf { display: flex; flex-direction: column; gap: 0.4rem; }
@@ -2451,6 +2474,175 @@ a.news-item:hover { background: var(--off-white); }
 .datei-vid { width: 100%; border-radius: var(--radius); }
 .datei-word { max-height: 60vh; overflow: auto; border: 1px solid var(--mid); border-radius: var(--radius); padding: 0.8rem 1rem; background: var(--surface); }
 .datei-word-text { white-space: pre-wrap; word-break: break-word; font: inherit; font-size: 0.9rem; margin: 0 0 0.6rem; }
+
+/* --- Springseil: Intervall-Timer + Historie (privat, Admin) ---------
+   Eigener spr-Namensraum: die Vorlage brachte sehr allgemeine Klassennamen
+   (.card, .row, .stat, .toggle) mit, die hier mit dem Portal kollidiert wären.
+   Der Timer selbst ist bewusst dunkel und vollflächig — beim Springen zählt
+   Ablesbarkeit aus zwei Metern, nicht Portal-Optik.                        */
+.spr-tabs { display: flex; gap: 0.4rem; margin: 0 0 1.1rem; }
+.spr-tab {
+  flex: 1; padding: 0.55rem 0.9rem; cursor: pointer; text-align: center;
+  border: 1px solid var(--mid); border-radius: var(--radius);
+  background: var(--surface); color: var(--black);
+  font: inherit; font-size: 0.9rem; font-weight: 600;
+}
+.spr-tab:hover { border-color: var(--accent); }
+.spr-tab.is-aktiv { border-color: var(--accent); background: rgba(226,98,44,0.08); }
+
+.spr-label {
+  font-size: 0.68rem; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase;
+  color: var(--muted, #7a7a7a); margin: 1.4rem 0.2rem 0.55rem;
+}
+.spr-card { padding: 0.2rem 1rem; }
+.spr-card--pad { padding: 1rem; }
+
+.spr-presets { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+.spr-preset {
+  display: flex; flex-direction: column; gap: 0.15rem; text-align: left; cursor: pointer;
+  padding: 0.7rem 0.8rem; border: 1px solid var(--mid); border-radius: var(--radius);
+  background: var(--surface); color: var(--black); font: inherit;
+}
+.spr-preset:hover { border-color: var(--accent); }
+.spr-preset.is-aktiv { border-color: var(--accent); background: rgba(226,98,44,0.08); }
+.spr-pt { font-size: 0.95rem; font-weight: 700; }
+.spr-ps { font-size: 0.75rem; color: var(--muted, #7a7a7a); }
+
+.spr-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.8rem;
+  padding: 0.75rem 0; border-bottom: 1px solid var(--mid);
+}
+.spr-row:last-child { border-bottom: none; }
+.spr-lbl { font-size: 0.92rem; font-weight: 600; }
+.spr-sub { font-size: 0.75rem; color: var(--muted, #7a7a7a); margin-top: 0.1rem; }
+
+.spr-stepper {
+  display: flex; align-items: center; flex: none;
+  border: 1px solid var(--mid); border-radius: 0.7rem; background: var(--off-white);
+}
+.spr-stepper button {
+  width: 2.3rem; height: 2.3rem; border: none; background: transparent; cursor: pointer;
+  font-size: 1.25rem; font-weight: 700; line-height: 1; color: var(--black);
+}
+.spr-stepper button:hover { color: var(--accent); }
+.spr-val { min-width: 3.6rem; text-align: center; font-size: 0.95rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.spr-toggle {
+  width: 3rem; height: 1.75rem; flex: none; position: relative; cursor: pointer;
+  border: 1px solid var(--mid); border-radius: 999px; background: var(--off-white);
+}
+.spr-knob {
+  position: absolute; top: 2px; left: 2px; width: 1.35rem; height: 1.35rem; border-radius: 50%;
+  background: var(--mid); transition: left .18s ease, background .18s ease;
+}
+.spr-toggle.is-an { background: var(--accent); border-color: var(--accent); }
+.spr-toggle.is-an .spr-knob { left: calc(100% - 1.5rem); background: #fff; }
+
+.spr-ex-list { display: flex; flex-direction: column; gap: 0.4rem; }
+.spr-ex-item {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.45rem 0.6rem; border: 1px solid var(--mid); border-radius: var(--radius); background: var(--surface);
+}
+.spr-dot { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: #ff4d3d; flex: none; }
+.spr-ex-item input { flex: 1; border: none; background: transparent; font: inherit; font-size: 0.92rem; font-weight: 600; outline: none; color: var(--black); }
+.spr-del { border: none; background: transparent; color: var(--muted, #7a7a7a); font-size: 1.2rem; cursor: pointer; padding: 0 0.2rem; }
+.spr-del:hover { color: #d33; }
+.spr-add {
+  width: 100%; margin-top: 0.5rem; padding: 0.65rem; cursor: pointer;
+  border: 1px dashed var(--mid); border-radius: var(--radius); background: var(--off-white);
+  color: var(--muted, #7a7a7a); font: inherit; font-size: 0.85rem; font-weight: 700;
+}
+.spr-add:hover { border-color: var(--accent); color: var(--accent); }
+
+.spr-summary { display: flex; gap: 0.5rem; margin-top: 1rem; }
+.spr-stat {
+  flex: 1; text-align: center; padding: 0.75rem 0.4rem;
+  border: 1px solid var(--mid); border-radius: var(--radius); background: var(--surface);
+}
+.spr-n { font-size: 1.35rem; font-weight: 800; line-height: 1.1; color: var(--accent); font-variant-numeric: tabular-nums; }
+.spr-k { font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted, #7a7a7a); margin-top: 0.25rem; }
+
+.spr-start {
+  width: 100%; margin-top: 1.1rem; padding: 1.05rem; cursor: pointer;
+  border: none; border-radius: var(--radius); background: var(--accent); color: #fff;
+  font: inherit; font-size: 1.05rem; font-weight: 800; letter-spacing: 0.06em;
+}
+.spr-start:hover { filter: brightness(1.05); }
+
+/* Timer-Vollbild */
+body.spr-timer-offen { overflow: hidden; }
+.spr-timer {
+  position: fixed; inset: 0; z-index: 1400; display: flex; flex-direction: column;
+  padding: 0 1.3rem; color: #fff; background: linear-gradient(160deg,#15191e,#0b0d10);
+  transition: background .4s ease;
+}
+.spr-timer[hidden] { display: none; }
+.spr-ts-top {
+  padding-top: max(1.5rem, env(safe-area-inset-top));
+  display: flex; align-items: center; justify-content: space-between;
+}
+.spr-ts-round { font-size: 1rem; font-weight: 800; letter-spacing: 0.06em; color: rgba(255,255,255,.85); }
+.spr-ts-close {
+  width: 2.5rem; height: 2.5rem; border: none; border-radius: 0.75rem; cursor: pointer;
+  background: rgba(0,0,0,.28); color: #fff; font-size: 1.2rem;
+}
+.spr-ts-mid { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.spr-phase { font-size: clamp(1.6rem, 7vw, 2.3rem); font-weight: 900; letter-spacing: 0.08em; line-height: 1; }
+.spr-ex { font-size: 1rem; font-weight: 700; margin-top: 0.5rem; min-height: 1.4rem; color: rgba(255,255,255,.8); }
+.spr-time {
+  font-size: clamp(6rem, 40vw, 12rem); font-weight: 900; line-height: .85; margin: 0.5rem 0 0.2rem;
+  font-variant-numeric: tabular-nums;
+}
+.spr-next { font-size: 0.82rem; font-weight: 700; color: rgba(255,255,255,.68); }
+.spr-bars { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.25rem; margin-top: 1.1rem; max-width: 21rem; }
+.spr-bar { width: 0.85rem; height: 0.35rem; border-radius: 0.2rem; background: rgba(255,255,255,.25); }
+.spr-bar.is-fertig { background: rgba(255,255,255,.9); }
+.spr-bar.is-jetzt { background: #fff; width: 1.35rem; }
+.spr-ts-stats { display: flex; justify-content: center; gap: 1.6rem; margin-top: 1rem; text-align: center; }
+.spr-v { font-size: 1.3rem; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.spr-ts-stats .spr-k { color: rgba(255,255,255,.6); }
+.spr-ts-bottom { padding-bottom: max(1.8rem, env(safe-area-inset-bottom)); display: flex; gap: 0.7rem; }
+.spr-ctrl {
+  flex: 1; padding: 1.05rem; border: none; border-radius: 0.9rem; cursor: pointer;
+  background: rgba(0,0,0,.28); color: #fff; font: inherit; font-size: 1rem; font-weight: 800; letter-spacing: 0.05em;
+}
+.spr-ctrl--main { flex: 2; background: #fff; color: #111; }
+.spr-done-em { font-size: 3rem; margin-bottom: 0.4rem; }
+.spr-big { font-size: 3rem; font-weight: 900; line-height: 1; margin-top: 1.1rem; color: #c8ff2e; font-variant-numeric: tabular-nums; }
+.spr-gespeichert { margin-top: 1.4rem; font-size: 0.8rem; color: rgba(255,255,255,.7); }
+
+/* Heatmap */
+.spr-hm { display: flex; gap: 0.4rem; overflow-x: auto; padding-bottom: 0.2rem; }
+.spr-hm-tage { display: flex; flex-direction: column; justify-content: space-between; font-size: 0.6rem; color: var(--muted, #7a7a7a); padding: 0.1rem 0; }
+.spr-hm-grid { display: flex; gap: 3px; }
+.spr-hm-woche { display: flex; flex-direction: column; gap: 3px; }
+.spr-hm-zelle { width: 12px; height: 12px; border-radius: 3px; background: var(--mid); display: block; }
+.spr-hm-zelle.is-leer { background: transparent; }
+.spr-hm-0 { background: var(--mid); }
+.spr-hm-1 { background: rgba(226,98,44,0.30); }
+.spr-hm-2 { background: rgba(226,98,44,0.52); }
+.spr-hm-3 { background: rgba(226,98,44,0.76); }
+.spr-hm-4 { background: var(--accent); }
+.spr-hm-legende { display: flex; align-items: center; gap: 0.25rem; margin-top: 0.6rem; font-size: 0.68rem; }
+
+/* Verlauf */
+.spr-hist { padding: 0; }
+.spr-hist-row {
+  display: flex; align-items: center; gap: 0.6rem;
+  padding: 0.65rem 0.9rem; border-bottom: 1px solid var(--mid);
+}
+.spr-hist-row:last-child { border-bottom: none; }
+.spr-hist-haupt { flex: 1; min-width: 0; }
+.spr-hist-datum { display: block; font-size: 0.9rem; font-weight: 600; }
+.spr-hist-sub { display: block; font-size: 0.75rem; margin-top: 0.1rem; }
+.spr-hist-teil { color: var(--accent); font-weight: 600; }
+.spr-hist-del { border: none; background: transparent; color: var(--muted, #7a7a7a); font-size: 1.15rem; cursor: pointer; padding: 0 0.25rem; }
+.spr-hist-del:hover { color: #d33; }
+
+@media (max-width: 380px) {
+  .spr-presets { grid-template-columns: 1fr; }
+  .spr-summary { flex-wrap: wrap; }
+}
 
 /* --- Schwebende Feedback-Box (Kunde) -------------------------------- */
 .fb-widget { position: fixed; right: 1.1rem; bottom: 1.1rem; z-index: 1200; }

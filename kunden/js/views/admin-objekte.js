@@ -8,6 +8,8 @@
 //   - Selbst anlegen: gleiche Collection wie die Kunden-Meldung, aber ohne
 //     Admin-Mail (der Admin meldet an sich selbst) und ohne Exposé-OCR.
 import { beobachteObjekte, objektMelden, setzeObjektStatus, loescheObjekt, aktualisiereObjekt } from "../db.js";
+import { ladeDatei, loescheDateiKomplett } from "../dateien.js";
+import { zeigeDateiInline } from "../docparse.js";
 import { beiViewWechsel } from "../view-lifecycle.js";
 import { OBJEKT_STATUS_LISTE, objektTypenFuer, objektMeldeMonat, objektProduktionsMonat } from "../status.js";
 import { escapeHtml, formatDatum, monatKey, monatsLabel, monatPlus } from "../util.js";
@@ -287,6 +289,7 @@ function kartenHtml(o, ctx) {
              ? `<a class="ob-feld-wert ob-feld-link" href="${escapeHtml(o.link)}" target="_blank" rel="noopener">${escapeHtml(o.link)} ↗</a>`
              : `<span class="ob-feld-wert muted">— kein Link —</span>`}
          </div>
+         ${exposeHtml(o.expose)}
        </div>`;
 
   return `
@@ -311,6 +314,58 @@ function kartenHtml(o, ctx) {
     </section>`;
 }
 
+// Vom Kunden hochgeladenes Exposé. Die Datei liegt blockweise in Firestore
+// (js/dateien.js), es gibt also keine fertige URL — sie wird erst auf Klick
+// geholt und zusammengesetzt. Fehlt sie, entfällt die Zeile, damit Alt-Objekte
+// unverändert aussehen.
+function exposeHtml(expose) {
+  if (!expose || !expose.dateiId) return "";
+  const kb = Math.round((expose.groesse || 0) / 1024);
+  const groesse = kb >= 1024 ? `${(kb / 1024).toFixed(1)} MB` : `${kb} KB`;
+  return `
+    <div class="ob-feld ob-feld--voll">
+      <span class="ob-feld-label">Exposé (Original)</span>
+      <button class="btn btn--ghost btn--sm ob-expose" type="button"
+              data-datei="${escapeHtml(expose.dateiId)}">
+        📎 ${escapeHtml(expose.name || "Exposé")} <span class="muted">· ${escapeHtml(groesse)}</span> anzeigen
+      </button>
+      <div class="ob-expose-ziel"></div>
+    </div>`;
+}
+
+// Exposé auf Klick holen und in der Karte anzeigen (PDF im Rahmen, Bild direkt,
+// Word als Textvorschau — zeigeDateiInline kann das alles), plus Download.
+function wireExpose(row) {
+  const btn = row.querySelector(".ob-expose");
+  const ziel = row.querySelector(".ob-expose-ziel");
+  if (!btn || !ziel) return;
+
+  btn.addEventListener("click", async () => {
+    if (ziel.dataset.offen === "1") {           // zweiter Klick = zuklappen
+      ziel.innerHTML = "";
+      ziel.dataset.offen = "";
+      btn.classList.remove("is-aktiv");
+      return;
+    }
+    btn.disabled = true;
+    ziel.innerHTML = `<p class="muted" style="margin:.5rem 0 0;font-size:.85rem">Exposé wird geladen …</p>`;
+    try {
+      const datei = await ladeDatei(btn.dataset.datei);
+      ziel.innerHTML = "";
+      // Die blob:-URLs müssen beim View-Wechsel freigegeben werden.
+      beiViewWechsel(zeigeDateiInline(ziel, datei));
+      ziel.dataset.offen = "1";
+      btn.classList.add("is-aktiv");
+    } catch (e) {
+      console.error("Exposé konnte nicht geladen werden:", e);
+      ziel.innerHTML = `<p class="notice notice--error" style="margin:.5rem 0 0">
+        Exposé konnte nicht geladen werden: ${escapeHtml(e.message || "unbekannter Fehler")}</p>`;
+    } finally {
+      btn.disabled = false;
+    }
+  });
+}
+
 function wireKarte(row, id, obj, ctx) {
   const sel       = row.querySelector(".ob-status");
   const monSel    = row.querySelector(".ob-monat-sel");
@@ -318,6 +373,8 @@ function wireKarte(row, id, obj, ctx) {
   const btnEdit   = row.querySelector(".ob-edit");
   const btnDel    = row.querySelector(".ob-del");
   const editForm  = row.querySelector(".ob-edit-form");
+
+  wireExpose(row);
 
   sel.addEventListener("change", async () => {
     sel.disabled = true;
@@ -383,6 +440,16 @@ function wireKarte(row, id, obj, ctx) {
     if (!confirm(`Objekt „${(obj && obj.adresse) || ""}" wirklich löschen? Das kann nicht rückgängig gemacht werden.`)) return;
     btnDel.disabled = true;
     try {
+      // Erst die Datei-Blöcke, dann den Datensatz — sonst bliebe das Exposé als
+      // Waise in `dateien` liegen, ohne Verweis, über den man es je wiederfindet.
+      if (obj && obj.expose && obj.expose.dateiId) {
+        try {
+          await loescheDateiKomplett(obj.expose.dateiId);
+        } catch (se) {
+          // Fehlende/bereits gelöschte Datei darf das Löschen nicht blockieren.
+          console.warn("Exposé konnte nicht entfernt werden:", se);
+        }
+      }
       await loescheObjekt(id);
     } catch (e) {
       console.error(e);
