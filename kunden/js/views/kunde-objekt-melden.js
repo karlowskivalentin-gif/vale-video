@@ -28,24 +28,30 @@ import { speichereDatei, MAX_DATEI_GROSS, EXPOSE_TYPEN } from "../dateien.js";
 //   - „Hausgeld/Monat" steckt in jedem Wohnungs-Exposé — ein ungebundenes
 //     Muster auf „haus" macht daraus fälschlich ein Haus.
 
-// Zeile vor der PLZ-Zeile ist im Exposé-Kopf die Straße ("Birkenhof 7" über
-// "40225 Düsseldorf"). Robuster als eine Liste von Straßen-Endungen, denn die
-// deckt „-hof", „-kamp", „-blick" … nie vollständig ab.
+/**
+ * Adresse aus dem Exposé-Kopf. Anker ist die PLZ, davor steht die Straße —
+ * das gilt in beiden Textformen, die hier ankommen:
+ *   pdf.js  → EINE Zeile pro Seite: "… 267762 Birkenhof 7 40225 Düsseldorf …"
+ *   Word    → eigene Zeilen:        "Birkenhof 7" / "40225 Düsseldorf"
+ * Deshalb wird auf einen Fluss normalisiert statt auf Zeilen gebaut.
+ *
+ * Zwei Fallen, beide am echten Deussen-Exposé aufgelaufen:
+ *  - Direkt vor der PLZ steht die Objektnummer („267762 Birkenhof 7 40225 …").
+ *    Ein simples \d{5} schneidet daraus „67762" heraus → die Grenze prüft
+ *    deshalb, dass links und rechts keine weitere Ziffer steht. Ohne Lookbehind
+ *    geschrieben, das kennen ältere Safari-Versionen nicht.
+ *  - Auf den Ort folgt „Deutschland" — der Ort ist deshalb bewusst EIN Wort.
+ */
 function findeAdresse(t) {
-  const zeilen = t.split("\n").map((s) => s.trim());
-  const iPlz = zeilen.findIndex((z) => /^\d{5}\s+[A-ZÄÖÜ][\wÄÖÜäöüß.\- ]{1,40}$/.test(z));
-  if (iPlz > 0) {
-    const davor = zeilen[iPlz - 1];
-    // „Name Hausnummer" — Ziffer am Ende, keine reine Zahl (Objektnummer).
-    if (/^[A-ZÄÖÜ][\wÄÖÜäöüß.\-/ ]*\s\d+\s*[a-z]?$/.test(davor)) {
-      return `${davor}, ${zeilen[iPlz]}`;
-    }
-  }
-  // Fallback: klassische Straßen-Endungen irgendwo im Text + PLZ/Ort.
-  const strasse = (t.match(/([A-ZÄÖÜ][a-zäöüßA-Za-z.\- ]*(?:stra(?:ß|ss)e|str\.|weg|platz|allee|ring|gasse|damm|ufer|hof|kamp|steig|markt|wall|chaussee)\s*\d+\s*[a-z]?)/) || [])[1];
-  const plzOrt  = (t.match(/(\d{5})\s+([A-ZÄÖÜ][A-Za-zäöüß.\- ]{1,40})/) || []);
-  return [strasse && strasse.trim(), plzOrt[1] ? `${plzOrt[1]} ${String(plzOrt[2]).trim()}` : ""]
-    .filter(Boolean).join(", ");
+  const fluss = String(t).replace(/\s+/g, " ");
+  const m = fluss.match(/(^|[^\d])(\d{5})(?!\d)\s+([A-ZÄÖÜ][A-Za-zäöüß.\-]+)/);
+  if (!m) return "";
+  const plzOrt = `${m[2]} ${m[3]}`;
+
+  // Was unmittelbar vor der PLZ steht, endet üblicherweise auf „Straße Hausnr".
+  const davor = fluss.slice(0, m.index + m[1].length).trim();
+  const strasse = (davor.match(/([A-ZÄÖÜ][A-Za-zäöüß.\-]+(?:\s[A-ZÄÖÜ][A-Za-zäöüß.\-]+)?\s\d+\s*[a-z]?)$/) || [])[1];
+  return [strasse && strasse.trim(), plzOrt].filter(Boolean).join(", ");
 }
 
 function findeTyp(t) {
@@ -67,10 +73,13 @@ function findeTyp(t) {
 }
 
 // Zahl mit deutschem Dezimalkomma / Tausenderpunkt, in beiden Schreibrichtungen:
-// „Zimmer 2" wie „2 Zimmer".
+// „Zimmer 2" wie „2 Zimmer". Zwischen Label und Zahl darf Fülltext stehen
+// („Wohnfläche ca.   54,70"), aber nur wenig — sonst greift man den Nachbarwert.
+const FLAECHE = "m\\s*[²2]|qm|quadratmeter";   // pdf.js schreibt „m ²" mit Leerzeichen!
+
 function findeWert(t, label, einheit) {
   const e = einheit ? `\\s*(?:${einheit})` : "";
-  const nachLabel = t.match(new RegExp(`${label}[^\\n\\d]{0,20}(\\d[\\d.,]*)${e}`, "i"));
+  const nachLabel = t.match(new RegExp(`${label}[^\\d]{0,20}(\\d[\\d.,]*)${e}`, "i"));
   if (nachLabel) return nachLabel[1].replace(/[.,]$/, "");
   const vorLabel = t.match(new RegExp(`(\\d[\\d.,]*)${e}\\s*${label}`, "i"));
   return vorLabel ? vorLabel[1].replace(/[.,]$/, "") : "";
@@ -84,18 +93,21 @@ function parseExpose(text) {
 
   // Eckdaten für die Beschreibung einsammeln.
   const eck = [];
-  const zimmer  = findeWert(t, "Zimmer");
-  const wohnfl  = findeWert(t, "Wohnfl(?:ä|ae)che", "m²|m2|qm");
-  const grundfl = findeWert(t, "Grundst(?:ü|ue)cksfl(?:ä|ae)che", "m²|m2|qm");
+  // \b vor „Zimmer", damit „Anzahl Schlafzimmer 1" nicht die Zimmerzahl kapert.
+  const zimmer  = findeWert(t, "\\bZimmer", "");
+  const wohnfl  = findeWert(t, "Wohnfl(?:ä|ae)che", FLAECHE);
+  const grundfl = findeWert(t, "Grundst(?:ü|ue)cksfl(?:ä|ae)che", FLAECHE);
   const baujahr = (t.match(/Baujahr\s*:?\s*(?:ca\.?\s*)?(\d{4})/i) || [])[1];
   const preis   = (t.match(/(?:Kaufpreis|Preis)\s*:?\s*([\d.,]+)\s*(?:€|EUR|Euro)/i)
                 || t.match(/([\d.]{4,})\s*(?:€|EUR|Euro)/) || [])[1];
-  const etage   = (t.match(/Etage\s*:?\s*([^\n]{1,15})/i) || [])[1];
+  // Gezielt statt „die nächsten 15 Zeichen" — sonst landet der Nachbarwert mit
+  // in der Angabe („Etage 1. OG Anzahl Sc").
+  const etage   = (t.match(/Etage\s*:?\s*(\d{1,2}\.?\s*(?:OG|UG|Stock|Etage)|EG|Erdgeschoss|Dachgeschoss|Souterrain)/i) || [])[1];
 
   if (zimmer)  eck.push(`${zimmer} Zimmer`);
   if (wohnfl)  eck.push(`${wohnfl} m² Wohnfläche`);
   if (grundfl) eck.push(`${grundfl} m² Grundstück`);
-  if (etage && /\d/.test(etage)) eck.push(`Etage ${etage.trim()}`);
+  if (etage)   eck.push(`Etage ${etage.replace(/\s+/g, " ").trim()}`);
   if (baujahr) eck.push(`Baujahr ${baujahr}`);
   if (preis)   eck.push(`Kaufpreis ${preis} €`);
 

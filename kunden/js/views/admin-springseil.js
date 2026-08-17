@@ -529,7 +529,7 @@ export function renderAdminSpringseil(container) {
   function merkeKonfig(sofort) {
     if (speicherTimer) clearTimeout(speicherTimer);
     const schreib = () => {
-      speicherTrainingKonfig(ART, { ...S, preset: aktivesPreset })
+      speichereTrainingKonfig(ART, { ...S, preset: aktivesPreset })
         .then(() => { el("sprKonfigHinweis").textContent = "Einstellungen gespeichert — auch auf dem Handy."; })
         .catch((e) => {
           console.error("Konfig speichern fehlgeschlagen:", e);
