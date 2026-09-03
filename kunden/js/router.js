@@ -42,6 +42,7 @@ import { renderAdminSpringseil } from "./views/admin-springseil.js";
 import { renderAdminSocial } from "./views/admin-social.js";
 import { renderKundeSocial } from "./views/kunde-social.js";
 import { renderAdminRoadmap } from "./views/admin-roadmap.js";
+import { renderAdminKurs } from "./views/admin-kurs.js";
 
 // --- Zustand -----------------------------------------------------------
 let _user = null;
@@ -68,6 +69,9 @@ const ROUTES = {
   // Eigene Geschaefts-Roadmap: Phasen, Meilensteine, Monatsumsatz. Steht
   // vorn, weil es die Frage "was ist als Naechstes dran" beantwortet.
   "/admin/roadmap":  { rolle: "admin", titel: "Roadmap",          render: renderAdminRoadmap },
+  // Lernkurs: 8 Module, 36 Lektionen. Fortschritt liegt im kurs-Feld von
+  // roadmap/valentin — daher direkt neben der Roadmap.
+  "/admin/kurs":     { rolle: "admin", titel: "Kurs",             render: renderAdminKurs },
   "/admin/pipeline": { rolle: "admin", titel: "Pipeline",         render: renderAdminPipeline },
   "/admin/archiv":   { rolle: "admin", titel: "Archiv",           render: renderAdminArchiv },
   "/admin/video":    { rolle: "admin", titel: "Video bearbeiten", render: renderAdminVideoEdit, param: true },
@@ -117,6 +121,7 @@ const NAV = {
   // sichtbar, alles andere liegt thematisch in Menüs.
   admin: [
     { href: "#/admin/roadmap",  label: "Roadmap"  },
+    { href: "#/admin/kurs",     label: "Kurs"     },
     { href: "#/admin/pipeline", label: "Pipeline" },
     { gruppe: "Produktion", kinder: [
       { href: "#/admin/objekte",  label: "Objekte" },

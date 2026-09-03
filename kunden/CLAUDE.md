@@ -30,6 +30,7 @@ Wenn Valentin ein Feature seines Arbeitsportals beim Namen nennt, ist das die Da
 | Feature (so sagt Valentin) | Route                | Datei                     |
 |----------------------------|----------------------|---------------------------|
 | **Roadmap**                | `/admin/roadmap`     | `admin-roadmap.js`        |
+| **Kurs**                   | `/admin/kurs`        | `admin-kurs.js`           |
 | Pipeline                   | `/admin/pipeline`    | `admin-pipeline.js`       |
 | Video bearbeiten           | `/admin/video/:id`   | `admin-video-edit.js`     |
 | Objekte                    | `/admin/objekte`     | `admin-objekte.js`        |
@@ -86,6 +87,15 @@ Kunden-Views (Referenz): `kunde-aufgaben.js`, `kunde-objekt-melden.js`,
   `brandplan.js` und `socialstat.js` — jede Formel steht nur einmal da.
   Gespeichert wird in **einem** Dokument `roadmap/valentin` (Haken, Monatsumsatz,
   Wochen-Aufgaben), Rules: nur `istAdmin()`.
+- `js/kurs-data.js` / `js/kurs-logik.js` — dasselbe Paar für den Lernkurs
+  (8 Module, 36 Lektionen mit Lerninhalt, Verstanden-Check und YouTube-
+  Suchbegriffen). Der Fortschritt liegt im **Feld `kurs` desselben Dokuments**
+  `roadmap/valentin` — kein eigenes Dokument, keine eigene Rule. Der
+  Kurs-Reset fasst deshalb nur `kurs` an und lässt die Roadmap-Haken stehen.
+  Prüfbar mit `node tools/kurs-check.mjs`. Die YouTube-Links sind bewusst
+  **Suchlinks statt Video-IDs** — eine feste ID ist in einem Jahr tot.
+  CSS-Präfix ist `kurs-`, **nicht** `ks-`: das gehört den Post-Kacheln in
+  `kunde-social.js`.
 - `js/fontprobe.js` — Schrift-Technik der Fonts-Abteilung: Google-Stylesheets in
   den `<head>` hängen und wieder aufräumen, plus die Messung „ist diese
   Schrift auf DIESEM Rechner überhaupt da?“ (Canvas-Breitenvergleich).

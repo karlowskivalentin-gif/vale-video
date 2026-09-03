@@ -1604,6 +1604,10 @@ export async function setzeSocialPostVideo(id, videoId) {
 //                                           eingetragen. Frühere Monate
 //                                           bleiben stehen (Historie).
 //   week     { mode, done: { "<isoweek>:<mode>:<index>": true } }
+//   kurs     { "<lesson-id>": true }         Fortschritt der Kurs-View. Liegt
+//                                           BEWUSST im selben Dokument: so
+//                                           braucht der Kurs keine eigene
+//                                           Collection und keine eigene Rule.
 //   updatedAt
 //
 // Geschrieben wird IMMER mit merge:true — sonst würde ein einzelner Haken
@@ -1619,9 +1623,10 @@ export async function getRoadmap() {
   if (snap.exists()) {
     const d = snap.data();
     return { done: d.done || {}, revenue: d.revenue || {},
-             week: d.week || { mode: "normal", done: {} } };
+             week: d.week || { mode: "normal", done: {} },
+             kurs: d.kurs || {} };
   }
-  const leer = { done: {}, revenue: {}, week: { mode: "normal", done: {} } };
+  const leer = { done: {}, revenue: {}, week: { mode: "normal", done: {} }, kurs: {} };
   await setDoc(roadmapDoc(), { ...leer, updatedAt: serverTimestamp() }, { merge: true });
   return leer;
 }

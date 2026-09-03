@@ -4191,3 +4191,57 @@ a.ks-post:hover { border-color: var(--accent); }
 @media (prefers-reduced-motion: reduce) {
   .rm-bar-fill { transition: none; }
 }
+
+/* =====================================================================
+   KURS (Admin-View #/admin/kurs)
+   Präfix kurs-. NICHT ks- — das gehört bereits den Post-Kacheln in
+   kunde-social.js (.ks-post, .ks-posts).
+   Baut bewusst auf den rm-Klassen der Roadmap auf: beide Views sollen
+   gleich aussehen, hier steht nur, was zusätzlich nötig ist.
+   ===================================================================== */
+
+/* Gesamtbalken direkt unter der Standzeile */
+.kurs-gesamtbar { margin: 1rem 0 .25rem; }
+.kurs-zaehler { grid-template-columns: repeat(3, 1fr); border-top: 0; padding-top: .6rem; margin-bottom: 1.25rem; }
+
+/* Modul der nächsten Lektion, klein unter dem Titel */
+.kurs-next-modul {
+  display: block; font-size: .74rem; font-weight: 400;
+  color: var(--light); margin-top: .15rem;
+}
+
+/* YouTube-Suchbegriffe als Chips */
+.kurs-suchen { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .3rem; }
+.kurs-suchen a {
+  display: inline-block; font-size: .74rem; line-height: 1.3;
+  padding: .25rem .55rem; border: 1px solid var(--mid); border-radius: 999px;
+  color: var(--accent-dim); text-decoration: none; background: var(--surface);
+}
+.kurs-suchen a:hover, .kurs-suchen a:focus-visible {
+  border-color: var(--accent); color: var(--accent);
+}
+
+/* Nordstern + Hinweiszeile über der Modulliste */
+.kurs-nord-text { font-size: .9rem; color: var(--muted); line-height: 1.6; margin: 0; }
+.kurs-hinweis { font-size: .78rem; color: var(--light); line-height: 1.5; margin: 0 0 .8rem; }
+
+/* Modulkopf innerhalb des aufgeklappten Blocks */
+.kurs-modul-kopf { padding: 0 1rem; }
+.kurs-ziel { font-size: .82rem; color: var(--muted); line-height: 1.5; margin: 0 0 .6rem; }
+.kurs-modulbar { height: 4px; border-radius: 999px; background: var(--mid); overflow: hidden; }
+.kurs-modulbar > div { height: 100%; background: var(--accent); border-radius: 999px; transition: width .35s ease; }
+
+/* Der Kurs-Zähler in der Roadmap-View führt zur Kurs-View */
+.rm-zaehler-link { text-decoration: none; color: inherit; display: block; }
+.rm-zaehler-link .rm-zahl-lbl { text-decoration: underline; text-underline-offset: 2px; }
+.rm-zaehler-link:hover .rm-zahl { color: var(--accent); }
+
+/* Ab Tablet: Roadmap hat jetzt fünf Zähler, der Kurs drei. */
+@media (min-width: 640px) {
+  .rm-zaehler { grid-template-columns: repeat(5, 1fr); }
+  .kurs-zaehler { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kurs-modulbar > div { transition: none; }
+}
