@@ -662,9 +662,16 @@ function rowHtml(v, komms, notizen, istOffen, istOffenBong, istOffenTermin, kund
   // in der Video-Bearbeitung. Verschwindet, sobald der Upload „Erledigt" ist.
   if (uploadsOffen) links.push(
     `<a class="pl-link pl-link--upload" href="#/admin/video/${encodeURIComponent(v.id)}" title="Der Kunde hat ein überarbeitetes Skript hochgeladen — ansehen und auf Erledigt setzen">📄 Neues Kunden-Skript${uploadsOffen > 1 ? ` (${uploadsOffen})` : ""}</a>`);
+  // Ein Skript liegt auf DREI Wegen vor: im Herkunfts-Plan, als Drive-Link oder
+  // als Datei direkt am Video (Collection `skriptuploads`). Der dritte Fall hatte
+  // hier keinen Link — und weil die Pipeline aus Kostengruenden nur OFFENE
+  // Uploads laedt (Base64-Blobs, siehe beobachteOffeneSkriptUploads), kann sie
+  // gar nicht wissen, ob eine Datei hinterlegt ist. Darum fuehrt der Link in dem
+  // Fall in die Video-Bearbeitung und springt dort direkt ans Skript.
   if (skriptFreigabeNoetig(v.typ)) {
     if (v.planId) links.push(`<a class="pl-link" href="#/admin/plan/${encodeURIComponent(v.planId)}">📝 Skript</a>`);
     else if (v.skriptLink) links.push(`<a class="pl-link" href="${escapeHtml(v.skriptLink)}" target="_blank" rel="noopener">📝 Skript ↗</a>`);
+    else links.push(`<a class="pl-link" href="#/admin/video/${encodeURIComponent(v.id)}?fokus=skript" title="Zum Skript dieses Videos — hochgeladene Datei ansehen oder eine hinterlegen">📝 Skript</a>`);
   }
   const drive = v.driveOrdner || (kunde && kunde.driveOrdner) || "";
   if (drive) links.push(`<a class="pl-link" href="${escapeHtml(drive)}" target="_blank" rel="noopener">📁 Google Drive ↗</a>`);

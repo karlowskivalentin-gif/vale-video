@@ -790,6 +790,16 @@ a.row-item:hover { background: var(--off-white); }
   50%      { box-shadow: 0 0 0 6px rgba(226,98,44,0); }
 }
 
+/* Deep-Link-Highlight (Pipeline-Karte → 📝 Skript): das Skript-Feld in der
+   Video-Bearbeitung pulsiert kurz. Bewusst dieselbe Animation wie beim
+   Kalender-Deeplink oben — ein Sprungziel soll ueberall gleich aussehen. */
+.field.is-hervorgehoben {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: 8px;
+  animation: kal-mark-puls 0.9s ease 3;
+}
+
 /* Legende ------------------------------------------------------------- */
 .kal-legende { display: flex; flex-wrap: wrap; gap: 0.4rem 0.6rem; margin: -0.4rem 0 1rem; }
 .kal-leg {

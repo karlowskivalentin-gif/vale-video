@@ -81,7 +81,24 @@ export function renderAdminVideoEdit(container, ctx) {
     // (Links, Dateien, Sound, Shotlist, Notiz). Live aus /plaene geladen.
     // Zusätzlich wird hier der kundensichtbare planSnapshot aktuell gehalten.
     if (!istNeu && video && video.planId) initPlanDetails(video, body);
+    // Aus der Pipeline mit „📝 Skript" gekommen (…?fokus=skript): direkt zum
+    // Skript-Feld springen statt den Nutzer die lange Maske absuchen zu lassen.
+    if (ctx.query && ctx.query.fokus === "skript") springZumSkript(body);
   })();
+}
+
+// Scrollt das Skript-Feld in den Blick und hebt es kurz hervor. Bewusst erst
+// nach dem Rendern und ohne Fokus-Klau: das Feld ist ein Drop-Bereich, ein
+// automatischer Tastaturfokus waere hier eher irritierend.
+function springZumSkript(body) {
+  const ziel = body.querySelector("#skAdminDrop");
+  if (!ziel) return;
+  const feld = ziel.closest(".field") || ziel;
+  requestAnimationFrame(() => {
+    ziel.scrollIntoView({ behavior: "smooth", block: "center" });
+    feld.classList.add("is-hervorgehoben");
+    setTimeout(() => feld.classList.remove("is-hervorgehoben"), 2200);
+  });
 }
 
 // --- Formular ---------------------------------------------------------
