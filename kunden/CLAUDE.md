@@ -46,9 +46,11 @@ Wenn Valentin ein Feature seines Arbeitsportals beim Namen nennt, ist das die Da
 | Skript-Werkstatt (einzeln) | `/admin/skript/:id`  | `admin-brand-skript.js`   |
 | Shoot-Modus                | `/admin/shoot/:id`   | `admin-shoot.js`          |
 | Formate                    | `/admin/formate`     | `admin-formate.js`        |
+| **Fonts** (Go-To-Schriften) | `/admin/fonts`      | `admin-fonts.js`          |
+| **Social** (Zahlen der Kunden) | `/admin/social`  | `admin-social.js`         |
 
 Kunden-Views (Referenz): `kunde-aufgaben.js`, `kunde-objekt-melden.js`,
-`kunde-kalender.js`, `kunde-video-detail.js`.
+`kunde-kalender.js`, `kunde-video-detail.js`, `kunde-social.js` („Meine Zahlen“, Route `/meine-zahlen`).
 
 ## Wo hängt was zusammen (nicht in `views/`)
 
@@ -58,6 +60,24 @@ Kunden-Views (Referenz): `kunde-aufgaben.js`, `kunde-objekt-melden.js`,
   nachführen, Fortschrittsformel, Feld-Listen, Drehplan-Text). Rein rechnend,
   wird von Liste, Editor und Shoot-Modus geteilt — die Fortschrittsformel darf
   es nur **einmal** geben.
+- `js/socialstat.js` — Rechenlogik der Social-Zahlen (Zeitreihen, Wachstum,
+  Wirkungs-Nachweis). `js/socialchart.js` — die geteilten HTML-Bausteine
+  (Kurve, Wirkungs-Gegenüberstellung, Kacheln). Beides teilen sich
+  `admin-social.js` und `kunde-social.js`: Valentin und der Kunde müssen
+  **dieselben** Zahlen und dieselbe Kurve sehen — deshalb steht jede Formel
+  nur einmal da, genau wie bei `brandplan.js`.
+  Die Collections `socialkonten` / `socialsnapshots` / `socialposts` befüllt
+  im Normalbetrieb ein serverseitiger Connector (`../api/`, in Arbeit) über
+  ein Google-Dienstkonto — das läuft per IAM an den Rules vorbei. Aus dem
+  Portal heraus schreibt nur der Admin: manuelle Nacherfassung eines
+  Tageswerts und die Verknüpfung eines Posts mit einem eigenen Video
+  (`videoId`). Diese Verknüpfung ist Handarbeit und darf vom nächtlichen
+  Lauf **nie** überschrieben werden.
+- `js/fontprobe.js` — Schrift-Technik der Fonts-Abteilung: Google-Stylesheets in
+  den `<head>` hängen und wieder aufräumen, plus die Messung „ist diese
+  Schrift auf DIESEM Rechner überhaupt da?“ (Canvas-Breitenvergleich).
+  Bewusst getrennt von `views/admin-fonts.js`, weil es DOM-Seiteneffekte
+  außerhalb der View hat.
 - `js/roles.js` — Rollen-/Allowlist-Logik (wer ist admin/kunde/kollaborator).
 - `js/auth.js` — Login (Google + E-Mail-Link + Passwort).
 - `js/db.js` — Firestore-Zugriffe. `js/status.js`, `js/drive.js`, `js/email.js`,

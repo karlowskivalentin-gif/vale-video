@@ -598,6 +598,72 @@ export function beobachteMoodboard(callback, onError) {
 }
 
 // =====================================================================
+// FONTS — Go-To-Schriften für Videos (Admin-only)
+// Eine Karte = eine Schrift, die in Bauchbinden/Titeln/Untertiteln benutzt
+// wird. Zweck des Bereichs: nie wieder vergessen, wie eine Schrift exakt
+// heißt (der Name muss in DaVinci/Premiere buchstabengenau stimmen).
+//   name       (string)  — Anzeigename der Karte
+//   familie    (string)  — EXAKTER CSS-/System-Name (Vorschau + Kopier-Button)
+//   quelle     ('google'|'lokal') — nachladen oder direkt rendern
+//   gewichte   (string)  — nur Google, z. B. "400;700" für den Stylesheet-Link
+//   zwecke     (array)   — wofür benutzt, aus FONT_ZWECKE
+//   notiz      (string)  — worauf achten / warum diese Schrift
+//   link       (string)  — Bezugsquelle (Google-Fonts-Seite, Kaufseite, Lizenz)
+//   angeheftet (bool)    — Go-To: erscheint in der oberen Sektion
+//   probetext  (string)  — optional, überschreibt den globalen Probetext
+// Rechte: ausschließlich Admin (siehe firestore.rules: /fonts).
+// =====================================================================
+export const FONT_ZWECKE = ["titel", "bauchbinde", "untertitel", "logo", "flaeche", "akzent"];
+const FONT_QUELLEN = ["google", "lokal"];
+
+const fontsCol = () => collection(db, "fonts");
+
+// Gemeinsame Feld-Normalisierung für Anlegen und Aktualisieren: Enums werden
+// gegen die Whitelist geprüft, damit kein Tippfehler in der Collection landet.
+function normFontFelder(daten) {
+  const felder = {};
+  if ("name"       in daten) felder.name       = String(daten.name || "").trim();
+  if ("familie"    in daten) felder.familie    = String(daten.familie || "").trim() || String(daten.name || "").trim();
+  if ("quelle"     in daten) felder.quelle     = FONT_QUELLEN.includes(daten.quelle) ? daten.quelle : "lokal";
+  if ("gewichte"   in daten) felder.gewichte   = String(daten.gewichte || "").replace(/[^0-9;]/g, "");
+  if ("zwecke"     in daten) felder.zwecke     = Array.isArray(daten.zwecke) ? daten.zwecke.filter((z) => FONT_ZWECKE.includes(z)) : [];
+  if ("notiz"      in daten) felder.notiz      = String(daten.notiz || "").trim();
+  if ("link"       in daten) felder.link       = String(daten.link || "").trim();
+  if ("probetext"  in daten) felder.probetext  = String(daten.probetext || "").trim();
+  if ("angeheftet" in daten) felder.angeheftet = !!daten.angeheftet;
+  return felder;
+}
+
+export async function fontAnlegen(daten) {
+  return addDoc(fontsCol(), {
+    name: "", familie: "", quelle: "lokal", gewichte: "", zwecke: [],
+    notiz: "", link: "", probetext: "", angeheftet: false,
+    ...normFontFelder(daten),
+    erstelltAm:     serverTimestamp(),
+    aktualisiertAm: serverTimestamp()
+  });
+}
+
+export async function aktualisiereFont(id, felder) {
+  return updateDoc(doc(db, "fonts", id), {
+    ...normFontFelder(felder),
+    aktualisiertAm: serverTimestamp()
+  });
+}
+
+export async function loescheFont(id) {
+  return deleteDoc(doc(db, "fonts", id));
+}
+
+export function beobachteFonts(callback, onError) {
+  return onSnapshot(
+    query(fontsCol(), orderBy("erstelltAm", "desc")),
+    (snap) => callback(snapToArr(snap)),
+    onError || (() => {})
+  );
+}
+
+// =====================================================================
 // FOKUSVIDEOS — private Fokus-/Ambient-YouTube-Videos (Admin-only)
 // Kuratierte Anspiel-Liste auf der Fokus-Seite: Karten-Grid + Inline-Player.
 // Ein Dokument = ein Video. Es werden NUR Metadaten gespeichert (kein Blob):
@@ -1431,4 +1497,97 @@ export async function ladeTrainingKonfig(art) {
 
 export async function speichereTrainingKonfig(art, konfig) {
   return setDoc(doc(db, "trainingKonfig", art), { ...konfig, aktualisiertAm: serverTimestamp() });
+}
+
+// =====================================================================
+// SOCIAL — Kennzahlen der Kunden-Accounts (Instagram, spaeter TikTok/YouTube).
+//
+// Drei Collections, alle mit `kundeId` und `plattform`:
+//   socialkonten/{kundeId}_{plattform}
+//     kundeId, plattform, handle, externeId, status, verbundenAm,
+//     letzterAbruf, letzterFehler
+//   socialsnapshots/{kundeId}_{plattform}_{YYYY-MM-DD}
+//     kundeId, plattform, tag, follower, reichweite, profilaufrufe,
+//     quelle('api'|'manuell'), erfasstAm
+//   socialposts/{kundeId}_{plattform}_{externeId}
+//     kundeId, plattform, externeId, permalink, thumbnail, typ,
+//     veroeffentlichtAm, likes, kommentare, saves, shares, reichweite,
+//     views, videoId, quelle, aktualisiertAm
+//
+// GESCHRIEBEN werden diese Collections normalerweise vom PHP-Connector
+// (api/cron-social.php) ueber ein Google-Dienstkonto — das laeuft an den
+// Rules vorbei (IAM). Von hier aus schreibt nur der Admin: manuelle
+// Nacherfassung und das Verknuepfen eines Posts mit einem eigenen Video.
+//
+// Rechte (firestore.rules): lesen darf der eigene Mandant (gehoertMir),
+// schreiben nur der Admin.
+//
+// Doc-IDs sind bewusst zusammengesetzt statt automatisch: derselbe Tag
+// bzw. derselbe Post ergibt immer dasselbe Dokument, ein doppelter
+// Cron-Lauf kann also nichts verdoppeln.
+// =====================================================================
+const socialKontenCol   = () => collection(db, "socialkonten");
+const socialSnapshotCol = () => collection(db, "socialsnapshots");
+const socialPostCol     = () => collection(db, "socialposts");
+
+// Die ID-Bildung steht hier EINMAL — der PHP-Connector bildet dieselben IDs.
+// Weicht eine der beiden Seiten ab, entstehen stumme Doppel-Dokumente.
+export function socialKontoId(kundeId, plattform) {
+  return `${kundeId}_${plattform}`;
+}
+export function socialSnapshotId(kundeId, plattform, tag) {
+  return `${kundeId}_${plattform}_${tag}`;
+}
+export function socialPostId(kundeId, plattform, externeId) {
+  return `${kundeId}_${plattform}_${externeId}`;
+}
+
+// Kein orderBy neben dem kundeId-Filter (spart den Composite-Index, wie
+// ueberall hier) und bewusst auch kein limit: ein Snapshot pro Tag sind
+// ~365 winzige Dokumente im Jahr, das faellt selbst nach Jahren nicht ins
+// Gewicht. Sortiert wird im Client (socialstat.js).
+export function beobachteSocialKonten(callback, onError, kundeId) {
+  const q = kundeId ? query(socialKontenCol(), where("kundeId", "==", kundeId)) : socialKontenCol();
+  return onSnapshot(q, (snap) => callback(snapToArr(snap)), onError || (() => {}));
+}
+
+export function beobachteSocialSnapshots(callback, onError, kundeId) {
+  const q = kundeId ? query(socialSnapshotCol(), where("kundeId", "==", kundeId)) : socialSnapshotCol();
+  return onSnapshot(q, (snap) => callback(snapToArr(snap)), onError || (() => {}));
+}
+
+export function beobachteSocialPosts(callback, onError, kundeId) {
+  const q = kundeId ? query(socialPostCol(), where("kundeId", "==", kundeId)) : socialPostCol();
+  return onSnapshot(q, (snap) => callback(snapToArr(snap)), onError || (() => {}));
+}
+
+// Manuelle Nacherfassung eines Tageswerts. `quelle: "manuell"` ist kein
+// Schmuck: der Connector liest das Feld und laesst solche Tage in Ruhe,
+// damit ein spaeterer API-Lauf die Handeingabe nicht ueberschreibt.
+export async function speichereSocialSnapshot(kundeId, plattform, tag, werte) {
+  const id = socialSnapshotId(kundeId, plattform, tag);
+  return setDoc(doc(db, "socialsnapshots", id), {
+    kundeId,
+    plattform,
+    tag,
+    follower:      Number.isFinite(Number(werte.follower))      ? Number(werte.follower)      : 0,
+    reichweite:    Number.isFinite(Number(werte.reichweite))    ? Number(werte.reichweite)    : 0,
+    profilaufrufe: Number.isFinite(Number(werte.profilaufrufe)) ? Number(werte.profilaufrufe) : 0,
+    quelle:        "manuell",
+    erfasstAm:     serverTimestamp()
+  }, { merge: true });
+}
+
+export async function loescheSocialSnapshot(id) {
+  return deleteDoc(doc(db, "socialsnapshots", id));
+}
+
+// Verknuepft einen Post mit einem eigenen Video (oder loest die Verknuepfung).
+// Das ist Handarbeit und darf vom naechtlichen Lauf nie ueberschrieben
+// werden — deshalb steht `videoId` beim Connector nicht in der updateMask.
+export async function setzeSocialPostVideo(id, videoId) {
+  return updateDoc(doc(db, "socialposts", id), {
+    videoId: videoId || null,
+    aktualisiertAm: serverTimestamp()
+  });
 }

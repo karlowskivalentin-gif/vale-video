@@ -295,6 +295,13 @@ service cloud.firestore {
       allow read, write: if istAdmin();
     }
 
+    // ---- fonts (Go-To-Schriften für Videos, Admin-only) --------------
+    // Reine Notizsammlung: Name, exakter Familienname, Quelle, Verwendungs-
+    // zweck. Keine Schriftdateien, nur Metadaten.
+    match /fonts/{id} {
+      allow read, write: if istAdmin();
+    }
+
     // ---- fokusvideos (kuratierte Fokus-YouTube-Liste, Admin-only) ----
     // Private Anspiel-Liste auf der Fokus-Seite. Nur Metadaten (kein Blob).
     // Gleiche Vertrauensgrenze wie gedanken/plaene/shotvorlagen.
@@ -485,6 +492,33 @@ service cloud.firestore {
     // Referenzen — nichts Schützenswertes.
     match /webseite/{id} {
       allow read:  if true;
+      allow write: if istAdmin();
+    }
+
+    // ---- Social-Kennzahlen (Instagram, spaeter TikTok/YouTube) -------
+    // Geschrieben werden diese drei Collections im Normalbetrieb vom
+    // PHP-Connector (api/cron-social.php) ueber ein Google-Dienstkonto.
+    // Das authentifiziert sich per IAM und laeuft an diesen Rules VORBEI —
+    // hier steht deshalb nur, wer aus dem Portal heraus darf:
+    //   lesen   = der eigene Mandant (gehoertMir prueft kundeId)
+    //   schreiben = nur der Admin (manuelle Nacherfassung, Video-Verknuepfung)
+    // Ein Kunde darf seine Zahlen also sehen, aber nicht schoenen.
+    //
+    // Zugangs-Tokens stehen bewusst NICHT in socialkonten: die Collection
+    // ist fuer den Kunden lesbar, ein Instagram-Token waere damit ueber das
+    // Client-SDK abgreifbar. Tokens liegen ausschliesslich serverseitig.
+    match /socialkonten/{id} {
+      allow read:  if gehoertMir(resource);
+      allow write: if istAdmin();
+    }
+
+    match /socialsnapshots/{id} {
+      allow read:  if gehoertMir(resource);
+      allow write: if istAdmin();
+    }
+
+    match /socialposts/{id} {
+      allow read:  if gehoertMir(resource);
       allow write: if istAdmin();
     }
 

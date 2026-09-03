@@ -37,7 +37,10 @@ import { renderAdminBrand } from "./views/admin-brand.js";
 import { renderAdminBrandSkript } from "./views/admin-brand-skript.js";
 import { renderAdminShoot } from "./views/admin-shoot.js";
 import { renderAdminFormate } from "./views/admin-formate.js";
+import { renderAdminFonts } from "./views/admin-fonts.js";
 import { renderAdminSpringseil } from "./views/admin-springseil.js";
+import { renderAdminSocial } from "./views/admin-social.js";
+import { renderKundeSocial } from "./views/kunde-social.js";
 
 // --- Zustand -----------------------------------------------------------
 let _user = null;
@@ -58,6 +61,7 @@ const ROUTES = {
   "/meine-videos":   { rolle: "kunde", titel: "Meine Videos",    render: renderMeineVideos },
   "/objekt-melden":  { rolle: "kunde", titel: "Objekt melden",   render: renderObjektMelden },
   "/kalender":       { rolle: "kunde", titel: "Kalender",        render: renderKundeKalender },
+  "/meine-zahlen":   { rolle: "kunde", titel: "Meine Zahlen",    render: renderKundeSocial },
   "/video":          { rolle: "kunde", titel: "Video",           render: renderVideoDetail, param: true },
   // Admin
   "/admin/pipeline": { rolle: "admin", titel: "Pipeline",         render: renderAdminPipeline },
@@ -79,11 +83,14 @@ const ROUTES = {
   "/admin/kunden":   { rolle: "admin", titel: "Kunden",           render: renderAdminKunden },
   "/admin/kunde-feed": { rolle: "admin", titel: "Kunden-Feed",     render: renderAdminKundeFeed },
   "/admin/webseite": { rolle: "admin", titel: "Webseite",          render: renderAdminWebseite },
+  "/admin/social":   { rolle: "admin", titel: "Social",            render: renderAdminSocial },
   // Personal Brand: eigene Videos planen (Skriptwerkstatt + Formate + Dreh)
   "/admin/brand":    { rolle: "admin", titel: "Skripte",           render: renderAdminBrand },
   "/admin/skript":   { rolle: "admin", titel: "Skript",            render: renderAdminBrandSkript, param: true },
   "/admin/shoot":    { rolle: "admin", titel: "Shoot-Modus",       render: renderAdminShoot, param: true },
   "/admin/formate":  { rolle: "admin", titel: "Formate",           render: renderAdminFormate },
+  // Design: feste Arbeitsmittel für die Videos (Schriften, später mehr)
+  "/admin/fonts":    { rolle: "admin", titel: "Fonts",             render: renderAdminFonts },
   // Privat: eigenes Training (Intervall-Timer + Historie), nur Valentin
   "/admin/springseil": { rolle: "admin", titel: "Springseil",      render: renderAdminSpringseil },
   // Kollaborator (externer Mitarbeiter: geteilte + eigene Mindmaps)
@@ -97,7 +104,8 @@ const NAV = {
     { href: "#/aufgaben",      label: "Aufgaben" },
     { href: "#/meine-videos",  label: "Meine Videos" },
     { href: "#/objekt-melden", label: "Objekt melden" },
-    { href: "#/kalender",      label: "Kalender" }
+    { href: "#/kalender",      label: "Kalender" },
+    { href: "#/meine-zahlen",  label: "Meine Zahlen" }
   ],
   // Admin-Nav ist gruppiert: 16 gleichrangige Links waren keine Navigation
   // mehr, sondern eine Liste — bei schmalem Fenster nur noch horizontal
@@ -126,13 +134,19 @@ const NAV = {
     { gruppe: "Außen", kinder: [
       { href: "#/admin/kunden",     label: "Kunden" },
       { href: "#/admin/kunde-feed", label: "Kunden-Feed" },
-      { href: "#/admin/webseite",   label: "Webseite" }
+      { href: "#/admin/webseite",   label: "Webseite" },
+      { href: "#/admin/social",     label: "Social" }
     ]},
     // Eigene Sachen — nicht unter „Ideen", weil hier nicht gesammelt, sondern
     // produziert wird (und weil später Post-Planung/Zahlen dazukommen sollen).
     { gruppe: "Personal Brand", kinder: [
       { href: "#/admin/brand",   label: "Skripte" },
       { href: "#/admin/formate", label: "Formate" }
+    ]},
+    // Arbeitsmittel, keine Ideensammlung: was beim Bauen der Videos immer
+    // gleich zur Hand sein muss. Später kommen Farben/LUTs/Presets dazu.
+    { gruppe: "Design", kinder: [
+      { href: "#/admin/fonts", label: "Fonts" }
     ]},
     // Privat, kein Arbeitskram — deshalb eine eigene Gruppe.
     { gruppe: "Training", kinder: [

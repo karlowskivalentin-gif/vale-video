@@ -3726,3 +3726,280 @@ body.is-shoot { background: #0d0b09; }
 .sh-ende-text { margin: 0; color: rgba(255, 255, 255, .6); }
 .sh-ende-btns { display: grid; gap: .5rem; width: 100%; max-width: 320px; }
 .sh-ende-ok { margin: 0; color: #9fe0b8; font-weight: 700; }
+
+/* =====================================================================
+   SOCIAL — Kennzahlen der Kunden-Accounts (Admin: admin-social.js,
+   Kunde: kunde-social.js). Praefix `sm-` fuer die geteilten Bausteine
+   (socialchart.js), `ks-` fuer das, was nur die Kunden-Ansicht hat.
+   Eigenes Praefix, weil generische Namen wie .kachel oder .tabelle im
+   Rest der Datei laengst vergeben waeren.
+   ===================================================================== */
+
+/* --- Umschalter (Tag/Woche/Monat, Sortierung, Plattform) ------------- */
+.sm-toggle { display: flex; gap: .25rem; flex-wrap: wrap; }
+.sm-toggle-btn {
+  border: 1px solid var(--mid); background: var(--surface); color: var(--muted);
+  font: inherit; font-size: .8rem; padding: .25rem .6rem;
+  border-radius: var(--radius); cursor: pointer; transition: all .15s;
+}
+.sm-toggle-btn:hover { border-color: var(--accent); color: var(--accent); }
+.sm-toggle-btn.is-active {
+  background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 500;
+}
+
+/* --- Verbindungsstatus ----------------------------------------------- */
+.sm-status-kopf { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.sm-status-punkt {
+  width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; background: var(--light);
+}
+.sm-status-punkt.is-ok    { background: var(--ok); }
+.sm-status-punkt.is-warn  { background: var(--warn); }
+.sm-status-punkt.is-error { background: var(--error); }
+.sm-status-meta { margin: .45rem 0 0; font-size: .85rem; }
+
+/* --- Kennzahl-Kacheln ------------------------------------------------ */
+.sm-kacheln {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: .75rem;
+}
+.sm-kachel {
+  background: var(--surface); border: 1px solid var(--mid);
+  border-radius: var(--radius-lg); padding: 1rem; text-align: center;
+  box-shadow: var(--shadow-card);
+}
+.sm-kachel-zahl { font-size: 1.6rem; font-weight: 600; line-height: 1.1; color: var(--black); }
+.sm-kachel-lbl  { font-size: .78rem; color: var(--muted); margin-top: .2rem; }
+.sm-kachel-trend { font-size: .78rem; margin-top: .35rem; font-weight: 500; }
+.sm-kachel-trend.is-auf { color: var(--ok); }
+.sm-kachel-trend.is-ab  { color: var(--error); }
+
+/* --- Block-Ueberschrift mit Umschalter rechts ------------------------ */
+.sm-block-kopf {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: .75rem; flex-wrap: wrap; margin-bottom: .75rem;
+}
+.sm-block-titel { font-size: 1rem; font-weight: 600; margin: 0 0 .6rem; }
+.sm-block-kopf .sm-block-titel { margin: 0; }
+.sm-hinweis { font-size: .8rem; margin: .5rem 0 0; }
+
+/* --- Follower-Kurve (inline-SVG) ------------------------------------- */
+.sm-kurve-wrap { margin: .25rem 0 0; }
+.sm-kurve { display: block; width: 100%; height: 170px; overflow: visible; }
+/* preserveAspectRatio="none" streckt das Koordinatensystem — ohne
+   non-scaling-stroke waere die Linie dadurch ungleich dick. */
+.sm-linie {
+  fill: none; stroke: var(--accent); stroke-width: 2;
+  stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke;
+}
+.sm-flaeche { fill: rgba(226, 98, 44, .08); stroke: none; }
+/* Unsichtbare, grosszuegige Trefferflaeche fuer den title-Tooltip. */
+.sm-punkt { fill: transparent; cursor: help; }
+.sm-achse {
+  display: flex; justify-content: space-between;
+  margin-top: .35rem; font-size: .72rem; color: var(--muted);
+}
+.sm-kurve-fuss { font-size: .75rem; margin-top: .5rem; }
+
+/* --- Wirkungs-Gegenueberstellung ------------------------------------- */
+.sm-wirkung-frage { font-size: .85rem; margin: 0 0 .75rem; }
+.sm-wirkung { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+.sm-wirkung-seite {
+  border: 1px solid var(--mid); border-radius: var(--radius-lg);
+  padding: .9rem; text-align: center; background: var(--surface-2);
+}
+.sm-wirkung-seite.is-mit {
+  border-color: var(--accent); background: rgba(226, 98, 44, .06);
+}
+.sm-wirkung-zahl { font-size: 1.5rem; font-weight: 600; line-height: 1.1; }
+.sm-wirkung-seite.is-mit .sm-wirkung-zahl { color: var(--accent-dim); }
+.sm-wirkung-lbl { font-size: .8rem; margin-top: .2rem; }
+.sm-wirkung-n   { font-size: .72rem; margin-top: .15rem; }
+.sm-wirkung-fazit { margin: .85rem 0 0; font-size: .92rem; font-weight: 500; }
+.sm-wirkung-fazit.is-gut { color: var(--ok); }
+
+/* --- Post-Tabelle (Admin) -------------------------------------------- */
+/* Eigener Scroll-Container: die Tabelle darf schmale Schirme nicht dazu
+   zwingen, die ganze Seite horizontal zu schieben. */
+.sm-tabelle-wrap { overflow-x: auto; margin-top: .75rem; }
+.sm-tabelle { width: 100%; border-collapse: collapse; font-size: .85rem; }
+.sm-tabelle th {
+  text-align: left; font-weight: 500; color: var(--muted); font-size: .75rem;
+  padding: .4rem .5rem; border-bottom: 1px solid var(--mid); white-space: nowrap;
+}
+.sm-tabelle td { padding: .5rem; border-bottom: 1px solid var(--dark); vertical-align: middle; }
+.sm-tabelle tr:last-child td { border-bottom: none; }
+.sm-num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.sm-td-bild { width: 48px; }
+/* Der Platzhalter liegt als ::before schon in der Box. Ein Bild legt sich
+   darueber; scheitert es (abgelaufene Instagram-CDN-URL), blendet es sich
+   per onerror aus und gibt den Platzhalter wieder frei. */
+.sm-thumb-box {
+  position: relative; display: inline-block; width: 40px; height: 40px;
+  border-radius: var(--radius); background: var(--surface-2);
+  border: 1px solid var(--mid); vertical-align: middle;
+}
+.sm-thumb-box::before {
+  content: "\25A6"; position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--light); font-size: 1rem;
+}
+.sm-thumb {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; border-radius: var(--radius); display: block;
+}
+.sm-post-datum { white-space: nowrap; }
+.sm-post-typ { font-size: .72rem; }
+.sm-td-video { min-width: 160px; }
+.sm-video-wahl {
+  width: 100%; max-width: 220px; font: inherit; font-size: .8rem;
+  padding: .3rem .4rem; border: 1px solid var(--mid);
+  border-radius: var(--radius); background: var(--surface); color: var(--black);
+}
+
+/* --- Erfasste Tage ---------------------------------------------------- */
+.sm-tage { display: flex; flex-direction: column; gap: .1rem; }
+.sm-tag-zeile {
+  display: flex; align-items: center; gap: .75rem;
+  padding: .4rem .1rem; border-bottom: 1px solid var(--dark); font-size: .85rem;
+}
+.sm-tag-zeile:last-child { border-bottom: none; }
+.sm-tag-datum  { font-variant-numeric: tabular-nums; min-width: 5.8rem; }
+.sm-tag-wert   { flex: 1 1 auto; }
+.sm-tag-quelle { font-size: .75rem; white-space: nowrap; }
+.sm-tag-del {
+  border: none; background: none; color: var(--light); cursor: pointer;
+  font-size: 1.1rem; line-height: 1; padding: 0 .3rem; border-radius: var(--radius);
+}
+.sm-tag-del:hover { color: var(--error); }
+.sm-tag-del.is-warnend {
+  color: var(--error); background: var(--error-bg); font-size: .75rem; padding: .2rem .4rem;
+}
+
+.sm-form { border-color: var(--accent); }
+
+/* --- Kunden-Ansicht: staerkste Beitraege ------------------------------ */
+.ks-posts {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: .75rem;
+}
+.ks-post {
+  display: block; text-decoration: none; color: inherit;
+  border: 1px solid var(--mid); border-radius: var(--radius-lg);
+  padding: .6rem; background: var(--surface); transition: border-color .15s;
+}
+a.ks-post:hover { border-color: var(--accent); }
+.ks-post-bild {
+  width: 100%; aspect-ratio: 1 / 1; object-fit: cover;
+  border-radius: var(--radius); margin-bottom: .5rem; display: block;
+}
+.ks-post-zahlen {
+  display: flex; gap: .6rem; flex-wrap: wrap;
+  font-size: .8rem; font-variant-numeric: tabular-nums;
+}
+.ks-post-datum { font-size: .72rem; margin-top: .25rem; }
+
+/* --- Schmale Schirme -------------------------------------------------- */
+@media (max-width: 640px) {
+  .sm-kurve { height: 140px; }
+  .sm-wirkung { grid-template-columns: 1fr; }
+  .sm-kachel-zahl { font-size: 1.35rem; }
+  .sm-block-kopf { align-items: flex-start; flex-direction: column; }
+  .sm-tag-zeile { flex-wrap: wrap; gap: .4rem .75rem; }
+}
+
+/* ---- Fonts (Go-To-Schriften für Videos, Admin-only) ---- */
+/* Die Werkbank oben steuert alle Proben über CSS-Variablen und zwei Klassen
+   am Listen-Container — deshalb kostet Größe/Dunkel/Versalien kein Neuzeichnen. */
+.ft-werkbank {
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 1rem 1.4rem;
+  margin-bottom: 1.1rem; position: sticky; top: .5rem; z-index: 5;
+}
+.ft-werk-feld { display: flex; flex-direction: column; gap: .3rem; min-width: 190px; }
+.ft-werk-feld--breit { flex: 1 1 260px; }
+.ft-werk-feld label {
+  font-size: .72rem; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--light);
+  display: flex; align-items: baseline; gap: .5rem;
+}
+.ft-werk-wert { font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--muted); }
+.ft-werk-feld input[type="text"] {
+  width: 100%; padding: .5rem .65rem; font: inherit;
+  border: 1px solid var(--mid); border-radius: var(--radius); background: var(--surface);
+}
+.ft-werk-feld input[type="text"]:focus { outline: none; border-color: var(--accent); }
+.ft-werk-feld input[type="range"] { width: 100%; accent-color: var(--accent); }
+.ft-werk-schalter { display: flex; gap: .45rem; }
+.ft-werk-schalter .btn.is-active {
+  background: var(--accent); border-color: var(--accent); color: #fff;
+}
+
+.ft-chips { display: flex; gap: .45rem; flex-wrap: wrap; margin: 0 0 1.1rem; }
+.ft-chip {
+  font: inherit; font-size: .8rem; cursor: pointer;
+  padding: .3rem .8rem; border-radius: 999px;
+  border: 1px solid var(--mid); background: var(--surface); color: var(--muted);
+  transition: border-color .15s, color .15s, background .15s;
+}
+.ft-chip:hover { border-color: var(--accent); color: var(--accent-dim); }
+.ft-chip.is-active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.ft-form { margin-bottom: 1.1rem; }
+.ft-quelle-chips, .ft-zweck-chips { display: flex; gap: .4rem; flex-wrap: wrap; }
+.ft-quelle-chip, .ft-zweck-chip {
+  font: inherit; font-size: .8rem; cursor: pointer;
+  padding: .3rem .75rem; border-radius: 999px;
+  border: 1px solid var(--mid); background: var(--surface); color: var(--muted);
+}
+.ft-quelle-chip:hover, .ft-zweck-chip:hover { border-color: var(--accent); color: var(--accent-dim); }
+.ft-quelle-chip.is-active, .ft-zweck-chip.is-active {
+  background: var(--accent); border-color: var(--accent); color: #fff;
+}
+
+.ft-sektion { margin-bottom: 1.8rem; }
+.ft-sektion-titel {
+  font-size: .78rem; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--light); margin: 0 0 .7rem;
+}
+.ft-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 1.25rem; align-items: start; }
+.ft-karte { padding: 1rem 1.1rem 1.1rem; display: flex; flex-direction: column; gap: .8rem; min-width: 0; }
+
+.ft-kopf { display: flex; align-items: flex-start; gap: .6rem; min-width: 0; }
+.ft-kopf-text { flex: 1 1 auto; min-width: 0; }
+.ft-name { font-size: 1rem; font-weight: 700; margin: 0 0 .35rem; overflow-wrap: anywhere; }
+.ft-badges { display: flex; gap: .35rem; flex-wrap: wrap; }
+.ft-pin {
+  flex: 0 0 auto; font-size: 1rem; line-height: 1; cursor: pointer;
+  width: 30px; height: 30px; border-radius: 50%;
+  border: 1px solid var(--mid); background: var(--surface);
+  filter: grayscale(1); opacity: .5; transition: opacity .15s, filter .15s, border-color .15s;
+}
+.ft-pin:hover { opacity: .85; }
+.ft-pin.is-an { filter: none; opacity: 1; border-color: var(--accent); background: rgba(226, 98, 44, .10); }
+
+/* Die eigentliche Vorschau. Größe kommt als Variable vom Listen-Container,
+   damit der Slider ohne Neuzeichnen wirkt. */
+.ft-probe-flaeche {
+  border: 1px solid var(--mid); border-radius: var(--radius-lg);
+  background: var(--surface-2); padding: 1rem 1.1rem; overflow: hidden;
+}
+.ft-probe {
+  font-size: var(--ft-groesse, 44px); line-height: 1.15;
+  overflow-wrap: anywhere; margin-bottom: .55rem;
+}
+.ft-zeichen {
+  font-size: .95rem; line-height: 1.5; color: var(--muted);
+  overflow-wrap: anywhere; border-top: 1px solid var(--mid); padding-top: .55rem;
+}
+/* Videotext steht meistens hell auf dunklem Bild — dieser Schalter zeigt genau das. */
+.ft-liste.is-dunkel .ft-probe-flaeche { background: var(--black); border-color: var(--black); }
+.ft-liste.is-dunkel .ft-probe { color: #fff; }
+.ft-liste.is-dunkel .ft-zeichen { color: rgba(255, 255, 255, .62); border-top-color: rgba(255, 255, 255, .18); }
+.ft-liste.is-versal .ft-probe { text-transform: uppercase; }
+
+.ft-zwecke { display: flex; gap: .35rem; flex-wrap: wrap; }
+.ft-notiz { margin: 0; font-size: .88rem; color: var(--muted); overflow-wrap: anywhere; }
+.ft-fuss { display: flex; gap: .4rem; flex-wrap: wrap; align-items: center; margin-top: auto; padding-top: .2rem; }
+.ft-fuss .gd-del { margin-left: auto; }
+
+@media (max-width: 640px) {
+  .ft-grid { grid-template-columns: 1fr; }
+  .ft-werkbank { position: static; }
+}
