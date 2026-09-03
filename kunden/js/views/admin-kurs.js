@@ -44,7 +44,8 @@ export function renderAdminKurs(container) {
       await saveRoadmap(teil);
       const t = new Date().toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
       meldung(`Gespeichert ${t}`, false);
-    } catch (_) {
+    } catch (e) {
+      console.error("[Kurs] Speichern fehlgeschlagen:", e && e.code, e && e.message);
       if (typeof rueckgaengig === "function") rueckgaengig();
       zeichne();
       meldung("Konnte nicht speichern — Verbindung prüfen", true);
@@ -212,7 +213,10 @@ export function renderAdminKurs(container) {
       const daten = await getRoadmap();
       done = daten.kurs || {};
       zeichne();
-    } catch (_) {
+    } catch (e) {
+      // Nicht verschlucken: bei fehlender Rule kommt hier
+      // permission-denied an — ohne Log sucht man lange.
+      console.error("[Kurs] Laden fehlgeschlagen:", e && e.code, e && e.message);
       body.classList.remove("rm-laedt");
       body.innerHTML = `<section class="card card--pad rm-block">
         <p class="rm-fehler">Kurs konnte nicht geladen werden — Verbindung prüfen und die Seite neu laden.</p>
