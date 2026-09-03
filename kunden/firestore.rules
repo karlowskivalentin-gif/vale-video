@@ -299,6 +299,25 @@ service cloud.firestore {
       allow read, write: if istAdmin();
     }
 
+    // ---- kundenformate (Baupläne PRO KUNDE) --------------------------
+    // Gleiche Struktur wie /formate, aber kundengetrennt: der Admin pflegt
+    // sie, der Kunde sieht seine eigenen im Portal (nur lesen).
+    //
+    // BEWUSST eine eigene Collection statt eines kundeId-Feldes an /formate:
+    // gehoertMir() faellt bei fehlendem Feld auf 'deussen' zurueck (Altbestand-
+    // Netz), und Valentins Personal-Brand-Formate haben kein kundeId — sie
+    // waeren damit fuer Deussen-Logins lesbar geworden.
+    //
+    // Auch kein gehoertMir() hier, sondern der direkte Vergleich: fehlt
+    // kundeId an einem Dokument, schlaegt die Regel fehl (fail-closed) statt
+    // es stillschweigend einem Kunden zuzuordnen. Die Bedingung steht in der
+    // read-Regel, damit auch list-Queries auf eine fremde kundeId scheitern.
+    match /kundenformate/{id} {
+      allow read:  if istAdmin()
+                   || (istKunde() && resource.data.kundeId == kundeVon());
+      allow write: if istAdmin();
+    }
+
     // ---- moodboard (Kanal-Haftnotizen, Admin-only) -------------------
     // Persönliche Pinnwand mit Inspirations-YouTube-Kanälen (was gefällt,
     // was nachahmen). Der Kunde sieht das NIE.

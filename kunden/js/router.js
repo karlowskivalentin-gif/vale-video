@@ -37,6 +37,7 @@ import { renderAdminBrand } from "./views/admin-brand.js";
 import { renderAdminBrandSkript } from "./views/admin-brand-skript.js";
 import { renderAdminShoot } from "./views/admin-shoot.js";
 import { renderAdminFormate } from "./views/admin-formate.js";
+import { renderKundeFormate } from "./views/kunde-formate.js";
 import { renderAdminFonts } from "./views/admin-fonts.js";
 import { renderAdminSpringseil } from "./views/admin-springseil.js";
 import { renderAdminSocial } from "./views/admin-social.js";
@@ -64,6 +65,8 @@ const ROUTES = {
   "/objekt-melden":  { rolle: "kunde", titel: "Objekt melden",   render: renderObjektMelden },
   "/kalender":       { rolle: "kunde", titel: "Kalender",        render: renderKundeKalender },
   "/meine-zahlen":   { rolle: "kunde", titel: "Meine Zahlen",    render: renderKundeSocial },
+  // Baupläne für die eigenen Videos — read-only, gepflegt unter /admin/kunde-formate.
+  "/formate":        { rolle: "kunde", titel: "Formate",         render: renderKundeFormate },
   "/video":          { rolle: "kunde", titel: "Video",           render: renderVideoDetail, param: true },
   // Admin
   // Eigene Geschaefts-Roadmap: Phasen, Meilensteine, Monatsumsatz. Steht
@@ -97,6 +100,10 @@ const ROUTES = {
   "/admin/skript":   { rolle: "admin", titel: "Skript",            render: renderAdminBrandSkript, param: true },
   "/admin/shoot":    { rolle: "admin", titel: "Shoot-Modus",       render: renderAdminShoot, param: true },
   "/admin/formate":  { rolle: "admin", titel: "Formate",           render: renderAdminFormate },
+  // Dieselbe View, aber auf die Formate des aktiven Kunden (/kundenformate).
+  // Was hier steht, sieht der Kunde unter #/formate in seinem Portal.
+  "/admin/kunde-formate": { rolle: "admin", titel: "Kunden-Formate",
+                            render: (c, o) => renderAdminFormate(c, { ...o, modus: "kunde" }) },
   // Design: feste Arbeitsmittel für die Videos (Schriften, später mehr)
   "/admin/fonts":    { rolle: "admin", titel: "Fonts",             render: renderAdminFonts },
   // Privat: eigenes Training (Intervall-Timer + Historie), nur Valentin
@@ -113,7 +120,8 @@ const NAV = {
     { href: "#/meine-videos",  label: "Meine Videos" },
     { href: "#/objekt-melden", label: "Objekt melden" },
     { href: "#/kalender",      label: "Kalender" },
-    { href: "#/meine-zahlen",  label: "Meine Zahlen" }
+    { href: "#/meine-zahlen",  label: "Meine Zahlen" },
+    { href: "#/formate",       label: "Formate" }
   ],
   // Admin-Nav ist gruppiert: 16 gleichrangige Links waren keine Navigation
   // mehr, sondern eine Liste — bei schmalem Fenster nur noch horizontal
@@ -144,6 +152,7 @@ const NAV = {
     { gruppe: "Außen", kinder: [
       { href: "#/admin/kunden",     label: "Kunden" },
       { href: "#/admin/kunde-feed", label: "Kunden-Feed" },
+      { href: "#/admin/kunde-formate", label: "Formate" },
       { href: "#/admin/webseite",   label: "Webseite" },
       { href: "#/admin/social",     label: "Social" }
     ]},

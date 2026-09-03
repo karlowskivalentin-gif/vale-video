@@ -1421,8 +1421,11 @@ export function beobachteBrandSkripte(callback, onError) {
 // =====================================================================
 const formateCol = () => collection(db, "formate");
 
-export async function formatAnlegen(daten = {}) {
-  return addDoc(formateCol(), {
+// Die Feldliste eines Formats — geteilt von /formate (Personal Brand) und
+// /kundenformate (pro Kunde), damit beide garantiert dieselbe Struktur haben
+// und EINE View beide bedienen kann.
+function formatFelder(daten = {}) {
+  return {
     name:           daten.name || "",
     beschreibung:   daten.beschreibung || "",
     plattformen:    Array.isArray(daten.plattformen) ? daten.plattformen : [],
@@ -1432,7 +1435,13 @@ export async function formatAnlegen(daten = {}) {
     beats:          Array.isArray(daten.beats) ? daten.beats : [],
     hooks:          Array.isArray(daten.hooks) ? daten.hooks : [],
     inspirationIds: Array.isArray(daten.inspirationIds) ? daten.inspirationIds : [],
-    links:          Array.isArray(daten.links) ? daten.links : [],
+    links:          Array.isArray(daten.links) ? daten.links : []
+  };
+}
+
+export async function formatAnlegen(daten = {}) {
+  return addDoc(formateCol(), {
+    ...formatFelder(daten),
     erstelltAm:     serverTimestamp(),
     aktualisiertAm: serverTimestamp()
   });
@@ -1462,6 +1471,50 @@ export function beobachteFormate(callback, onError) {
     (snap) => callback(snapToArr(snap).sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "de"))),
     onError || (() => {})
   );
+}
+
+// =====================================================================
+// KUNDENFORMATE — dieselben Baupläne, aber PRO KUNDE.
+//
+// Eigene Collection statt eines kundeId-Feldes an /formate: gehoertMir()
+// faellt bei fehlendem Feld auf 'deussen' zurueck (Altbestand-Netz), und
+// Valentins Personal-Brand-Formate haben kein kundeId — sie waeren damit
+// fuer Deussen-Logins lesbar geworden. Die Trennung ist die sichere Variante
+// und spart zugleich eine Migration des Altbestands.
+//
+// Felder wie /formate (formatFelder) plus:
+//   kundeId (string) — Pflicht. Die Rules vergleichen direkt dagegen; fehlt
+//                      das Feld, schlaegt der Lesezugriff fehl (fail-closed).
+//
+// Rechte: Admin schreibt, der Kunde liest seine eigenen (firestore.rules).
+// =====================================================================
+const kundenformateCol = () => collection(db, "kundenformate");
+
+export async function kundenformatAnlegen(kundeId, daten = {}) {
+  if (!kundeId) throw new Error("kundenformatAnlegen: kundeId fehlt");
+  return addDoc(kundenformateCol(), {
+    ...formatFelder(daten),
+    kundeId,
+    erstelltAm:     serverTimestamp(),
+    aktualisiertAm: serverTimestamp()
+  });
+}
+
+// Sortiert wird bewusst im Client: ein where + orderBy braeuchte einen
+// zusammengesetzten Index, der eigens deployt werden muesste.
+export async function ladeKundenformate(kundeId) {
+  if (!kundeId) return [];
+  const snap = await getDocs(query(kundenformateCol(), where("kundeId", "==", kundeId)));
+  return snapToArr(snap)
+    .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "de"));
+}
+
+export async function aktualisiereKundenformat(id, felder) {
+  return updateDoc(doc(db, "kundenformate", id), { ...felder, aktualisiertAm: serverTimestamp() });
+}
+
+export async function loescheKundenformat(id) {
+  return deleteDoc(doc(db, "kundenformate", id));
 }
 
 // =====================================================================

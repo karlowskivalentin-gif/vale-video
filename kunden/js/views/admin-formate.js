@@ -1,4 +1,8 @@
-// Admin-View: Personal Brand → Formate (Admin-only) — Route #/admin/formate
+// Admin-View: Formate — ZWEI Routen, eine Implementierung:
+//   #/admin/formate        Personal Brand (Collection /formate, nur Valentin)
+//   #/admin/kunde-formate  der aktive Kunde (Collection /kundenformate)
+// Der Unterschied steckt allein in `quelle` (unten) — Aufbau, Editor und
+// Bedienung sind identisch, damit ein Format ueberall dasselbe bedeutet.
 //
 // Ein Format ist ein REZEPT, keine Linksammlung. Es beantwortet drei Fragen:
 //   1. Bauplan     — welche Beats in welcher Reihenfolge (= Take-Gerüst)
@@ -13,7 +17,8 @@
 // (/admin/inspiration) — ein TikTok wird einmal gepflegt und kann in mehreren
 // Formaten hängen. Zusätzliche Links gehen trotzdem direkt am Format.
 import { ladeFormate, formatAnlegen, aktualisiereFormat, loescheFormat,
-         beobachteInspirationen } from "../db.js";
+         ladeKundenformate, kundenformatAnlegen, aktualisiereKundenformat,
+         loescheKundenformat, beobachteInspirationen } from "../db.js";
 import { beiViewWechsel } from "../view-lifecycle.js";
 import { escapeHtml } from "../util.js";
 import { embedHtml, verarbeiteEmbeds } from "../embeds.js";
@@ -33,14 +38,48 @@ export function renderAdminFormate(container, ctx = {}) {
   let filter = "alle";
   let offen = (ctx.query && ctx.query.f) || null;   // aufgeklapptes Format
 
+  // --- Welche Formate? --------------------------------------------------
+  // Der Kundenmodus haengt am aktiven Kunden aus dem Umschalter oben; wechselt
+  // der, baut der Router die View ohnehin neu (router.js → beiKundenwechsel).
+  const kundenModus = ctx.modus === "kunde";
+  const kundeId = ctx.kundeId || null;
+  const quelle = kundenModus
+    ? { laden:    () => ladeKundenformate(kundeId),
+        anlegen:  (d) => kundenformatAnlegen(kundeId, d),
+        aendern:  aktualisiereKundenformat,
+        loeschen: loescheKundenformat,
+        collection: "kundenformate" }
+    : { laden:    ladeFormate,
+        anlegen:  formatAnlegen,
+        aendern:  aktualisiereFormat,
+        loeschen: loescheFormat,
+        collection: "formate" };
+
+  // Ohne gewaehlten Kunden gibt es nichts zu zeigen — und ein „+ Neues Format"
+  // haette keine kundeId, an die es haengen koennte.
+  if (kundenModus && !kundeId) {
+    container.innerHTML = `
+      <div class="admin-head"><h1 class="view-title" style="margin:0">Formate</h1></div>
+      <div class="card card--pad empty-card">
+        <div class="empty-emoji">👥</div>
+        <p class="empty-title">Kein Kunde gewählt</p>
+        <p class="muted">Wähle oben im Umschalter einen Kunden — seine Formate erscheinen dann hier.</p>
+      </div>`;
+    return;
+  }
+
   container.innerHTML = `
     <div class="admin-head">
       <h1 class="view-title" style="margin:0">Formate</h1>
       <button class="btn btn--accent btn--sm" id="fmNeu" type="button">+ Neues Format</button>
     </div>
-    <p class="muted view-intro">Deine Baupläne: Aufbau, Material-Bedarf und die Referenzvideos, die zeigen,
-      dass es funktioniert. Beim Anlegen eines Skripts wählst du ein Format — seine Beats stehen dann
-      sofort als Takes bereit.</p>
+    <p class="muted view-intro">${kundenModus
+      ? `Baupläne für diesen Kunden: Aufbau, Material-Bedarf und die Referenzvideos, die zeigen,
+         dass es funktioniert. <strong>Der Kunde sieht diese Formate in seinem Portal</strong> —
+         schreib sie so, dass sie ihm etwas sagen.`
+      : `Deine Baupläne: Aufbau, Material-Bedarf und die Referenzvideos, die zeigen,
+         dass es funktioniert. Beim Anlegen eines Skripts wählst du ein Format — seine Beats stehen dann
+         sofort als Takes bereit.`}</p>
     <div class="insp-chips" id="fmChips">
       ${FILTER.map((f) => `<button class="insp-chip${f.id === "alle" ? " is-active" : ""}" data-f="${f.id}" type="button">${f.label}</button>`).join("")}
     </div>
@@ -58,21 +97,21 @@ export function renderAdminFormate(container, ctx = {}) {
   neuBtn.addEventListener("click", async () => {
     neuBtn.disabled = true;
     try {
-      const ref = await formatAnlegen({
+      const ref = await quelle.anlegen({
         name: "",
         // Ein leeres Format hilft niemandem — der Standard-Dreiklang steht
         // schon da und kann umbenannt oder gelöscht werden.
         beats: [leererBeat("Hook"), leererBeat("Kern"), leererBeat("CTA")]
       });
-      const frisch = await ladeFormate();
+      const frisch = await quelle.laden();
       formate = frisch;
       offen = ref.id;
       zeichne();
       const el = liste.querySelector(`.fm-karte[data-id="${CSS.escape(ref.id)}"] input`);
       if (el) el.focus();
     } catch (e) {
-      console.warn("Format anlegen fehlgeschlagen:", e);
-      alert("Konnte nicht anlegen. Sind die Firestore-Rules für „formate“ veröffentlicht?");
+      console.error("Format anlegen fehlgeschlagen:", e && e.code, e && e.message);
+      alert(`Konnte nicht anlegen. Sind die Firestore-Rules für „${quelle.collection}“ veröffentlicht?`);
     }
     neuBtn.disabled = false;
   });
@@ -82,11 +121,11 @@ export function renderAdminFormate(container, ctx = {}) {
   function speichere(f) {
     clearTimeout(timer[f.id]);
     timer[f.id] = setTimeout(() => {
-      aktualisiereFormat(f.id, {
+      quelle.aendern(f.id, {
         name: f.name, beschreibung: f.beschreibung, plattformen: f.plattformen,
         talkingHead: f.talkingHead, materialBedarf: f.materialBedarf, aufwand: f.aufwand,
         beats: f.beats, hooks: f.hooks, inspirationIds: f.inspirationIds, links: f.links
-      }).catch((e) => console.warn("Format speichern fehlgeschlagen:", e));
+      }).catch((e) => console.error("Format speichern fehlgeschlagen:", e && e.code, e && e.message));
     }, 600);
   }
   beiViewWechsel(() => Object.values(timer).forEach(clearTimeout));
@@ -115,7 +154,7 @@ export function renderAdminFormate(container, ctx = {}) {
       labelVon(AUFWAND, f.aufwand),
       ...(f.plattformen || []).map((p) => labelVon(PLATTFORMEN, p)).filter(Boolean)
     ].filter(Boolean);
-    const referenzen = (f.inspirationIds || []).length + (f.links || []).length;
+    const referenzen = (kundenModus ? 0 : (f.inspirationIds || []).length) + (f.links || []).length;
 
     return `
       <article class="card fm-karte${auf ? " is-offen" : ""}" data-id="${escapeHtml(f.id)}">
@@ -185,7 +224,12 @@ export function renderAdminFormate(container, ctx = {}) {
 
         <div class="fm-block">
           <span class="bs-feld-titel">Referenzvideos</span>
-          ${inspGeladen ? inspAuswahlHtml(f) : `<p class="muted">Inspirationen werden geladen …</p>`}
+          ${kundenModus
+            // Die Inspirations-Sammlung ist admin-only (firestore.rules) — der
+            // Kunde koennte solche Referenzen nie laden. Im Kundenmodus darum
+            // nur eigene Links, sonst stuenden im Portal Luecken.
+            ? `<p class="muted" style="margin:.2rem 0 .5rem">Links, die der Kunde in seinem Portal sieht.</p>`
+            : (inspGeladen ? inspAuswahlHtml(f) : `<p class="muted">Inspirationen werden geladen …</p>`)}
           <div class="fm-links">
             ${f.links.map((l, i) => `
               <div class="fm-link" data-i="${i}">
@@ -245,10 +289,10 @@ export function renderAdminFormate(container, ctx = {}) {
 
   function vorschauHtml(f) {
     const urls = [
-      ...f.inspirationIds
+      ...(kundenModus ? [] : f.inspirationIds
         .map((iid) => inspirationen.find((x) => x.id === iid))
         .filter(Boolean)
-        .map((i) => i.url),
+        .map((i) => i.url)),
       ...f.links.map((l) => l.url)
     ].filter((u) => String(u || "").trim());
     if (!urls.length) return "";
@@ -267,8 +311,9 @@ export function renderAdminFormate(container, ctx = {}) {
       liste.innerHTML = `<div class="card card--pad empty-card">
         <div class="empty-emoji">🧩</div>
         <p class="empty-title">${formate.length ? "Nichts in diesem Filter" : "Noch kein Format"}</p>
-        <p class="muted">Ein Format ist dein Bauplan: Aufbau, was du dafür brauchst, und die Videos,
-          an denen du dich orientierst.</p>
+        <p class="muted">${kundenModus
+          ? "Ein Format ist der Bauplan für die Videos dieses Kunden: Aufbau, was dafür gebraucht wird, und die Videos, an denen ihr euch orientiert."
+          : "Ein Format ist dein Bauplan: Aufbau, was du dafür brauchst, und die Videos, an denen du dich orientierst."}</p>
       </div>`;
       return;
     }
@@ -294,11 +339,11 @@ export function renderAdminFormate(container, ctx = {}) {
           return;
         }
         try {
-          await loescheFormat(fid);
+          await quelle.loeschen(fid);
           formate = formate.filter((x) => x.id !== fid);
           if (offen === fid) offen = null;
           zeichne();
-        } catch (e) { console.warn("Löschen fehlgeschlagen:", e); }
+        } catch (e) { console.error("Löschen fehlgeschlagen:", e && e.code, e && e.message); }
       });
 
       if (offen !== fid) return;
@@ -411,20 +456,23 @@ export function renderAdminFormate(container, ctx = {}) {
   // --- Laden ------------------------------------------------------------
   (async function laden() {
     try {
-      formate = (await ladeFormate()).map(normalisiere);
+      formate = (await quelle.laden()).map(normalisiere);
       zeichne();
     } catch (e) {
-      console.warn("Formate laden fehlgeschlagen:", e);
+      console.error("Formate laden fehlgeschlagen:", e && e.code, e && e.message);
       liste.innerHTML = `<div class="card card--pad"><p class="notice notice--error" style="margin:0">
-        Konnte nicht laden — sind die Firestore-Rules für „formate" veröffentlicht?</p></div>`;
+        Konnte nicht laden — sind die Firestore-Rules für „${quelle.collection}" veröffentlicht?</p></div>`;
     }
   })();
 
   // Inspirations-Cards zur Auswahl. Nur der ERSTE Snapshot löst ein Neuzeichnen
   // aus — danach würde ein Re-Render die gerade getippte Eingabe zerstören.
-  const unsub = beobachteInspirationen((l) => {
-    inspirationen = l;
-    if (!inspGeladen) { inspGeladen = true; if (formate.length) zeichne(); }
-  }, (e) => { console.warn("Inspirationen laden fehlgeschlagen:", e); inspGeladen = true; });
-  beiViewWechsel(unsub);
+  // Im Kundenmodus gar nicht erst abonnieren: dort werden sie nicht angeboten.
+  if (!kundenModus) {
+    const unsub = beobachteInspirationen((l) => {
+      inspirationen = l;
+      if (!inspGeladen) { inspGeladen = true; if (formate.length) zeichne(); }
+    }, (e) => { console.error("Inspirationen laden fehlgeschlagen:", e && e.code, e && e.message); inspGeladen = true; });
+    beiViewWechsel(unsub);
+  }
 }
