@@ -188,21 +188,31 @@ export function zeigeDateiInline(el, { base64, typ, name }) {
   } else if (mime.startsWith("audio/")) {
     el.innerHTML = `<audio style="width:100%" controls src="${blobUrl()}"></audio>`;
   } else if (mime === "application/pdf") {
+    // Der Download fehlte hier: ein PDF-Skript liess sich nur im Rahmen ansehen
+    // oder in einem Tab oeffnen, aber nie als Datei sichern. Betraf auch die
+    // Kundenansicht, die dieselbe Funktion nutzt.
     const u = blobUrl();
     el.innerHTML = `
       <div class="datei-pdf">
+        <div class="datei-aktionen">
+          <a class="btn btn--ghost btn--sm" href="${u}" download="${escapeHtml(name || "skript.pdf")}">Herunterladen ↓</a>
+          <a class="btn btn--ghost btn--sm" href="${u}" target="_blank" rel="noopener">In neuem Tab öffnen ↗</a>
+        </div>
         <iframe class="datei-pdf-frame" src="${u}" title="${escapeHtml(name || "PDF")}"></iframe>
-        <a class="btn btn--ghost btn--sm" href="${u}" target="_blank" rel="noopener">In neuem Tab öffnen ↗</a>
       </div>`;
   } else if (mime.includes("wordprocessingml") || endetAuf(name, ".docx")) {
     // Word: extrahierten Text als Vorschau (kein Fremdlib), plus Download.
+    // Der Download steht BEWUSST ueber der Vorschau — darunter liegt er bei
+    // einem langen Skript ausserhalb des Sichtfelds und gilt als nicht da.
     el.innerHTML = `<div class="datei-word"><span class="muted" style="font-size:.85rem">Vorschau lädt …</span></div>`;
     const ziel = el.querySelector(".datei-word");
     (async () => {
       try {
         const text = await textAusDocx(base64ZuBytes(base64).buffer);
-        ziel.innerHTML = `<pre class="datei-word-text">${escapeHtml(text || "(leeres Dokument)")}</pre>
-          <a class="btn btn--ghost btn--sm" href="${blobUrl()}" download="${escapeHtml(name || "dokument.docx")}">Original herunterladen ↓</a>`;
+        ziel.innerHTML = `<div class="datei-aktionen">
+            <a class="btn btn--ghost btn--sm" href="${blobUrl()}" download="${escapeHtml(name || "dokument.docx")}">Original herunterladen ↓</a>
+          </div>
+          <pre class="datei-word-text">${escapeHtml(text || "(leeres Dokument)")}</pre>`;
       } catch (_) {
         ziel.innerHTML = `<a class="btn btn--ghost btn--sm" href="${blobUrl()}" download="${escapeHtml(name || "dokument.docx")}">Herunterladen ↓</a>`;
       }

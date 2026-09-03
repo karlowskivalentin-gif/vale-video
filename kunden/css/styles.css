@@ -2484,6 +2484,14 @@ a.news-item:hover { background: var(--off-white); }
 .datei-vid { width: 100%; border-radius: var(--radius); }
 .datei-word { max-height: 60vh; overflow: auto; border: 1px solid var(--mid); border-radius: var(--radius); padding: 0.8rem 1rem; background: var(--surface); }
 .datei-word-text { white-space: pre-wrap; word-break: break-word; font: inherit; font-size: 0.9rem; margin: 0 0 0.6rem; }
+/* Aktionsleiste über einer Datei-Vorschau (Herunterladen / in neuem Tab).
+   Im Word-Kasten klebt sie oben fest — sonst scrollt der Download bei einem
+   langen Skript aus dem Sichtfeld und gilt als nicht vorhanden. */
+.datei-aktionen { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0 0 0.6rem; }
+.datei-word .datei-aktionen {
+  position: sticky; top: 0; z-index: 1;
+  background: var(--surface); padding: 0.15rem 0 0.45rem;
+}
 
 /* --- Springseil: Intervall-Timer + Historie (privat, Admin) ---------
    Eigener spr-Namensraum: die Vorlage brachte sehr allgemeine Klassennamen

@@ -17,7 +17,7 @@ import { renderPlanDetails, planZuSnapshot } from "../plan-ansicht.js";
 import { sendKundeFreigabe } from "../email.js";
 import { videoNeuerEntwurf } from "../versionen.js";
 import { embedHtml, erkennePlattform, verarbeiteEmbeds } from "../embeds.js";
-import { dateiZuBase64, extrahiereText, zeigeDateiInline } from "../docparse.js";
+import { dateiZuBase64, extrahiereText, zeigeDateiInline, base64ZuBlobUrl } from "../docparse.js";
 import { rolleVon } from "../roles.js";
 import { parseBeats, beatsZuChecklist } from "../beats.js";
 
@@ -670,6 +670,7 @@ function initDrehplan(video, body) {
             <span>📄 ${escapeHtml(u.dateiName || "Skript")} <span class="muted">· ${escapeHtml(quelleLabel(u))} · ${escapeHtml(formatDatum(u.erstelltAm, true))}${u.erledigt ? " · ✅" : ""}</span></span>
             <span class="dreh-upload-btns">
               <button class="btn btn--ghost btn--sm" data-akt="ansehen" type="button">Ansehen</button>
+              <button class="btn btn--ghost btn--sm" data-akt="download" type="button" title="Die Original-Datei herunterladen">↓ Datei</button>
               <button class="btn btn--ok btn--sm" data-akt="beats" type="button">Beats erzeugen</button>
               <button class="btn btn--ghost btn--sm" data-akt="erledigt" type="button">${u.erledigt ? "Als offen" : "Erledigt"}</button>
               <button class="btn btn--ghost btn--sm" data-akt="del" type="button" title="Löschen">✕</button>
@@ -688,6 +689,21 @@ function initDrehplan(video, body) {
         view.hidden = false;
         const cleanup = zeigeDateiInline(view, { base64: u.base64, typ: u.dateiTyp, name: u.dateiName });
         beiViewWechsel(cleanup);
+      });
+      // Direkter Download aus der Zeile. Vorher lag er nur hinter „Ansehen"
+      // UND unterhalb der kompletten Textvorschau — bei einem langen Skript
+      // sieht man ihn dort schlicht nicht. Die blob:-URL wird erst beim Klick
+      // erzeugt und gleich wieder freigegeben, damit nicht fuer jede Zeile
+      // dauerhaft eine offene URL herumliegt.
+      row.querySelector('[data-akt="download"]').addEventListener("click", () => {
+        const url = base64ZuBlobUrl(u.base64, u.dateiTyp);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = u.dateiName || "skript";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => { try { URL.revokeObjectURL(url); } catch (_) { /* egal */ } }, 10000);
       });
       row.querySelector('[data-akt="beats"]').addEventListener("click", () => {
         const txt = (u.text || "").trim();
