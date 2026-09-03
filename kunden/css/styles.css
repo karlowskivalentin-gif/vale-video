@@ -2416,8 +2416,12 @@ a.news-item:hover { background: var(--off-white); }
   padding: 0.35rem 0; border-top: 1px solid var(--mid); font-size: 0.85rem;
 }
 
-/* --- Admin: Drehplan / Beats ---------------------------------------- */
-.ave-drehplan { margin-top: 1.5rem; }
+/* --- Admin: Skripte am Video ---------------------------------------- */
+/* Hier standen bis 09/2026 zusaetzlich der Beat-Generator, die Beat-Checkliste
+   und die On-Set-Drehtag-Ansicht. Beides ist entfallen; die Klassen heissen
+   weiterhin `dreh-*`, weil sie genau die Datei-Zeilen stylen, die frueher unter
+   „Drehplan / Beats" hingen. */
+.ave-skripte { margin-top: 1.5rem; }
 .ave-embed-vorschau { margin-top: 0.7rem; }
 .ave-embed-vorschau:empty { display: none; }
 .dreh-uploads { margin-bottom: 1rem; }
@@ -2425,29 +2429,6 @@ a.news-item:hover { background: var(--off-white); }
 .dreh-upload-kopf { display: flex; justify-content: space-between; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
 .dreh-upload-btns { display: flex; gap: 0.3rem; flex-wrap: wrap; }
 .dreh-upload-view { margin-top: 0.6rem; }
-.dreh-check-kopf { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem; }
-.dreh-fortschritt { font-weight: 700; color: var(--accent-dim); }
-.dreh-oder { text-align: center; font-size: 0.78rem; margin: 0.7rem 0; }
-.dreh-textarea { width: 100%; min-height: 120px; padding: 0.7rem; border: 1px solid var(--mid); border-radius: var(--radius); font: inherit; resize: vertical; }
-.dreh-vorschau .action-btns { margin-top: 0.8rem; }
-
-.dreh-beats { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
-.dreh-beat { border: 1px solid var(--mid); border-radius: var(--radius); padding: 0.55rem 0.75rem; background: var(--surface); }
-.dreh-beat.is-done { background: var(--ok-bg); border-color: #bfe0cb; }
-.dreh-beat-haupt { display: flex; align-items: flex-start; gap: 0.55rem; cursor: pointer; margin: 0; }
-.dreh-beat-haupt input { margin-top: 0.25rem; }
-.dreh-beat-titel { font-weight: 600; }
-.dreh-beat.is-done .dreh-beat-titel { text-decoration: line-through; color: var(--muted); }
-.dreh-beat-text { margin: 0.35rem 0 0 1.6rem; font-size: 0.88rem; color: var(--muted); white-space: pre-wrap; }
-
-/* Drehtag (On-Set): große, tap-freundliche Checkliste */
-.dreh-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 0.8rem; }
-.dreh-head .dreh-fortschritt { font-size: 1.2rem; }
-.dreh-beats--gross { gap: 0.6rem; }
-.dreh-beat--gross { padding: 1rem 1.1rem; cursor: pointer; user-select: none; }
-.dreh-beat--gross .dreh-beat-box { font-size: 1.4rem; line-height: 1; }
-.dreh-beat--gross .dreh-beat-titel { font-size: 1.05rem; }
-.dreh-beat--gross .dreh-beat-text { margin-left: 2.1rem; }
 
 /* --- Exposé-Verarbeitung (Auslesen + Upload-Fortschritt) ------------- */
 .ocr-card { margin-bottom: 1.25rem; }

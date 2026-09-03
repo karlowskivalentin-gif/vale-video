@@ -19,7 +19,6 @@ import { videoNeuerEntwurf } from "../versionen.js";
 import { embedHtml, erkennePlattform, verarbeiteEmbeds } from "../embeds.js";
 import { dateiZuBase64, extrahiereText, zeigeDateiInline, base64ZuBlobUrl } from "../docparse.js";
 import { rolleVon } from "../roles.js";
-import { parseBeats, beatsZuChecklist } from "../beats.js";
 
 const BEARB_LABEL = {
   neu: "Neu", gelesen: "Gelesen", in_umsetzung: "In Umsetzung", umgesetzt: "Umgesetzt"
@@ -76,7 +75,7 @@ export function renderAdminVideoEdit(container, ctx) {
     wire(video, istNeu, body, id, user, objekte, kundeId, skriptUpload);
     initEmbedVorschau(body);
     if (!istNeu) initKommentare(id, user, body);
-    if (!istNeu && video) initDrehplan(video, body);
+    if (!istNeu && video) initSkripte(video, body);
     // Stammt das Video aus einem Plan → dessen KOMPLETTE Details anzeigen
     // (Links, Dateien, Sound, Shotlist, Notiz). Live aus /plaene geladen.
     // Zusätzlich wird hier der kundensichtbare planSnapshot aktuell gehalten.
@@ -243,8 +242,8 @@ function formHtml(v, objekte, istNeu, kundenart) {
     </details>` : ""}
     ${!istNeu ? `
     <details class="ave-block" open>
-      <summary class="ave-block-kopf"><span class="ave-block-titel">🎬 Drehplan &amp; Skripte</span></summary>
-      <div id="aveDrehplan"></div>
+      <summary class="ave-block-kopf"><span class="ave-block-titel">📄 Skripte</span></summary>
+      <div id="aveSkripte"></div>
     </details>` : ""}
     ${!istNeu ? `
     <details class="ave-block">
@@ -637,33 +636,35 @@ function initEmbedVorschau(body) {
   inp.addEventListener("blur", render);
 }
 
-// --- Drehplan / Beats -------------------------------------------------
-// Erzeugt aus dem Skript (Datei-Drop / Kunden-Upload / eingefügter Text) eine
-// abhakbare Beat-Checkliste (Feld video.drehbeats) für den Drehtag.
-function initDrehplan(video, body) {
-  const wrap = body.querySelector("#aveDrehplan");
+// --- Skripte ----------------------------------------------------------
+// Alle Skript-Dateien dieses Videos (von Valentin hochgeladen oder vom Kunden
+// nachgereicht): ansehen, herunterladen, abhaken, loeschen.
+//
+// Hier stand frueher „Drehplan / Beats": aus dem Skript wurde eine abhakbare
+// Beat-Checkliste erzeugt (Feld video.drehbeats) und in einer eigenen
+// Drehtag-View vor Ort abgehakt. Beides ist entfallen — der Generator hat den
+// Abschnitt nur zugestellt, ohne im Alltag benutzt zu werden.
+// Die CSS-Klassen heissen weiterhin `dreh-*`: sie stylen genau diese
+// Datei-Zeilen und wurden bewusst nicht umbenannt, um die Aenderung klein und
+// nachvollziehbar zu halten.
+function initSkripte(video, body) {
+  const wrap = body.querySelector("#aveSkripte");
   if (!wrap) return;
-  let beats = Array.isArray(video.drehbeats) ? video.drehbeats.slice() : [];
 
   wrap.innerHTML = `
-    <section class="card card--pad ave-drehplan">
-      <div class="plan-head-row">
-        <h2 class="section-title" style="margin:0">🎬 Drehplan / Beats</h2>
-        <a class="btn btn--ghost btn--sm" id="drehOpen" href="#/admin/drehtag/${escapeHtml(video.id)}">Drehtag öffnen ↗</a>
-      </div>
-      <div id="drehUploads"></div>
-      <div id="drehMain"></div>
+    <section class="card card--pad ave-skripte">
+      <div id="skripteListe"><p class="muted" style="margin:0">Wird geladen …</p></div>
     </section>`;
 
-  const uploadsEl = wrap.querySelector("#drehUploads");
-  const mainEl    = wrap.querySelector("#drehMain");
+  const uploadsEl = wrap.querySelector("#skripteListe");
 
-  // --- Kunden-Uploads (überarbeitete Skripte) ------------------------
   const unsub = beobachteSkriptUploads(video.id, (uploads) => {
     const liste = uploads.sort((a, b) => ((b.erstelltAm && b.erstelltAm.seconds) || 0) - ((a.erstelltAm && a.erstelltAm.seconds) || 0));
-    if (!liste.length) { uploadsEl.innerHTML = ""; return; }
+    if (!liste.length) {
+      uploadsEl.innerHTML = `<p class="muted" style="margin:0">Noch kein Skript hinterlegt — oben im Feld „Skript" eine Datei ablegen.</p>`;
+      return;
+    }
     uploadsEl.innerHTML = `<div class="dreh-uploads">
-      <div class="gd-abschnitt-titel">📄 Skripte</div>
       ${liste.map((u) => `
         <div class="dreh-upload" data-id="${escapeHtml(u.id)}">
           <div class="dreh-upload-kopf">
@@ -671,7 +672,6 @@ function initDrehplan(video, body) {
             <span class="dreh-upload-btns">
               <button class="btn btn--ghost btn--sm" data-akt="ansehen" type="button">Ansehen</button>
               <button class="btn btn--ghost btn--sm" data-akt="download" type="button" title="Die Original-Datei herunterladen">↓ Datei</button>
-              <button class="btn btn--ok btn--sm" data-akt="beats" type="button">Beats erzeugen</button>
               <button class="btn btn--ghost btn--sm" data-akt="erledigt" type="button">${u.erledigt ? "Als offen" : "Erledigt"}</button>
               <button class="btn btn--ghost btn--sm" data-akt="del" type="button" title="Löschen">✕</button>
             </span>
@@ -690,10 +690,8 @@ function initDrehplan(video, body) {
         const cleanup = zeigeDateiInline(view, { base64: u.base64, typ: u.dateiTyp, name: u.dateiName });
         beiViewWechsel(cleanup);
       });
-      // Direkter Download aus der Zeile. Vorher lag er nur hinter „Ansehen"
-      // UND unterhalb der kompletten Textvorschau — bei einem langen Skript
-      // sieht man ihn dort schlicht nicht. Die blob:-URL wird erst beim Klick
-      // erzeugt und gleich wieder freigegeben, damit nicht fuer jede Zeile
+      // Direkter Download aus der Zeile. Die blob:-URL entsteht erst beim Klick
+      // und wird gleich wieder freigegeben, damit nicht fuer jede Zeile
       // dauerhaft eine offene URL herumliegt.
       row.querySelector('[data-akt="download"]').addEventListener("click", () => {
         const url = base64ZuBlobUrl(u.base64, u.dateiTyp);
@@ -705,140 +703,19 @@ function initDrehplan(video, body) {
         a.remove();
         setTimeout(() => { try { URL.revokeObjectURL(url); } catch (_) { /* egal */ } }, 10000);
       });
-      row.querySelector('[data-akt="beats"]').addEventListener("click", () => {
-        const txt = (u.text || "").trim();
-        if (!txt) { alert("Aus dieser Datei konnte kein Text extrahiert werden. Bitte Text unten einfügen oder die Datei erneut hochladen."); return; }
-        zeigeVorschau(parseBeats(txt));
-      });
       row.querySelector('[data-akt="erledigt"]').addEventListener("click", async (e) => {
         e.target.disabled = true;
         try { await setzeSkriptUploadErledigt(uid, !u.erledigt); } catch (err) { console.error(err); e.target.disabled = false; }
       });
       row.querySelector('[data-akt="del"]').addEventListener("click", async () => {
-        if (!confirm("Diesen Skript-Upload löschen?")) return;
+        if (!confirm("Dieses Skript löschen?")) return;
         try { await loescheSkriptUpload(uid); } catch (err) { console.error(err); }
       });
     });
   }, () => {});
   beiViewWechsel(unsub);
-
-  // --- Checkliste vs. Generator --------------------------------------
-  function speichereBeats(neu) {
-    beats = neu;
-    video.drehbeats = neu;
-    return aktualisiereVideo(video.id, { drehbeats: neu });
-  }
-
-  function renderMain() {
-    if (beats.length) renderChecklist(); else renderGenerator();
-  }
-
-  function renderChecklist() {
-    const done = beats.filter((b) => b.erledigt).length;
-    mainEl.innerHTML = `
-      <div class="dreh-check-kopf">
-        <span class="dreh-fortschritt">${done}/${beats.length} Beats gedreht</span>
-        <button class="btn btn--ghost btn--sm" id="drehNeu" type="button">Beats neu erzeugen</button>
-      </div>
-      <ul class="dreh-beats">
-        ${beats.map((b, i) => `
-          <li class="dreh-beat${b.erledigt ? " is-done" : ""}">
-            <label class="dreh-beat-haupt">
-              <input type="checkbox" data-i="${i}" ${b.erledigt ? "checked" : ""}>
-              <span class="dreh-beat-titel">${escapeHtml(b.text || `Beat ${i + 1}`)}</span>
-            </label>
-            ${b.sprechtext ? `<div class="dreh-beat-text">${escapeHtml(b.sprechtext)}</div>` : ""}
-          </li>`).join("")}
-      </ul>`;
-    mainEl.querySelectorAll('input[type="checkbox"][data-i]').forEach((cb) => {
-      cb.addEventListener("change", async () => {
-        const i = Number(cb.getAttribute("data-i"));
-        const neu = beats.map((b, idx) => idx === i ? { ...b, erledigt: cb.checked } : b);
-        cb.closest(".dreh-beat").classList.toggle("is-done", cb.checked);
-        const kopf = mainEl.querySelector(".dreh-fortschritt");
-        if (kopf) kopf.textContent = `${neu.filter((b) => b.erledigt).length}/${neu.length} Beats gedreht`;
-        try { await speichereBeats(neu); } catch (e) { console.error(e); }
-      });
-    });
-    mainEl.querySelector("#drehNeu").addEventListener("click", () => {
-      if (!confirm("Beats neu erzeugen? Der aktuelle Abhak-Stand geht dabei verloren.")) return;
-      renderGenerator();
-    });
-  }
-
-  function renderGenerator() {
-    mainEl.innerHTML = `
-      <p class="muted" style="margin:0 0 .6rem">Aus dem Skript einzelne Beats als Dreh-Checkliste erzeugen. Word/PDF hier ablegen oder Text einfügen:</p>
-      <div class="skript-drop" id="drehDrop" tabindex="0" role="button">
-        <span class="skript-drop-icon" aria-hidden="true">⬆️</span>
-        <span class="skript-drop-text">Skript-Datei hierher ziehen oder <span class="skript-drop-link">auswählen</span></span>
-        <span class="muted skript-drop-hint">.docx / .pdf</span>
-      </div>
-      <input type="file" id="drehFile" accept=".docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden />
-      <div class="dreh-oder muted">— oder Text einfügen —</div>
-      <textarea id="drehText" class="dreh-textarea" placeholder="Skript-Text hier einfügen (Beats mit „BEAT 1", „BEAT 2" …)"></textarea>
-      <div class="notice notice--error" id="drehErr" hidden role="alert"></div>
-      <button class="btn btn--accent btn--sm" id="drehGen" type="button">Beats erzeugen</button>`;
-
-    const drop  = mainEl.querySelector("#drehDrop");
-    const file  = mainEl.querySelector("#drehFile");
-    const text  = mainEl.querySelector("#drehText");
-    const err   = mainEl.querySelector("#drehErr");
-    const genBtn = mainEl.querySelector("#drehGen");
-
-    const ausDatei = async (f) => {
-      if (!f) return;
-      err.hidden = true;
-      drop.querySelector(".skript-drop-text").textContent = "Wird gelesen …";
-      try {
-        const t = await extrahiereText(f);
-        const bs = parseBeats(t);
-        if (!bs.length) throw new Error("Keine Beats erkannt.");
-        zeigeVorschau(bs);
-      } catch (e) {
-        err.textContent = (e && e.message) || "Konnte die Datei nicht lesen."; err.hidden = false;
-        drop.querySelector(".skript-drop-text").innerHTML = 'Skript-Datei hierher ziehen oder <span class="skript-drop-link">auswählen</span>';
-      }
-    };
-    drop.addEventListener("click", () => file.click());
-    drop.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); file.click(); } });
-    file.addEventListener("change", () => ausDatei(file.files && file.files[0]));
-    ["dragenter", "dragover"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("is-over"); }));
-    ["dragleave", "dragend"].forEach((ev) => drop.addEventListener(ev, () => drop.classList.remove("is-over")));
-    drop.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove("is-over"); ausDatei(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]); });
-
-    genBtn.addEventListener("click", () => {
-      err.hidden = true;
-      const bs = parseBeats(text.value || "");
-      if (!bs.length) { err.textContent = "Kein Text / keine Beats erkannt."; err.hidden = false; return; }
-      zeigeVorschau(bs);
-    });
-  }
-
-  function zeigeVorschau(rohBeats) {
-    const neu = beatsZuChecklist(rohBeats);
-    mainEl.innerHTML = `
-      <div class="dreh-vorschau">
-        <div class="gd-abschnitt-titel">Erkannte Beats (${neu.length}):</div>
-        <ul class="dreh-beats">
-          ${neu.map((b, i) => `<li class="dreh-beat"><span class="dreh-beat-titel">${escapeHtml(b.text || `Beat ${i + 1}`)}</span>
-            ${b.sprechtext ? `<div class="dreh-beat-text">${escapeHtml(b.sprechtext)}</div>` : ""}</li>`).join("")}
-        </ul>
-        <div class="action-btns">
-          <button class="btn btn--accent btn--sm" id="drehSpeichern" type="button">Als Drehplan speichern</button>
-          <button class="btn btn--ghost btn--sm" id="drehAbbr" type="button">Abbrechen</button>
-        </div>
-      </div>`;
-    mainEl.querySelector("#drehSpeichern").addEventListener("click", async (e) => {
-      e.target.disabled = true;
-      try { await speichereBeats(neu); renderMain(); }
-      catch (err) { console.error(err); e.target.disabled = false; alert("Speichern fehlgeschlagen."); }
-    });
-    mainEl.querySelector("#drehAbbr").addEventListener("click", renderMain);
-  }
-
-  renderMain();
 }
+
 
 // --- Kommentare (Bearbeiten-Modus) ------------------------------------
 function initKommentare(id, user, body) {

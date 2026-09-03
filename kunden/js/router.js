@@ -18,7 +18,6 @@ import { renderKundeKalender } from "./views/kunde-kalender.js";
 import { renderAdminPipeline } from "./views/admin-pipeline.js";
 import { renderAdminArchiv } from "./views/admin-archiv.js";
 import { renderAdminVideoEdit } from "./views/admin-video-edit.js";
-import { renderAdminDrehtag } from "./views/admin-drehtag.js";
 import { renderAdminObjekte } from "./views/admin-objekte.js";
 import { renderAdminKalender } from "./views/admin-kalender.js";
 import { renderAdminTermine } from "./views/admin-termine.js";
@@ -78,7 +77,6 @@ const ROUTES = {
   "/admin/pipeline": { rolle: "admin", titel: "Pipeline",         render: renderAdminPipeline },
   "/admin/archiv":   { rolle: "admin", titel: "Archiv",           render: renderAdminArchiv },
   "/admin/video":    { rolle: "admin", titel: "Video bearbeiten", render: renderAdminVideoEdit, param: true },
-  "/admin/drehtag":  { rolle: "admin", titel: "Drehtag",          render: renderAdminDrehtag, param: true },
   "/admin/objekte":  { rolle: "admin", titel: "Objekte",          render: renderAdminObjekte },
   "/admin/kalender": { rolle: "admin", titel: "Kalender",         render: renderAdminKalender },
   "/admin/termine":  { rolle: "admin", titel: "Termine",          render: renderAdminTermine },
@@ -236,7 +234,6 @@ function resolve(hash) {
   if (qIdx !== -1) new URLSearchParams(path.slice(qIdx + 1)).forEach((v, k) => { query[k] = v; });
   if (pfad.startsWith("/video/"))       return { route: ROUTES["/video"],       id: decodeURIComponent(pfad.slice("/video/".length)), query };
   if (pfad.startsWith("/admin/video/")) return { route: ROUTES["/admin/video"], id: decodeURIComponent(pfad.slice("/admin/video/".length)), query };
-  if (pfad.startsWith("/admin/drehtag/")) return { route: ROUTES["/admin/drehtag"], id: decodeURIComponent(pfad.slice("/admin/drehtag/".length)), query };
   if (pfad.startsWith("/admin/plan/"))  return { route: ROUTES["/admin/plan"],  id: decodeURIComponent(pfad.slice("/admin/plan/".length)), query };
   if (pfad.startsWith("/admin/skript/")) return { route: ROUTES["/admin/skript"], id: decodeURIComponent(pfad.slice("/admin/skript/".length)), query };
   if (pfad.startsWith("/admin/shoot/"))  return { route: ROUTES["/admin/shoot"],  id: decodeURIComponent(pfad.slice("/admin/shoot/".length)), query };
