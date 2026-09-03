@@ -41,6 +41,7 @@ import { renderAdminFonts } from "./views/admin-fonts.js";
 import { renderAdminSpringseil } from "./views/admin-springseil.js";
 import { renderAdminSocial } from "./views/admin-social.js";
 import { renderKundeSocial } from "./views/kunde-social.js";
+import { renderAdminRoadmap } from "./views/admin-roadmap.js";
 
 // --- Zustand -----------------------------------------------------------
 let _user = null;
@@ -64,6 +65,9 @@ const ROUTES = {
   "/meine-zahlen":   { rolle: "kunde", titel: "Meine Zahlen",    render: renderKundeSocial },
   "/video":          { rolle: "kunde", titel: "Video",           render: renderVideoDetail, param: true },
   // Admin
+  // Eigene Geschaefts-Roadmap: Phasen, Meilensteine, Monatsumsatz. Steht
+  // vorn, weil es die Frage "was ist als Naechstes dran" beantwortet.
+  "/admin/roadmap":  { rolle: "admin", titel: "Roadmap",          render: renderAdminRoadmap },
   "/admin/pipeline": { rolle: "admin", titel: "Pipeline",         render: renderAdminPipeline },
   "/admin/archiv":   { rolle: "admin", titel: "Archiv",           render: renderAdminArchiv },
   "/admin/video":    { rolle: "admin", titel: "Video bearbeiten", render: renderAdminVideoEdit, param: true },
@@ -112,6 +116,7 @@ const NAV = {
   // scrollbar erreichbar. Die Pipeline bleibt als tägliche Start-View direkt
   // sichtbar, alles andere liegt thematisch in Menüs.
   admin: [
+    { href: "#/admin/roadmap",  label: "Roadmap"  },
     { href: "#/admin/pipeline", label: "Pipeline" },
     { gruppe: "Produktion", kinder: [
       { href: "#/admin/objekte",  label: "Objekte" },

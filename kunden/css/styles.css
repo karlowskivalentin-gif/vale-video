@@ -4003,3 +4003,191 @@ a.ks-post:hover { border-color: var(--accent); }
   .ft-grid { grid-template-columns: 1fr; }
   .ft-werkbank { position: static; }
 }
+
+/* =====================================================================
+   ROADMAP (Admin-View #/admin/roadmap)
+   Präfix rm-, damit nichts mit bestehenden Klassen kollidiert.
+   Mobil zuerst: das Ding wird hauptsächlich auf dem Handy angeschaut.
+   ===================================================================== */
+
+.rm-laedt { color: var(--light); font-size: .9rem; padding: 2rem 0; }
+.rm-block { margin-bottom: 1rem; }
+.rm-fehler { color: var(--error); font-size: .9rem; margin: 0; }
+
+.rm-label {
+  font-size: .68rem; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--light); margin: 0 0 .5rem;
+}
+.rm-label--frei { margin: 1.5rem 0 .6rem; }
+
+/* --- 1. Stand --- */
+.rm-phase { font-size: 1.25rem; font-weight: 600; color: var(--black); margin: 0 0 .3rem; }
+.rm-phase em { font-style: normal; color: var(--accent); }
+.rm-stand { font-size: .88rem; color: var(--muted); line-height: 1.5; margin: 0 0 1.25rem; }
+.rm-fertig { font-size: .95rem; color: var(--ok); margin: 0; }
+
+.rm-next {
+  display: flex; align-items: flex-start; gap: .65rem; cursor: pointer;
+  padding: .7rem .8rem; border: 1px solid var(--mid); border-radius: var(--radius);
+  background: var(--surface-2);
+}
+.rm-next input { margin-top: .15rem; flex: 0 0 auto; width: 1.05rem; height: 1.05rem; accent-color: var(--accent); }
+.rm-next-text { font-size: .95rem; font-weight: 500; color: var(--black); line-height: 1.45; }
+.rm-offen { color: var(--accent-dim); font-weight: 400; font-size: .8rem; }
+
+/* Wie/Warum — beim nächsten Schritt immer offen, bei Meilensteinen aufklappbar */
+.rm-info { display: flex; flex-direction: column; gap: .55rem; margin-top: .7rem; }
+.rm-info > div {
+  font-size: .84rem; color: var(--muted); line-height: 1.55;
+  padding-left: .8rem; border-left: 2px solid var(--mid);
+}
+.rm-info-lbl {
+  display: block; font-size: .62rem; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--light); margin-bottom: .18rem;
+}
+
+/* --- 2. Zeitstrahl --- */
+.rm-rail {
+  position: relative; height: 6px; border-radius: 999px;
+  background: var(--mid); margin: .3rem 0 0;
+}
+.rm-rail-fill {
+  position: absolute; inset: 0 auto 0 0; border-radius: 999px;
+  background: var(--accent);
+}
+.rm-mark {
+  position: absolute; top: -3px; width: 2px; height: 12px;
+  background: var(--light); transform: translateX(-1px);
+}
+.rm-mark--now {
+  width: 10px; height: 10px; top: -2px; border-radius: 50%;
+  background: var(--accent); border: 2px solid var(--white); transform: translateX(-5px);
+}
+.rm-rail-labels { position: relative; height: 2.6rem; margin-top: .35rem; }
+.rm-rail-lab {
+  position: absolute; top: 0; transform: translateX(-50%);
+  font-size: .62rem; color: var(--light); white-space: nowrap;
+}
+.rm-rail-lab--now { color: var(--accent); font-weight: 600; top: 1.25rem; }
+/* Schmale Schirme: Labels versetzt, sonst überlappen sie sich */
+.rm-lab-1, .rm-lab-3 { top: 1.25rem; }
+
+.rm-phasenzeile {
+  display: flex; gap: .5rem; flex-wrap: wrap;
+  margin: .2rem 0 1.1rem; font-size: .7rem; color: var(--light);
+}
+.rm-phasenzeile .is-aktuell { color: var(--accent); font-weight: 600; }
+
+.rm-zaehler {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: .9rem;
+  padding-top: 1rem; border-top: 1px solid var(--mid);
+}
+.rm-zahl { display: block; font-size: 1.35rem; font-weight: 600; color: var(--black); line-height: 1.1; }
+.rm-zahl--akzent { color: var(--accent); }
+.rm-zahl-lbl { display: block; font-size: .7rem; color: var(--light); margin-top: .15rem; line-height: 1.35; }
+
+/* --- 3. Umsatz --- */
+.rm-umsatz-kopf { display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap; margin-bottom: .8rem; }
+.rm-umsatz-feld {
+  width: 7.5rem; font-size: 1.5rem; font-weight: 600; color: var(--black);
+  font-family: var(--font); padding: .25rem .5rem;
+  border: 1px solid var(--mid); border-radius: var(--radius); background: var(--surface);
+}
+.rm-umsatz-feld:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: transparent; }
+.rm-umsatz-ziel { font-size: .8rem; color: var(--light); }
+.rm-bar { position: relative; height: 10px; border-radius: 999px; background: var(--mid); overflow: hidden; }
+.rm-bar-fill {
+  position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: var(--accent);
+  transition: width .35s ease;
+}
+.rm-bar-tick { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--white); opacity: .8; }
+.rm-umsatz-status { font-size: .82rem; color: var(--muted); line-height: 1.5; margin: .7rem 0 0; }
+
+/* --- 4. Diese Woche --- */
+.rm-woche-kopf { display: flex; justify-content: space-between; align-items: flex-start; gap: .8rem; flex-wrap: wrap; }
+.rm-woche-sub { font-size: .78rem; color: var(--light); margin: 0 0 .9rem; }
+.rm-modi { display: flex; gap: .3rem; }
+.rm-modus {
+  font: inherit; font-size: .74rem; padding: .3rem .7rem; cursor: pointer;
+  border: 1px solid var(--mid); border-radius: 999px;
+  background: var(--surface); color: var(--muted);
+}
+.rm-modus.is-an { background: var(--accent); border-color: var(--accent); color: #fff; }
+.rm-woche-liste { display: flex; flex-direction: column; gap: .1rem; }
+.rm-tag {
+  display: flex; align-items: flex-start; gap: .6rem; cursor: pointer;
+  padding: .55rem .3rem; font-size: .88rem; color: var(--black); line-height: 1.45;
+  border-bottom: 1px solid var(--mid);
+}
+.rm-woche-liste .rm-tag:last-child { border-bottom: 0; }
+.rm-tag input { margin-top: .15rem; flex: 0 0 auto; width: 1.05rem; height: 1.05rem; accent-color: var(--accent); }
+.rm-tag-kuerzel {
+  flex: 0 0 1.9rem; font-size: .68rem; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--light); margin-top: .16rem;
+}
+.rm-tag.is-erledigt > span:last-child { color: var(--light); text-decoration: line-through; }
+
+/* --- 5. Meilensteine --- */
+.rm-phase-block {
+  background: var(--surface); border: 1px solid var(--mid); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card); margin-bottom: .6rem; overflow: hidden;
+}
+.rm-phase-block.is-aktuell { border-color: var(--accent); }
+.rm-phase-block > summary {
+  display: flex; justify-content: space-between; align-items: center; gap: .8rem;
+  padding: .9rem 1rem; cursor: pointer; list-style: none;
+}
+.rm-phase-block > summary::-webkit-details-marker { display: none; }
+.rm-phase-name { font-size: .95rem; font-weight: 600; color: var(--black); }
+.rm-phase-zeit { display: block; font-size: .68rem; font-weight: 400; color: var(--light); margin-top: .1rem; }
+.rm-phase-prog { font-size: .78rem; color: var(--muted); white-space: nowrap; }
+.rm-items { padding: 0 1rem 1rem; }
+.rm-monat {
+  font-size: .64rem; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--light); margin: 1rem 0 .4rem;
+}
+
+/* Checkbox NEBEN dem details, nicht darin — sonst löst ein Klick auf den
+   Haken das Auf- und Zuklappen mit aus. */
+.rm-item {
+  display: flex; align-items: flex-start; gap: .6rem;
+  padding: .5rem 0; border-bottom: 1px solid var(--mid);
+}
+.rm-items > .rm-item:last-child { border-bottom: 0; }
+.rm-item > input { margin-top: .2rem; flex: 0 0 auto; width: 1.05rem; height: 1.05rem; accent-color: var(--accent); cursor: pointer; }
+.rm-item > details { flex: 1 1 auto; min-width: 0; }
+.rm-item > details > summary {
+  display: flex; align-items: baseline; justify-content: space-between; gap: .6rem;
+  cursor: pointer; list-style: none;
+}
+.rm-item > details > summary::-webkit-details-marker { display: none; }
+.rm-item-text { font-size: .88rem; color: var(--black); line-height: 1.45; }
+.rm-item-mehr {
+  flex: 0 0 auto; font-size: .64rem; letter-spacing: .06em; color: var(--light);
+  white-space: nowrap; opacity: .75;
+}
+.rm-item > details[open] .rm-item-mehr { color: var(--accent); opacity: 1; }
+.rm-item.is-erledigt .rm-item-text { color: var(--light); text-decoration: line-through; }
+.rm-item > details > .rm-info { margin-bottom: .5rem; }
+
+/* --- 6. Fußzeile --- */
+.rm-fuss {
+  display: flex; justify-content: space-between; align-items: center; gap: .8rem;
+  flex-wrap: wrap; margin: 1.4rem 0 2.5rem;
+}
+.rm-gespeichert { font-size: .74rem; color: var(--light); }
+.rm-gespeichert.is-fehler { color: var(--error); }
+
+/* --- ab Tablet --- */
+@media (min-width: 640px) {
+  .rm-zaehler { grid-template-columns: repeat(4, 1fr); }
+  .rm-rail-labels { height: 1.4rem; }
+  .rm-lab-1, .rm-lab-3 { top: 0; }
+  .rm-rail-lab--now { top: 0; }
+  .rm-rail-lab { font-size: .66rem; }
+}
+
+/* Der Umsatzbalken ist die einzige Bewegung — wer keine will, kriegt keine. */
+@media (prefers-reduced-motion: reduce) {
+  .rm-bar-fill { transition: none; }
+}

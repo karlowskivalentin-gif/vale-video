@@ -169,6 +169,17 @@ service cloud.firestore {
       allow read, write: if istAdmin();
     }
 
+    // ---- roadmap -----------------------------------------------------
+    // Valentins Geschäfts-Roadmap: EIN Dokument (roadmap/valentin) mit den
+    // gesetzten Haken, dem Monatsumsatz und den Wochen-Aufgaben. Genau so
+    // privat wie training: kein Kunde, kein Kollaborator.
+    //
+    // istAdmin() statt eines eigenen E-Mail-Vergleichs — sonst gaebe es zwei
+    // Wahrheiten, und die Pruefung auf email_verified fiele hier weg.
+    match /roadmap/{docId} {
+      allow read, write: if istAdmin();
+    }
+
     // ---- videos ------------------------------------------------------
     // Kundengetrennt (= die Pipeline). Der Kunde liest/aktualisiert nur Videos
     // seiner eigenen kundeId; die kundeId selbst darf er nie ändern.

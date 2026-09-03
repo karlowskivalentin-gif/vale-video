@@ -29,6 +29,7 @@ Wenn Valentin ein Feature seines Arbeitsportals beim Namen nennt, ist das die Da
 
 | Feature (so sagt Valentin) | Route                | Datei                     |
 |----------------------------|----------------------|---------------------------|
+| **Roadmap**                | `/admin/roadmap`     | `admin-roadmap.js`        |
 | Pipeline                   | `/admin/pipeline`    | `admin-pipeline.js`       |
 | Video bearbeiten           | `/admin/video/:id`   | `admin-video-edit.js`     |
 | Objekte                    | `/admin/objekte`     | `admin-objekte.js`        |
@@ -73,6 +74,18 @@ Kunden-Views (Referenz): `kunde-aufgaben.js`, `kunde-objekt-melden.js`,
   Tageswerts und die Verknüpfung eines Posts mit einem eigenen Video
   (`videoId`). Diese Verknüpfung ist Handarbeit und darf vom nächtlichen
   Lauf **nie** überschrieben werden.
+- `js/roadmap-data.js` — **alle Inhalte** der Roadmap (4 Phasen, 48 Meilensteine
+  mit „Wie" und „Warum", Wochenrhythmus). Bewusst getrennt von der View: die
+  Meilensteine ändern sich, die View nicht. Wer die Roadmap fortschreibt,
+  fasst nur diese Datei an. Die Meilenstein-`id` ist der Firestore-Schlüssel
+  und darf **nie** nachträglich geändert werden — sonst verwaist der Haken.
+  `js/roadmap-logik.js` — die reine Rechenlogik dazu (aktuelle Phase, nächster
+  offener Schritt, Fortschritt, Position auf dem Zeitstrahl). Ohne
+  Firebase-Abhängigkeit, damit sie prüfbar bleibt: `node tools/roadmap-check.mjs`
+  rechnet sie gegen die Referenz-Implementierung. Gleiches Muster wie
+  `brandplan.js` und `socialstat.js` — jede Formel steht nur einmal da.
+  Gespeichert wird in **einem** Dokument `roadmap/valentin` (Haken, Monatsumsatz,
+  Wochen-Aufgaben), Rules: nur `istAdmin()`.
 - `js/fontprobe.js` — Schrift-Technik der Fonts-Abteilung: Google-Stylesheets in
   den `<head>` hängen und wieder aufräumen, plus die Messung „ist diese
   Schrift auf DIESEM Rechner überhaupt da?“ (Canvas-Breitenvergleich).

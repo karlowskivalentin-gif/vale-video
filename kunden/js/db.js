@@ -10,7 +10,7 @@
 import { db, auth } from "./firebase-init.js";
 import {
   collection, collectionGroup, doc, addDoc, setDoc, getDoc, getDocs, updateDoc, deleteDoc,
-  query, where, orderBy, limit, onSnapshot, serverTimestamp, writeBatch, arrayUnion
+  query, where, orderBy, limit, onSnapshot, serverTimestamp, writeBatch, arrayUnion, deleteField
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import {
   STATUS, OBJEKT_STATUS,
@@ -1590,4 +1590,54 @@ export async function setzeSocialPostVideo(id, videoId) {
     videoId: videoId || null,
     aktualisiertAm: serverTimestamp()
   });
+}
+
+// =====================================================================
+// ROADMAP — Valentins Geschäfts-Roadmap (Phasen, Haken, Monatsumsatz).
+// Streng privat: die Rules geben `roadmap` nur dem Admin.
+//
+// EIN Dokument, kein Collection-Wachstum — roadmap/valentin:
+//   done     { "<meilenstein-id>": true }   nur gesetzte Haken; ein
+//                                           entfernter Haken wird geloescht,
+//                                           nicht auf false gesetzt.
+//   revenue  { "YYYY-MM": 1250 }            Netto-Umsatz je Monat, von Hand
+//                                           eingetragen. Frühere Monate
+//                                           bleiben stehen (Historie).
+//   week     { mode, done: { "<isoweek>:<mode>:<index>": true } }
+//   updatedAt
+//
+// Geschrieben wird IMMER mit merge:true — sonst würde ein einzelner Haken
+// den Umsatz mitloeschen. Aufbau wie bei trainingKonfig.
+// =====================================================================
+const ROADMAP_ID = "valentin";
+const roadmapDoc = () => doc(db, "roadmap", ROADMAP_ID);
+
+// Liest das Dokument. Fehlt es noch (erster Aufruf), wird es leer angelegt,
+// damit die View nicht zwischen "leer" und "gibt es nicht" unterscheiden muss.
+export async function getRoadmap() {
+  const snap = await getDoc(roadmapDoc());
+  if (snap.exists()) {
+    const d = snap.data();
+    return { done: d.done || {}, revenue: d.revenue || {},
+             week: d.week || { mode: "normal", done: {} } };
+  }
+  const leer = { done: {}, revenue: {}, week: { mode: "normal", done: {} } };
+  await setDoc(roadmapDoc(), { ...leer, updatedAt: serverTimestamp() }, { merge: true });
+  return leer;
+}
+
+// Schreibt nur die uebergebenen Felder. `partial` ist z. B. { done } oder
+// { revenue } — nie das ganze Objekt, damit parallele Aenderungen auf einem
+// zweiten Geraet nicht ueberschrieben werden.
+export async function saveRoadmap(partial) {
+  return setDoc(roadmapDoc(), { ...partial, updatedAt: serverTimestamp() }, { merge: true });
+}
+
+// Sentinel zum Loeschen EINES Map-Eintrags. Noetig, weil merge:true
+// verschachtelte Maps zusammenfuehrt statt sie zu ersetzen: ein entfernter
+// Haken bliebe sonst stehen. Re-exportiert, damit die View kein
+// Firestore-Modul importieren muss (siehe Kopf dieser Datei).
+//   saveRoadmap({ done: { "p1-web": roadmapFeldWeg() } })
+export function roadmapFeldWeg() {
+  return deleteField();
 }
