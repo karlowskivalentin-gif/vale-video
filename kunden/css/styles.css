@@ -2986,6 +2986,14 @@ body.is-beobachtung .fb-widget {
   opacity: 0.7;
   cursor: not-allowed;
 }
+/* Ausnahme im Sinne derselben Regel: eine Format-Karte aufzuklappen loest
+   nichts aus, es zeigt nur mehr Text. Ohne die Ausnahme liesse sich in der
+   Vorschau nicht pruefen, was der Kunde tatsaechlich zu lesen bekommt. */
+body.is-beobachtung .view .fm-titel {
+  pointer-events: auto;
+  opacity: 1;
+  cursor: pointer;
+}
 
 /* =====================================================================
    KUNDEN-VIDEOANSICHT — Kopf, Fortschritt, Entscheidung
