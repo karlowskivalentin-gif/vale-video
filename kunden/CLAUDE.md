@@ -130,3 +130,11 @@ Kunden-Views (Referenz): `kunde-aufgaben.js`, `kunde-objekt-melden.js`,
   hochgeladen — kleine Anhänge als Base64 ins Firestore-Dokument (`docparse.js`,
   ≤ 700 KB), Exposés blockweise über `js/dateien.js` (≤ 10 MB). Kein Firebase
   Storage, solange das Projekt auf Spark läuft.
+- **DOCX-Vorschau** (`zeigeDateiInline` in `docparse.js`, Admin und Kunde teilen
+  sich den Zweig): rendert mit **docx-preview** (jsDelivr, Loader
+  `ladeDocxPreview` in `js/libs.js`) als echtes Dokument — Logo, Beat-Kästen,
+  Überschriften, Tabellen —, in Kartenbreite fließend (kein Seitenlook, CSS
+  `.datei-docx`). Der extrahierte Text (`textAusDocx`) bleibt **Fallback**
+  bei Render-Fehler und füllt weiter das Feld `text` beim Upload (braucht das
+  social-brain-Cockpit). `.md`/`.txt` erscheinen als Absätze. Gleiche Lib und
+  Optionen wie im Cockpit, damit ein Skript dort und hier gleich aussieht.

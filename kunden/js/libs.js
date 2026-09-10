@@ -3,11 +3,15 @@
 // cached die Ladepromise (mehrfacher Aufruf lädt nur einmal). Rein
 // clientseitig, keine API-Tokens: nur statische CDN-Assets (jsDelivr).
 //
-//   ladePdfJs()     → PDF → Text + Seiten-Render   (ESM-Modul)
-//   ladeTesseract() → Bild-OCR (deutsch)           (window.Tesseract)
+//   ladePdfJs()       → PDF → Text + Seiten-Render   (ESM-Modul)
+//   ladeTesseract()   → Bild-OCR (deutsch)           (window.Tesseract)
+//   ladeDocxPreview() → .docx als echtes Dokument    (window.docx)
 //
-// Word (.docx) braucht KEINE Lib — docparse.js entpackt die ZIP selbst mit dem
+// Word-TEXT braucht KEINE Lib — docparse.js entpackt die ZIP selbst mit dem
 // browsereigenen DecompressionStream (mammoth.js hängt im Browser-Bundle).
+// Für die ANSICHT (Logo, Beat-Kästen, Überschriften, Tabellen) reicht das
+// nicht: dafür docx-preview, dieselbe Lib wie im social-brain-Cockpit —
+// beide Oberflächen zeigen dasselbe Skript, also müssen sie es gleich rendern.
 //
 // Muster wie embeds.js: klassische Skripte per <script> nachladen, ESM per
 // dynamischem import(). Bewusst kein Init-Ballast — die Startseite lädt
@@ -57,4 +61,22 @@ export function ladeTesseract() {
     );
   }
   return _tesseract;
+}
+
+// --- docx-preview (.docx als echtes Dokument) -----------------------
+// Zwei Skripte in fester Reihenfolge: docx-preview setzt JSZip voraus und
+// findet es nur, wenn window.JSZip beim Auswerten schon steht. Deshalb
+// nacheinander, nicht parallel.
+let _docxPreview = null;
+export function ladeDocxPreview() {
+  if (!_docxPreview) {
+    _docxPreview = ladeSkriptEinmalig(
+      "https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js",
+      "vv-jszip", "JSZip"
+    ).then(() => ladeSkriptEinmalig(
+      "https://cdn.jsdelivr.net/npm/docx-preview@0.3.5/dist/docx-preview.min.js",
+      "vv-docx-preview", "docx"
+    ));
+  }
+  return _docxPreview;
 }

@@ -2471,6 +2471,44 @@ a.news-item:hover { background: var(--off-white); }
 .datei-vid { width: 100%; border-radius: var(--radius); }
 .datei-word { max-height: 60vh; overflow: auto; border: 1px solid var(--mid); border-radius: var(--radius); padding: 0.8rem 1rem; background: var(--surface); }
 .datei-word-text { white-space: pre-wrap; word-break: break-word; font: inherit; font-size: 0.9rem; margin: 0 0 0.6rem; }
+
+/* Word als echtes Dokument (docparse.js → docx-preview, gleiche Ansicht wie im
+   social-brain-Cockpit). docx-preview baut eine DIN-A4-Seite mit fester Breite,
+   grauem Hintergrund und Schlagschatten — in einer Portal-Karte und erst recht
+   auf dem Handy ist das falsch: der Inhalt soll in die Karte fließen. Deshalb
+   wird die „Seite" auf 100 % Breite gesetzt und der Bühnen-Look entfernt.
+   Alle Regeln sind auf .datei-docx begrenzt. */
+/* Beim gerenderten Dokument scrollt der Inhalt, nicht die ganze Karte — so
+   steht der Download-Knopf fest darüber statt (sticky) im Text zu kleben. */
+.datei-word--docx { max-height: none; overflow: visible; padding: 0; border: 0; background: none; }
+.datei-word.datei-word--docx .datei-aktionen { position: static; padding: 0; margin-bottom: 0.5rem; }
+.datei-docx {
+  max-height: 60vh; overflow: auto;
+  border: 1px solid var(--mid); border-radius: var(--radius);
+  padding: 0.8rem 1rem; background: var(--surface);
+}
+.datei-docx .docx-wrapper { background: transparent !important; padding: 0 !important; }
+.datei-docx .docx-wrapper > section.docx {
+  width: 100% !important; min-height: 0 !important;
+  padding: 0 !important; margin: 0 !important;
+  box-shadow: none !important; box-sizing: border-box;
+}
+/* Word-Tabellen (die Beat-Kästen) tragen ihre Spaltenbreite in Punkt am <col>
+   und an der Tabelle — bei 21 cm Seitenbreite sind das ~600 px und die Karte
+   scrollt seitwärts. Auf dem Handy ist genau das der Bruch, deshalb hier
+   zurücksetzen statt nur die Tabelle zu begrenzen. */
+.datei-docx .docx table { width: 100% !important; max-width: 100% !important; table-layout: fixed; }
+.datei-docx .docx col,
+.datei-docx .docx td,
+.datei-docx .docx th { width: auto !important; }
+.datei-docx .docx td, .datei-docx .docx th { overflow-wrap: anywhere; }
+.datei-docx .docx img { max-width: 100% !important; height: auto !important; }
+.datei-docx .docx p { overflow-wrap: break-word; }
+
+/* Text-Skripte (.md/.txt) als lesbare Absätze statt Monospace-Block. */
+.datei-text { font-size: 0.92rem; line-height: 1.6; }
+.datei-text p { margin: 0 0 0.7rem; }
+.datei-text p:last-child { margin-bottom: 0; }
 /* Aktionsleiste über einer Datei-Vorschau (Herunterladen / in neuem Tab).
    Im Word-Kasten klebt sie oben fest — sonst scrollt der Download bei einem
    langen Skript aus dem Sichtfeld und gilt als nicht vorhanden. */

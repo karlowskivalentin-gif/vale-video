@@ -16,11 +16,12 @@
 //   base64ZuBlobUrl(...) → blob:-URL (öffnet PDFs zuverlässig; anders als
 //                          data:-URLs, die Chrome bei großen PDFs blockt)
 //   zeigeDateiInline(el, {base64,typ,name}) → rendert Bild/Video/Audio/PDF
-//                          (iframe) / Word (Text-Vorschau) / sonst Download.
+//                          (iframe) / Word (docx-preview, echtes Dokument) /
+//                          Text (Absätze) / sonst Download.
 //                          Gibt eine Cleanup-Funktion (revokeObjectURL) zurück.
 // =====================================================================
 import { escapeHtml } from "./util.js";
-import { ladePdfJs, ladeTesseract } from "./libs.js";
+import { ladePdfJs, ladeTesseract, ladeDocxPreview } from "./libs.js";
 
 export const MAX_DATEI = 700 * 1024;   // identisch zu admin-gedanken/admin-plan
 
@@ -171,6 +172,20 @@ export function base64ZuBlobUrl(base64, typ) {
   return URL.createObjectURL(new Blob([base64ZuBytes(base64)], { type: typ || "application/octet-stream" }));
 }
 
+// Text (.txt/.md) → lesbare Absätze: Leerzeile trennt Absätze, einzelne
+// Zeilenumbrüche bleiben als <br> erhalten (ein Skript lebt von seinen
+// Zeilen). Markdown-Rauten am Zeilenanfang werden zur fetten Zeile — das
+// Cockpit lädt Fassungen als .md hoch, dort stehen die Beat-Überschriften so.
+function textZuAbsaetzen(text) {
+  return String(text).replace(/\r\n/g, "\n").split(/\n{2,}/)
+    .map((abs) => abs.split("\n").map((z) => {
+      const h = /^\s*(#{1,6})\s+(.*)$/.exec(z);
+      return h ? `<strong>${escapeHtml(h[2])}</strong>` : escapeHtml(z);
+    }).join("<br>"))
+    .filter((a) => a.trim())
+    .map((a) => `<p>${a}</p>`).join("");
+}
+
 // --- Datei portal-eigen anzeigen ------------------------------------
 // Rendert in `el` je nach MIME. Gibt eine Cleanup-Funktion zurück, die alle
 // erzeugten blob:-URLs freigibt (via beiViewWechsel registrieren).
@@ -179,7 +194,14 @@ export function zeigeDateiInline(el, { base64, typ, name }) {
   const mime = (typ || "").toLowerCase();
   const urls = [];
   const blobUrl = () => { const u = base64ZuBlobUrl(base64, typ); urls.push(u); return u; };
-  const cleanup = () => { urls.forEach((u) => { try { URL.revokeObjectURL(u); } catch (_) { /* egal */ } }); };
+  // Das DOCX-Rendern läuft asynchron weiter, auch wenn die View inzwischen
+  // gewechselt ist. Dann darf es nichts mehr in ein abgehängtes Element
+  // schreiben und keine Lib mehr nachladen wollen.
+  let abgebrochen = false;
+  const cleanup = () => {
+    abgebrochen = true;
+    urls.forEach((u) => { try { URL.revokeObjectURL(u); } catch (_) { /* egal */ } });
+  };
 
   if (mime.startsWith("image/")) {
     el.innerHTML = `<img class="datei-img" src="${blobUrl()}" alt="${escapeHtml(name || "")}">`;
@@ -201,22 +223,70 @@ export function zeigeDateiInline(el, { base64, typ, name }) {
         <iframe class="datei-pdf-frame" src="${u}" title="${escapeHtml(name || "PDF")}"></iframe>
       </div>`;
   } else if (mime.includes("wordprocessingml") || endetAuf(name, ".docx")) {
-    // Word: extrahierten Text als Vorschau (kein Fremdlib), plus Download.
+    // Word: das Dokument so zeigen, wie es geschrieben wurde — Logo,
+    // Überschriften, Beat-Kästen, Bullet-Zeilen, Tabellen. Vorher stand hier
+    // nur der extrahierte Text in einem <pre>: eine einfarbige Wand, in der
+    // die Beat-Struktur des Skripts verschwand. Dieselbe Lib und dieselben
+    // Optionen wie im social-brain-Cockpit, damit ein Skript dort und hier
+    // gleich aussieht.
+    //
     // Der Download steht BEWUSST ueber der Vorschau — darunter liegt er bei
     // einem langen Skript ausserhalb des Sichtfelds und gilt als nicht da.
-    el.innerHTML = `<div class="datei-word"><span class="muted" style="font-size:.85rem">Vorschau lädt …</span></div>`;
-    const ziel = el.querySelector(".datei-word");
+    // Der Download liegt AUSSERHALB des scrollenden Kastens: im Word-Zweig
+    // klebte er früher per position:sticky im Text — über einem gerenderten
+    // Dokument (eigene Stapelkontexte) deckt das nicht mehr zuverlässig, die
+    // Zeilen liefen durch den Knopf hindurch.
+    el.innerHTML = `<div class="datei-word datei-word--docx">
+        <div class="datei-aktionen">
+          <a class="btn btn--ghost btn--sm" href="${blobUrl()}" download="${escapeHtml(name || "dokument.docx")}">Original herunterladen ↓</a>
+        </div>
+        <div class="datei-docx"><span class="muted" style="font-size:.85rem">Vorschau lädt …</span></div>
+      </div>`;
+    const ziel = el.querySelector(".datei-docx");
     (async () => {
+      const bytes = base64ZuBytes(base64);
       try {
-        const text = await textAusDocx(base64ZuBytes(base64).buffer);
-        ziel.innerHTML = `<div class="datei-aktionen">
-            <a class="btn btn--ghost btn--sm" href="${blobUrl()}" download="${escapeHtml(name || "dokument.docx")}">Original herunterladen ↓</a>
-          </div>
-          <pre class="datei-word-text">${escapeHtml(text || "(leeres Dokument)")}</pre>`;
+        const docx = await ladeDocxPreview();
+        if (abgebrochen) return;
+        ziel.innerHTML = "";
+        // ignoreWidth/ignoreHeight: die Word-Seite ist 21 cm breit — in der
+        // Kundenkarte und erst recht auf dem Handy muss der Inhalt in die
+        // Karte fließen statt eine Seite zu simulieren. breakPages aus: ein
+        // Skript liest sich hier als ein Stück, nicht als Seitenstapel.
+        // useBase64URL: Bilder als data:-URL, damit sie das Aufräumen der
+        // blob:-URLs (cleanup) überleben.
+        await docx.renderAsync(bytes.buffer, ziel, null, {
+          inWrapper: true, ignoreWidth: true, ignoreHeight: true,
+          breakPages: false, useBase64URL: true,
+          renderHeaders: true, renderFooters: true
+        });
+        if (abgebrochen) ziel.innerHTML = "";
       } catch (_) {
-        ziel.innerHTML = `<a class="btn btn--ghost btn--sm" href="${blobUrl()}" download="${escapeHtml(name || "dokument.docx")}">Herunterladen ↓</a>`;
+        // Offline, CDN blockiert oder kaputte Datei → der alte Weg als
+        // Rückfallebene: extrahierter Text, immer noch lesbar.
+        if (abgebrochen) return;
+        try {
+          const text = await textAusDocx(bytes.buffer);
+          if (abgebrochen) return;
+          ziel.innerHTML = `<pre class="datei-word-text">${escapeHtml(text || "(leeres Dokument)")}</pre>`;
+        } catch (_e) {
+          ziel.innerHTML = `<p class="muted" style="margin:0;font-size:.85rem">Vorschau nicht möglich — bitte die Datei herunterladen.</p>`;
+        }
       }
     })();
+  } else if (mime.startsWith("text/") || endetAuf(name, ".txt", ".md")) {
+    // Reiner Text bekam bisher nur einen Download-Button — ein als .txt
+    // hinterlegtes Skript war im Portal gar nicht lesbar. Jetzt als Absätze
+    // statt als Monospace-Block: ein Skript ist Fließtext, kein Quellcode.
+    let text = "";
+    try { text = new TextDecoder().decode(base64ZuBytes(base64)); }
+    catch (_) { /* unlesbar → nur der Download oben */ }
+    el.innerHTML = `<div class="datei-word">
+        <div class="datei-aktionen">
+          <a class="btn btn--ghost btn--sm" href="${blobUrl()}" download="${escapeHtml(name || "skript.txt")}">Herunterladen ↓</a>
+        </div>
+        ${text ? `<div class="datei-text">${textZuAbsaetzen(text)}</div>` : ""}
+      </div>`;
   } else {
     el.innerHTML = `<a class="btn btn--ghost btn--sm" href="${blobUrl()}" download="${escapeHtml(name || "datei")}">Herunterladen ↓</a>`;
   }
