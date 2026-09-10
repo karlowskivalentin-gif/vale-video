@@ -40,6 +40,7 @@ import { renderKundeFormate } from "./views/kunde-formate.js";
 import { renderAdminFonts } from "./views/admin-fonts.js";
 import { renderAdminSpringseil } from "./views/admin-springseil.js";
 import { renderAdminSocial } from "./views/admin-social.js";
+import { renderAdminSocialBrain } from "./views/admin-socialbrain.js";
 import { renderKundeSocial } from "./views/kunde-social.js";
 import { renderAdminRoadmap } from "./views/admin-roadmap.js";
 import { renderAdminKurs } from "./views/admin-kurs.js";
@@ -93,6 +94,9 @@ const ROUTES = {
   "/admin/kunde-feed": { rolle: "admin", titel: "Kunden-Feed",     render: renderAdminKundeFeed },
   "/admin/webseite": { rolle: "admin", titel: "Webseite",          render: renderAdminWebseite },
   "/admin/social":   { rolle: "admin", titel: "Social",            render: renderAdminSocial },
+  // Social Brain: Live-Cockpit des social-brain-Lernsystems (eigenes Repo, lokaler
+  // Server auf localhost:4710). Die View ist nur der Rahmen um den eingebetteten Frame.
+  "/admin/social-brain": { rolle: "admin", titel: "Social Brain",   render: renderAdminSocialBrain },
   // Personal Brand: eigene Videos planen (Skriptwerkstatt + Formate + Dreh)
   "/admin/brand":    { rolle: "admin", titel: "Skripte",           render: renderAdminBrand },
   "/admin/skript":   { rolle: "admin", titel: "Skript",            render: renderAdminBrandSkript, param: true },
@@ -129,6 +133,9 @@ const NAV = {
     { href: "#/admin/roadmap",  label: "Roadmap"  },
     { href: "#/admin/kurs",     label: "Kurs"     },
     { href: "#/admin/pipeline", label: "Pipeline" },
+    // Hervorgehoben (hervor: true): das Cockpit, in dem man Claude Code beim
+    // Analysieren zusieht — bewusst kein Menüpunkt, sondern direkt sichtbar.
+    { href: "#/admin/social-brain", label: "Social Brain", hervor: true },
     { gruppe: "Produktion", kinder: [
       { href: "#/admin/objekte",  label: "Objekte" },
       { href: "#/admin/plaene",   label: "Pläne" },
@@ -259,7 +266,8 @@ function renderShell(aktiverPfad) {
   // Kunden- und Kollaborator-Nav bleiben flach — dort sind es nur 3–4 Punkte.
   const linkHtml = (l) => {
     const aktiv = ("#" + aktiverPfad) === l.href ? " is-active" : "";
-    return `<a class="topnav-link${aktiv}" href="${l.href}">${label(l)}</a>`;
+    const hervor = l.hervor ? " topnav-link--hervor" : "";
+    return `<a class="topnav-link${hervor}${aktiv}" href="${l.href}">${label(l)}</a>`;
   };
   const links = (NAV[rolleJetzt] || [])
     .map(l => {
