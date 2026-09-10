@@ -9,7 +9,7 @@ import {
 import { beiViewWechsel } from "../view-lifecycle.js";
 import {
   STATUS, STATUS_REIHENFOLGE, videoTypenFuer, skriptFreigabeNoetig, objektProduktionsMonat,
-  istFreigabeStufe
+  istFreigabeStufe, feldZustand
 } from "../status.js";
 import { getAktivKunde } from "../kunde-context.js";
 import { escapeHtml, formatDatum, tsZuDateInput, dateInputZuDate, monatsLabel } from "../util.js";
@@ -129,16 +129,24 @@ function formHtml(v, objekte, istNeu, kundenart) {
   const freigabeInfo = (!istNeu && v) ? `
     <div class="freigabe-info">
       <div><span class="muted">Entwurf:</span> <strong>${v.entwurf || 1}</strong></div>
-      <div><span class="muted">Skript-Freigabe:</span> ${freigText(v.freigabeSkript)}</div>
-      <div><span class="muted">Schnitt-Freigabe:</span> ${freigText(v.freigabeSchnitt)}</div>
+      ${freigZeile("Skript-Freigabe", v.freigabeSkript, v, STATUS.FREIGABE_SKRIPT)}
+      ${freigZeile("Schnitt-Freigabe", v.freigabeSchnitt, v, STATUS.FREIGABE_SCHNITT)}
     </div>` : "";
 
-  return `
-    <section class="card card--pad form-card">
-      <div class="notice notice--ok"    id="aveOk"  hidden role="status"></div>
-      <div class="notice notice--error" id="aveErr" hidden role="alert"></div>
+  // --- Bausteine, die beide Modi teilen -------------------------------
+  const skriptDrop = `
+        <div class="skript-drop skript-drop--kompakt" id="skAdminDrop" tabindex="0" role="button"
+             aria-label="Skript-Datei hochladen">
+          <span class="skript-drop-icon" aria-hidden="true">📄</span>
+          <span class="skript-drop-text">Skript hochladen — <span class="skript-drop-link">Datei wählen</span> oder hierher ziehen</span>
+          <span class="muted skript-drop-hint">Word / PDF / TXT · max. ~700 KB · liegt danach direkt im Portal</span>
+        </div>
+        <input type="file" id="skAdminFile" accept=".docx,.pdf,.txt,.md,.rtf,application/pdf,text/plain" hidden />
+        <div class="skript-vorgemerkt" id="skAdminPending" hidden></div>
+        <div class="notice notice--ok"    id="skAdminOk"  hidden role="status"></div>
+        <div class="notice notice--error" id="skAdminErr" hidden role="alert"></div>`;
 
-      <form id="aveForm" novalidate>
+  const felderStamm = `
         <div class="field">
           <label for="f-titel">Titel <span class="req">*</span></label>
           <input id="f-titel" type="text" value="${escapeHtml(val("titel"))}" placeholder="${istGastro ? "z. B. Reel — Neue Winterkarte" : "z. B. Objektvideo Musterstraße 1"}" required />
@@ -154,41 +162,22 @@ function formHtml(v, objekte, istNeu, kundenart) {
             <label for="f-status">Status</label>
             <select id="f-status">${statusOpts}</select>
           </div>
-        </div>
+        </div>`;
 
-        <div class="ave-gruppe ave-gruppe--kunde">
-          <div class="ave-gruppe-kopf">
-            <span class="ave-gruppe-titel">👁 Was der Kunde sieht</span>
-            <span class="ave-gruppe-sub muted">Erscheint sofort in seiner Videoansicht — leere Felder bleiben bei ihm unsichtbar.</span>
-          </div>
-
-        <div class="field">
-          <label>Skript</label>
-          <div class="skript-drop skript-drop--kompakt" id="skAdminDrop" tabindex="0" role="button"
-               aria-label="Skript-Datei hochladen">
-            <span class="skript-drop-icon" aria-hidden="true">📄</span>
-            <span class="skript-drop-text">Skript hochladen — <span class="skript-drop-link">Datei wählen</span> oder hierher ziehen</span>
-            <span class="muted skript-drop-hint">Word / PDF / TXT · max. ~700 KB · liegt danach direkt im Portal</span>
-          </div>
-          <input type="file" id="skAdminFile" accept=".docx,.pdf,.txt,.md,.rtf,application/pdf,text/plain" hidden />
-          <div class="skript-vorgemerkt" id="skAdminPending" hidden></div>
-          <div class="notice notice--ok"    id="skAdminOk"  hidden role="status"></div>
-          <div class="notice notice--error" id="skAdminErr" hidden role="alert"></div>
-        </div>
-
+  const feldSkriptLink = `
         <div class="field">
           <label for="f-skript">Skript-Link (Google Drive) <span class="muted">— optional</span></label>
           <input id="f-skript" type="url" value="${escapeHtml(val("skriptLink"))}" placeholder="https://drive.google.com/file/d/…/view" />
           <p class="field-hint muted">Nur nötig, wenn das Skript in Drive liegen soll statt hier hochgeladen zu werden.</p>
-        </div>
+        </div>`;
 
+  const feldVideoLink = `
         <div class="field">
           <label for="f-schnitt">Fertiges Video (YouTube · TikTok · Instagram · Vimeo · Drive)</label>
           <input id="f-schnitt" type="url" value="${escapeHtml(val("schnittLink"))}" placeholder="Link von irgendeiner Plattform einfügen — wird automatisch erkannt & eingebettet" />
-          <div class="ave-embed-vorschau" id="aveEmbedVorschau"></div>
-        </div>
+        </div>`;
 
-        <div class="grid-2">
+  const terminFelder = `
           <div class="field">
             <label for="f-datum">Geplantes Veröffentlichungsdatum</label>
             <input id="f-datum" type="date" value="${escapeHtml(tsZuDateInput(val("geplantesDatum", null)))}" />
@@ -196,16 +185,9 @@ function formHtml(v, objekte, istNeu, kundenart) {
           <div class="field">
             <label for="f-drehdatum">Geplanter Drehtermin</label>
             <input id="f-drehdatum" type="date" value="${escapeHtml(tsZuDateInput(val("geplanterDrehtermin", null)))}" />
-          </div>
-        </div>
-        </div>
+          </div>`;
 
-        <div class="ave-gruppe ave-gruppe--intern">
-          <div class="ave-gruppe-kopf">
-            <span class="ave-gruppe-titel">🔒 Intern</span>
-            <span class="ave-gruppe-sub muted">Sieht nur du — nichts davon erreicht den Kunden.</span>
-          </div>
-
+  const felderIntern = `
           <div class="field">
             <label for="f-objekt">${istGastro ? "Verknüpfte Filiale" : "Verknüpftes Objekt"}</label>
             <select id="f-objekt">${objektOpts}</select>
@@ -218,57 +200,179 @@ function formHtml(v, objekte, istNeu, kundenart) {
             <p class="field-hint muted">Leer lassen → Fallback auf den Drive-Ordner des Kunden.</p>
           </div>
 
-          ${freigabeInfo}
+          ${freigabeInfo}`;
+
+  // =====================================================================
+  // ANLEGEN — bewusst unverändert einspaltig. Es gibt hier noch kein Skript,
+  // keine Kommentare, keinen Plan; die zweite Spalte wäre leer.
+  // =====================================================================
+  if (istNeu) {
+    return `
+    <section class="card card--pad form-card">
+      <div class="notice notice--ok"    id="aveOk"  hidden role="status"></div>
+      <div class="notice notice--error" id="aveErr" hidden role="alert"></div>
+
+      <form id="aveForm" novalidate>
+        ${felderStamm}
+
+        <div class="ave-gruppe ave-gruppe--kunde">
+          <div class="ave-gruppe-kopf">
+            <span class="ave-gruppe-titel">👁 Was der Kunde sieht</span>
+            <span class="ave-gruppe-sub muted">Erscheint sofort in seiner Videoansicht — leere Felder bleiben bei ihm unsichtbar.</span>
+          </div>
+
+          <div class="field"><label>Skript</label>${skriptDrop}</div>
+          ${feldSkriptLink}
+          ${feldVideoLink}
+          <div class="ave-embed-vorschau" id="aveEmbedVorschau"></div>
+          <div class="grid-2">${terminFelder}</div>
         </div>
 
-        <!-- Speichern/Löschen liegen in der Sticky-Leiste am Seitenende; hier
-             bleibt nur, was zum Formular selbst gehört. -->
-        ${istNeu ? `
+        <div class="ave-gruppe ave-gruppe--intern">
+          <div class="ave-gruppe-kopf">
+            <span class="ave-gruppe-titel">🔒 Intern</span>
+            <span class="ave-gruppe-sub muted">Sieht nur du — nichts davon erreicht den Kunden.</span>
+          </div>
+          ${felderIntern}
+        </div>
+
         <div class="action-btns" style="margin-top:1.25rem">
           <button class="btn btn--accent" id="aveSave" type="submit">Anlegen</button>
-        </div>` : `
-        <div class="entwurf-box">
+        </div>
+      </form>
+    </section>`;
+  }
+
+  // =====================================================================
+  // BEARBEITEN — zweispaltiger Arbeitsplatz.
+  // Links der Arbeitsgegenstand (Skript, Video, Kundenreaktion, Plan) —
+  // offen und nach Status sortiert. Rechts die Stammdaten als ruhige Spalte.
+  // Die Blöcke werden IMMER alle gerendert (alle IDs vorhanden, damit die
+  // init*-Funktionen sie finden); nur ihre Reihenfolge ist kontextabhängig,
+  // gesteuert über CSS `order`.
+  // =====================================================================
+  const ord = linksOrder(v.status);
+
+  // Termine: leere Felder mahnen nicht mehr. Sind beide noch nicht dran,
+  // verschwinden sie hinter einem Angebot statt als leere Datumsfelder
+  // dauerhaft „unerledigt" auszusehen. Die Inputs bleiben im DOM (nur
+  // versteckt) — wire() liest sie beim Speichern per querySelector aus.
+  const termineRuhig = feldZustand(v, "geplantesDatum") === "ruhig"
+                    && feldZustand(v, "geplanterDrehtermin") === "ruhig";
+  const terminBlock = termineRuhig
+    ? `<button type="button" class="ave-spaeter-link" id="aveTermineAuf">+ Termine schon jetzt festlegen</button>
+       <div class="grid-2" id="aveTermineFelder" hidden>${terminFelder}</div>`
+    : `<div class="grid-2" id="aveTermineFelder">${terminFelder}</div>`;
+
+  return `
+    <div class="ave-grid">
+      <div class="ave-links">
+
+        <section class="card card--pad ave-blk ave-blk--kunde" style="order:${ord.skript}">
+          <div class="ave-blk-kopf">
+            <h2 class="ave-blk-titel">📄 Skript</h2>
+            <span class="ave-blk-hinweis muted">sieht dein Kunde</span>
+          </div>
+          ${skriptDrop}
+          <div id="aveSkripte"></div>
+        </section>
+
+        <section class="card card--pad ave-blk ave-blk--kunde" style="order:${ord.video}">
+          <div class="ave-blk-kopf">
+            <h2 class="ave-blk-titel">🎬 Fertiges Video</h2>
+            <span class="ave-blk-hinweis muted">sieht dein Kunde</span>
+          </div>
+          <div class="ave-embed-vorschau" id="aveEmbedVorschau"></div>
+          <p class="muted ave-blk-leer" id="aveVideoLeer">Noch kein Video hinterlegt — rechts unter „Fertiges Video" den Link einfügen.</p>
+        </section>
+
+        ${v.planId ? `<div id="avePlanDetails" style="order:${ord.plan}"></div>` : ""}
+
+        <section class="card card--pad ave-blk" style="order:${ord.komm}">
+          <div class="ave-blk-kopf">
+            <h2 class="ave-blk-titel">💬 Kundenreaktion</h2>
+            <span class="ave-blk-zahl muted" id="aveKommZahl"></span>
+          </div>
+          <div id="aveKomms" class="komm-list"><p class="muted">Wird geladen …</p></div>
+          <form id="aveKommForm" class="komm-form">
+            <div class="field" style="margin:0 0 .75rem">
+              <label for="aveKommText">Antwort / Notiz an Kunde</label>
+              <textarea id="aveKommText" placeholder="Antwort oder interne Notiz …"></textarea>
+            </div>
+            <div class="notice notice--error" id="aveKommErr" hidden role="alert"></div>
+            <button class="btn btn--ghost btn--sm" type="submit" id="aveKommSubmit">Kommentar senden</button>
+          </form>
+        </section>
+
+        <div class="card card--pad ave-blk ave-naechster" style="order:${ord.entwurf}">
           <p class="muted" style="margin:0 0 .6rem">
-            Änderungen umgesetzt? Aktualisiere den Plan/die Links oben, dann gib den Kunden einen neuen Entwurf zur Freigabe.
+            Änderungen umgesetzt? Aktualisiere Skript/Links, dann gib dem Kunden einen neuen Entwurf zur Freigabe.
           </p>
           <button class="btn btn--ok" id="aveNeuerEntwurf" type="button">🔁 Neuen Entwurf an Kunden geben</button>
-        </div>`}
-      </form>
-    </section>
-    ${!istNeu && v && v.planId ? `
-    <details class="ave-block" open>
-      <summary class="ave-block-kopf"><span class="ave-block-titel">📋 Plan-Details</span></summary>
-      <div id="avePlanDetails"></div>
-    </details>` : ""}
-    ${!istNeu ? `
-    <details class="ave-block" open>
-      <summary class="ave-block-kopf"><span class="ave-block-titel">📄 Skripte</span></summary>
-      <div id="aveSkripte"></div>
-    </details>` : ""}
-    ${!istNeu ? `
-    <details class="ave-block">
-      <summary class="ave-block-kopf">
-        <span class="ave-block-titel">💬 Kommentare &amp; Änderungswünsche</span>
-        <span class="ave-block-zahl muted" id="aveKommZahl"></span>
-      </summary>
-      <section class="vd-komm">
-        <div id="aveKomms" class="komm-list"><p class="muted">Wird geladen …</p></div>
-        <form id="aveKommForm" class="komm-form card card--pad">
-          <div class="field" style="margin:0 0 .75rem">
-            <label for="aveKommText">Antwort / Notiz an Kunde</label>
-            <textarea id="aveKommText" placeholder="Antwort oder interne Notiz …"></textarea>
+        </div>
+
+      </div>
+
+      <form id="aveForm" class="ave-rechts" novalidate>
+        <div class="notice notice--ok"    id="aveOk"  hidden role="status"></div>
+        <div class="notice notice--error" id="aveErr" hidden role="alert"></div>
+
+        <section class="card card--pad">
+          ${felderStamm}
+        </section>
+
+        <section class="ave-gruppe ave-gruppe--kunde">
+          <div class="ave-gruppe-kopf">
+            <span class="ave-gruppe-titel">👁 Was der Kunde sieht</span>
+            <span class="ave-gruppe-sub muted">Erscheint sofort in seiner Videoansicht — leere Felder bleiben bei ihm unsichtbar.</span>
           </div>
-          <div class="notice notice--error" id="aveKommErr" hidden role="alert"></div>
-          <button class="btn btn--ghost btn--sm" type="submit" id="aveKommSubmit">Kommentar senden</button>
-        </form>
-      </section>
-    </details>` : ""}
-    ${!istNeu ? `
+          ${feldSkriptLink}
+          ${feldVideoLink}
+          ${terminBlock}
+        </section>
+
+        <section class="ave-gruppe ave-gruppe--intern">
+          <div class="ave-gruppe-kopf">
+            <span class="ave-gruppe-titel">🔒 Intern</span>
+            <span class="ave-gruppe-sub muted">Sieht nur du — nichts davon erreicht den Kunden.</span>
+          </div>
+          ${felderIntern}
+        </section>
+      </form>
+    </div>
+
     <div class="ave-speicherleiste" id="aveSpeicherleiste" hidden>
       <span class="ave-speicher-hinweis">Ungespeicherte Änderungen</span>
       <button class="btn btn--ghost btn--sm" id="aveDelete" type="button">Löschen</button>
       <button class="btn btn--accent" id="aveSave" type="submit" form="aveForm">Speichern</button>
-    </div>` : ""}`;
+    </div>`;
+}
+
+// Reihenfolge der linken Blöcke — die Seite zeigt oben, worum es GERADE geht.
+// Umgesetzt über CSS `order`, damit das erzeugte HTML (und damit jede Element-ID)
+// unabhängig vom Status identisch bleibt.
+function linksOrder(status) {
+  switch (status) {
+    // Beim Kunden zur Skript-Freigabe: das Skript ist der Gegenstand.
+    case STATUS.FREIGABE_SKRIPT:
+      return { skript: 1, plan: 2, komm: 3, video: 4, entwurf: 5 };
+    // Rückläufer — der Kunde hat Änderungen gefordert. Seine Worte zuerst,
+    // direkt danach der Knopf, mit dem der neue Entwurf rausgeht.
+    case STATUS.SKRIPT:
+      return { komm: 1, entwurf: 2, skript: 3, plan: 4, video: 5 };
+    case STATUS.SCHNITT:
+      return { komm: 1, entwurf: 2, video: 3, skript: 4, plan: 5 };
+    // Beim Kunden zur Schnitt-Freigabe: der fertige Film ist der Gegenstand.
+    case STATUS.FREIGABE_SCHNITT:
+      return { video: 1, komm: 2, skript: 3, plan: 4, entwurf: 5 };
+    case STATUS.FREIGEGEBEN:
+    case STATUS.GEPLANT:
+    case STATUS.GEPOSTET:
+      return { video: 1, skript: 2, plan: 3, komm: 4, entwurf: 5 };
+    // Idee, Drehbereit, Gedreht, Verworfen — Skript ist der Arbeitsstand.
+    default:
+      return { skript: 1, plan: 2, video: 3, komm: 4, entwurf: 5 };
+  }
 }
 
 // --- Kopf: das Wichtigste vor dem Formular ----------------------------
@@ -302,11 +406,18 @@ function kopfHtml(v) {
     ${hinweis}`;
 }
 
+// Ganze Tage seit einem Zeitstempel — null, wenn er unbrauchbar ist.
+// Geteilt von der Kopfzeile und der Freigabe-Historie.
+function tageSeitZahl(ts) {
+  const d = ts && ts.toDate ? ts.toDate() : null;
+  if (!d || isNaN(d.getTime())) return null;
+  return Math.floor((Date.now() - d.getTime()) / 86400000);
+}
+
 // „ · Stand seit 3 Tagen" — leer, wenn kein brauchbarer Zeitstempel vorliegt.
 function tageSeit(ts) {
-  const d = ts && ts.toDate ? ts.toDate() : null;
-  if (!d || isNaN(d.getTime())) return "";
-  const tage = Math.floor((Date.now() - d.getTime()) / 86400000);
+  const tage = tageSeitZahl(ts);
+  if (tage === null) return "";
   if (tage < 1) return " Stand von heute.";
   return ` Stand seit ${tage} Tag${tage === 1 ? "" : "en"}.`;
 }
@@ -418,9 +529,21 @@ function objektMonatHinweis(objekte, objektId) {
   return `Landet in der Pipeline-Sektion <strong>${escapeHtml(monatsLabel(objektProduktionsMonat(o)))}</strong> — dem Produktionsmonat des Objekts.`;
 }
 
-function freigText(f) {
-  if (!f) return `<span class="muted">offen</span>`;
-  return `${escapeHtml(f.by || "Kunde")} · ${escapeHtml(formatDatum(f.at, true))}`;
+// Eine Zeile der Freigabe-Historie.
+//
+// Hier stand früher „offen" für jede noch nicht erteilte Freigabe — auch bei
+// einem Video in der Idee-Phase, wo sie gar nicht erteilt sein KANN. Das las
+// sich wie ein Versäumnis. Jetzt gilt: erteilt → wer und wann; steht gerade an
+// → wie lange sie schon beim Kunden liegt (echte Information); sonst → die
+// Zeile entfällt.
+function freigZeile(label, f, v, stufe) {
+  if (f) {
+    return `<div><span class="muted">${label}:</span> ${escapeHtml(f.by || "Kunde")} · ${escapeHtml(formatDatum(f.at, true))}</div>`;
+  }
+  if (v.status !== stufe) return "";
+  const tage = tageSeitZahl(v.aktualisiertAm);
+  const seit = tage === null ? "" : (tage < 1 ? " seit heute" : ` seit ${tage} Tag${tage === 1 ? "" : "en"}`);
+  return `<div><span class="muted">${label}:</span> <span class="ave-freig-wartet">wartet beim Kunden${seit}</span></div>`;
 }
 
 // --- Speichern / Anlegen / Löschen ------------------------------------
@@ -437,14 +560,26 @@ function wire(v, istNeu, body, id, user, objekte, kundeId, skriptUpload) {
 
   // Speicherleiste erscheint erst, wenn wirklich etwas geändert wurde — so
   // scrollt man nicht mehr am Speichern vorbei, ohne dass sie ständig im Weg ist.
-  // Der Datei-Dialog des Skript-Uploads zählt nicht: der speichert selbst.
+  // (Der Skript-Upload liegt seit dem Zwei-Spalten-Umbau außerhalb des Formulars
+  // und speichert selbst — er kann die Leiste gar nicht mehr auslösen.)
   if (leiste) {
-    const zeige = (e) => {
-      if (e && e.target && e.target.id === "skAdminFile") return;
-      leiste.hidden = false;
-    };
+    const zeige = () => { leiste.hidden = false; };
     form.addEventListener("input", zeige);
     form.addEventListener("change", zeige);
+  }
+
+  // „+ Termine schon jetzt festlegen": die Felder sind schon im DOM (nur
+  // versteckt, damit wire() sie beim Speichern auslesen kann) — hier werden
+  // sie nur sichtbar gemacht.
+  const termineAuf = body.querySelector("#aveTermineAuf");
+  const termineFelder = body.querySelector("#aveTermineFelder");
+  if (termineAuf && termineFelder) {
+    termineAuf.addEventListener("click", () => {
+      termineFelder.hidden = false;
+      termineAuf.hidden = true;
+      const erstes = termineFelder.querySelector("input");
+      if (erstes) erstes.focus();
+    });
   }
 
   form.addEventListener("submit", async (e) => {
@@ -621,15 +756,20 @@ async function initPlanDetails(video, body) {
 }
 
 // --- Live-Vorschau des universellen Video-Links -----------------------
+// Das Eingabefeld steht rechts bei den Stammdaten, die Vorschau links im
+// Arbeitsbereich: rechts sind die Regler, links das Ergebnis. Beide werden über
+// ihre IDs gefunden, die DOM-Position spielt keine Rolle.
 function initEmbedVorschau(body) {
   const inp  = body.querySelector("#f-schnitt");
   const ziel = body.querySelector("#aveEmbedVorschau");
+  const leer = body.querySelector("#aveVideoLeer");   // nur im Bearbeiten-Modus
   if (!inp || !ziel) return;
   const render = () => {
     const url = inp.value.trim();
-    if (!/^https?:\/\//i.test(url)) { ziel.innerHTML = ""; return; }
-    ziel.innerHTML = embedHtml(url);
-    verarbeiteEmbeds(ziel);
+    const hat = /^https?:\/\//i.test(url);
+    ziel.innerHTML = hat ? embedHtml(url) : "";
+    if (hat) verarbeiteEmbeds(ziel);
+    if (leer) leer.hidden = hat;
   };
   render();
   inp.addEventListener("change", render);
@@ -651,10 +791,9 @@ function initSkripte(video, body) {
   const wrap = body.querySelector("#aveSkripte");
   if (!wrap) return;
 
-  wrap.innerHTML = `
-    <section class="card card--pad ave-skripte">
-      <div id="skripteListe"><p class="muted" style="margin:0">Wird geladen …</p></div>
-    </section>`;
+  // Kein eigener Karten-Rahmen mehr: der Block liegt seit dem Zwei-Spalten-Umbau
+  // bereits in der Skript-Karte des Arbeitsbereichs.
+  wrap.innerHTML = `<div id="skripteListe"><p class="muted" style="margin:0">Wird geladen …</p></div>`;
 
   const uploadsEl = wrap.querySelector("#skripteListe");
 
@@ -680,16 +819,29 @@ function initSkripte(video, body) {
         </div>`).join("")}
     </div>`;
 
-    uploadsEl.querySelectorAll(".dreh-upload").forEach((row) => {
+    uploadsEl.querySelectorAll(".dreh-upload").forEach((row, i) => {
       const uid = row.getAttribute("data-id");
       const u = liste.find((x) => x.id === uid);
-      row.querySelector('[data-akt="ansehen"]').addEventListener("click", () => {
-        const view = row.querySelector(".dreh-upload-view");
-        if (!view.hidden) { view.hidden = true; view.innerHTML = ""; return; }
-        view.hidden = false;
-        const cleanup = zeigeDateiInline(view, { base64: u.base64, typ: u.dateiTyp, name: u.dateiName });
-        beiViewWechsel(cleanup);
-      });
+      const view = row.querySelector(".dreh-upload-view");
+      const ansehenBtn = row.querySelector('[data-akt="ansehen"]');
+
+      const zeige = (offen) => {
+        if (offen) {
+          view.hidden = false;
+          const cleanup = zeigeDateiInline(view, { base64: u.base64, typ: u.dateiTyp, name: u.dateiName });
+          beiViewWechsel(cleanup);
+        } else {
+          view.hidden = true;
+          view.innerHTML = "";
+        }
+        ansehenBtn.textContent = offen ? "Zuklappen" : "Ansehen";
+      };
+      ansehenBtn.addEventListener("click", () => zeige(view.hidden));
+
+      // Die neueste Datei ist der Arbeitsgegenstand dieser Seite — sie steht
+      // sofort offen da. Vorher musste man erst den Block aufklappen und dann
+      // noch „Ansehen" drücken, um überhaupt zu sehen, was beim Kunden liegt.
+      if (i === 0) zeige(true);
       // Direkter Download aus der Zeile. Die blob:-URL entsteht erst beim Klick
       // und wird gleich wieder freigegeben, damit nicht fuer jede Zeile
       // dauerhaft eine offene URL herumliegt.
@@ -733,9 +885,9 @@ function initKommentare(id, user, body) {
       // um zu sehen, ob etwas Neues drin ist.
       if (zahl) {
         const neu = komms.filter((k) => k.rolle !== "admin" && (k.bearbeitung || "neu") === "neu").length;
-        zahl.textContent = komms.length
-          ? `${komms.length}${neu ? ` · ${neu} neu` : ""}`
-          : "keine";
+        // Kein „keine" mehr: ein leerer Thread braucht keine Zahl, die Liste
+        // darunter sagt es ohnehin.
+        zahl.textContent = komms.length ? `${komms.length}${neu ? ` · ${neu} neu` : ""}` : "";
         zahl.classList.toggle("ave-block-zahl--neu", neu > 0);
       }
       if (!komms.length) { liste.innerHTML = `<p class="muted">Noch keine Kommentare.</p>`; return; }

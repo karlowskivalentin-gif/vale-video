@@ -3082,6 +3082,68 @@ body.is-beobachtung .view .fm-titel {
   font-size: 0.92rem;
 }
 
+/* ---------------------------------------------------------------------
+   Arbeitsplatz-Layout (nur Bearbeiten-Modus; Anlegen bleibt einspaltig)
+
+   Links der Arbeitsgegenstand — Skript, fertiges Video, Kundenreaktion,
+   Plan —, rechts die Stammdaten als ruhige, mitscrollende Spalte.
+   Vorbild: .todo-split/.todo-detail (Sidebar) und .bs-grid (Werkstatt).
+   --------------------------------------------------------------------- */
+.ave-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 1.5rem;
+  align-items: start;
+}
+.ave-links { display: flex; flex-direction: column; gap: 1.5rem; min-width: 0; }
+/* renderPlanDetails() bringt seine Karte mit hart verdrahtetem
+   style="margin-top:1.5rem" mit. Die Funktion ist geteilter Code zwischen
+   Admin- und Kundenansicht und wird deshalb nicht angefasst — hier sorgt
+   bereits der Flex-gap für den Abstand, die Inline-Margin muss weg. */
+#avePlanDetails > .card { margin-top: 0 !important; }
+
+.ave-rechts {
+  display: flex; flex-direction: column; gap: 1rem; min-width: 0;
+  position: sticky; top: 84px;
+  max-height: calc(100vh - 110px); overflow-y: auto;
+}
+/* In 340px Breite ist das großzügige Karten-Padding zu viel, und Typ/Status
+   stehen untereinander statt nebeneinander. */
+.ave-rechts .card--pad { padding: 1.1rem 1.15rem; }
+.ave-rechts .ave-gruppe { margin: 0; }
+.ave-rechts .grid-2 { grid-template-columns: 1fr; gap: 0; }
+
+/* Blöcke im Arbeitsbereich */
+.ave-blk-kopf {
+  display: flex; align-items: baseline; gap: 0.55rem; flex-wrap: wrap;
+  margin-bottom: 0.9rem;
+}
+.ave-blk-titel { font-size: 1rem; font-weight: 700; margin: 0; }
+.ave-blk-hinweis { font-size: 0.75rem; }
+.ave-blk-zahl { margin-left: auto; font-size: 0.8rem; white-space: nowrap; }
+.ave-blk-zahl--neu { color: var(--accent); font-weight: 700; }
+.ave-blk-leer { font-size: 0.88rem; margin: 0; }
+/* Leise Markierung dessen, was beim Kunden ankommt — gleiche Sprache wie
+   .ave-gruppe--kunde in der Stammdaten-Spalte. */
+.ave-blk--kunde { border-left: 3px solid var(--accent); }
+.ave-naechster { border-left: 3px solid var(--ok); }
+.ave-blk .komm-form { padding: 0; border: 0; box-shadow: none; background: none; }
+
+/* „+ Termine schon jetzt festlegen" — ein Angebot statt zweier leerer
+   Datumsfelder, solange die Termine im Ablauf noch nicht dran sind. */
+.ave-spaeter-link {
+  font: inherit; font-size: 0.82rem; color: var(--muted);
+  background: none; border: 0; padding: 0.2rem 0; cursor: pointer; text-align: left;
+}
+.ave-spaeter-link:hover { color: var(--accent); }
+/* Freigabe, die gerade beim Kunden liegt (ersetzt das frühere „offen") */
+.ave-freig-wartet { color: var(--accent-dim); }
+
+@media (max-width: 900px) {
+  .ave-grid { grid-template-columns: 1fr; }
+  .ave-rechts { position: static; max-height: none; overflow: visible; }
+}
+
 /* Feldgruppen: was rausgeht vs. was intern bleibt */
 .ave-gruppe {
   margin: 1.5rem 0;
