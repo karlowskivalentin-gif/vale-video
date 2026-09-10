@@ -254,6 +254,57 @@ export function istGebongt(video) {
 }
 
 // =====================================================================
+// Fälligkeit von Feldern — „noch nicht dran" ist kein Mangel
+//
+// Ein leeres Feld hat drei sehr verschiedene Bedeutungen, die die Oberfläche
+// bisher alle gleich behandelt hat (leeres Eingabefeld, gestrichelter
+// „Kein Drehtermin"-Chip, „offen"): fällig, noch nicht dran, oder nie nötig.
+// Nur der erste Fall verdient Aufmerksamkeit — die anderen beiden sollen
+// ruhig bleiben, sonst mahnt die Seite dauerhaft wegen nichts.
+//
+// Die Schwelle ist ein Status, ausgewertet über statusIndex() — dasselbe
+// Muster wie GEBONGT_AB_STATUS weiter oben.
+// =====================================================================
+
+// Ab welcher Stufe ist ein Feld überhaupt fällig? Ein Drehtermin z. B. ist
+// sinnlos, solange der Kunde das Skript noch verwerfen kann.
+export const FAELLIG_AB = {
+  geplanterDrehtermin: STATUS.DREHBEREIT,
+  geplantesDatum:      STATUS.SCHNITT,
+  schnittLink:         STATUS.SCHNITT
+};
+
+// Und bis wann? Ein Feld hat ein Zeitfenster, keinen bloßen Startpunkt: ist
+// das Video gedreht, ist ein nachträglich fehlender Drehtermin keine offene
+// Aufgabe mehr. Nachtragen bleibt über das Feld jederzeit möglich — es wird
+// nur nicht mehr angemahnt. Ohne Eintrag hier: nach oben offen (schnittLink
+// etwa fehlt bis zuletzt echt).
+export const FAELLIG_BIS = {
+  geplanterDrehtermin: STATUS.GEDREHT,
+  geplantesDatum:      STATUS.GEPLANT
+};
+
+// „gesetzt" = da; „faellig" = leer, aber jetzt dran; „ruhig" = leer und (noch)
+// nicht dran. Unbekannte Felder gelten immer als fällig — wer nicht in
+// FAELLIG_AB steht, wird nicht versteckt.
+//
+// VERWORFEN ist wie bei autoGebongt() gesondert: der Status steht am
+// Listenende und hat einen hohen Index, ist aber das Gegenteil von „weit
+// fortgeschritten" — dort ist nichts mehr fällig.
+export function feldZustand(video, feld) {
+  if (!video) return "ruhig";
+  if (video[feld]) return "gesetzt";
+  if (video.status === STATUS.VERWORFEN) return "ruhig";
+  const ab = FAELLIG_AB[feld];
+  if (!ab) return "faellig";
+  const idx = statusIndex(video.status);
+  if (idx < statusIndex(ab)) return "ruhig";            // noch nicht dran
+  const bis = FAELLIG_BIS[feld];
+  if (bis && idx > statusIndex(bis)) return "ruhig";    // Thema durch
+  return "faellig";
+}
+
+// =====================================================================
 // Die erlaubten Kunden-Übergänge (= Sicherheitskern, gespiegelt in Rules)
 // =====================================================================
 

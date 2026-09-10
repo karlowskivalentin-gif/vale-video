@@ -11,7 +11,7 @@ import {
 } from "../db.js";
 import { beiViewWechsel } from "../view-lifecycle.js";
 import { STATUS, STATUS_REIHENFOLGE, statusIndex, istFreigabeStufe, kundenStatus, skriptFreigabeNoetig, istGebongt, autoGebongt,
-         MONAT_SPAETER, istSpaeter, pipelineMonatsLabel } from "../status.js";
+         MONAT_SPAETER, istSpaeter, pipelineMonatsLabel, feldZustand } from "../status.js";
 import { sendKundeFreigabe } from "../email.js";
 import { videoNeuerEntwurf } from "../versionen.js";
 import { escapeHtml, formatDatum, tsZuDateInput, dateInputZuDate, monatKey, monatPlus } from "../util.js";
@@ -544,16 +544,29 @@ function dashboardHtml(videos, state) {
   const idxFreigegeben     = statusIndex(STATUS.FREIGEGEBEN);
 
   const skriptRelevant = aktiv.filter((v) => skriptFreigabeNoetig(v.typ));
-  const geskriptet  = skriptRelevant.filter((v) => v.freigabeSkript || statusIndex(v.status) > idxFreigabeSkript).length;
-  const drehtermin  = aktiv.filter((v) => v.geplanterDrehtermin).length;
+  // MEINE Arbeit: Skript geschrieben und beim Kunden (>=, nicht >) …
+  const skriptRaus  = skriptRelevant.filter((v) => statusIndex(v.status) >= idxFreigabeSkript).length;
+  // … und getrennt davon SEINE Entscheidung. Beides stand früher in einer
+  // Kachel „Skript fertig", die aber nur die Freigabe zählte: fünf fertige,
+  // rausgeschickte Skripte ergaben 0/5 — die eigene Arbeit war unsichtbar.
+  const skriptFrei  = skriptRelevant.filter((v) => v.freigabeSkript || statusIndex(v.status) > idxFreigabeSkript).length;
+  // Grundgesamtheit nur die Videos, die es bis zum Dreh geschafft haben.
+  // Vorher gegen ALLE aktiven gerechnet — dadurch zählte jedes Video, das der
+  // Kunde noch verwerfen kann, als fehlender Termin.
+  // Bewusst NICHT über feldZustand(): das kennt eine Obergrenze (ab „Gedreht"
+  // ist der Termin kein Thema mehr) — für eine Rückschau-Kennzahl müssen
+  // gedrehte und geposteten Videos aber weiter mitzählen.
+  const drehRelevant = aktiv.filter((v) => statusIndex(v.status) >= statusIndex(STATUS.DREHBEREIT));
+  const drehtermin  = drehRelevant.filter((v) => v.geplanterDrehtermin).length;
   const geschnitten = aktiv.filter((v) => statusIndex(v.status) >= idxFreigabeSchnitt).length;
   const akzeptiert  = aktiv.filter((v) => v.freigabeSchnitt || statusIndex(v.status) >= idxFreigegeben).length;
 
   const kacheln = [
-    { emoji: "📝", label: "Skript fertig",     ist: geskriptet,  gesamt: skriptRelevant.length },
-    { emoji: "🎬", label: "Drehtermin geplant", ist: drehtermin,  gesamt: aktiv.length },
-    { emoji: "✂️", label: "Schnitt fertig",    ist: geschnitten, gesamt: aktiv.length },
-    { emoji: "✅", label: "Vom Kunden freigegeben", ist: akzeptiert, gesamt: aktiv.length }
+    { emoji: "📝", label: "Skript raus",        ist: skriptRaus,  gesamt: skriptRelevant.length },
+    { emoji: "🔍", label: "Skript freigegeben", ist: skriptFrei,  gesamt: skriptRelevant.length },
+    { emoji: "🎬", label: "Drehtermin geplant", ist: drehtermin,  gesamt: drehRelevant.length },
+    { emoji: "✂️", label: "Schnitt fertig",     ist: geschnitten, gesamt: aktiv.length },
+    { emoji: "✅", label: "Video freigegeben",  ist: akzeptiert,  gesamt: aktiv.length }
   ];
   return `${kopf}<div class="pl-dash">${kacheln.map(kachelHtml).join("")}</div>`;
 }
@@ -624,18 +637,29 @@ function rowHtml(v, komms, notizen, istOffen, istOffenBong, istOffenTermin, kund
       </div>`
     : "";
 
-  // 📅 Termin-Status als klickbare Chips (öffnen den Editor darunter). Bei
-  // „Verworfen" nicht relevant — kein Dreh/keine Veröffentlichung.
-  const drehGesetzt = !!v.geplanterDrehtermin;
-  const pubGesetzt  = !!v.geplantesDatum;
+  // 📅 Termin-Status als klickbare Chips (öffnen den Editor darunter).
+  //
+  // Ein fehlender Termin ist nur dann eine Lücke, wenn er auch dran ist:
+  // solange der Kunde das Skript noch verwerfen kann, wäre ein Drehtermin
+  // verfrüht. Deshalb entscheidet feldZustand() (status.js), ob überhaupt ein
+  // Chip erscheint — vorher standen hier zwei gestrichelte „Kein …"-Chips auf
+  // JEDER Karte und meldeten Mängel, wo keine waren.
+  const terminChip = (feld, emoji, faelligLabel, titel) => {
+    const zustand = feldZustand(v, feld);
+    if (zustand === "ruhig") return "";
+    return `<button type="button" class="pl-termin-chip ${zustand === "gesetzt" ? "is-set" : "is-faellig"}" title="${escapeHtml(titel)}">
+        ${emoji} ${zustand === "gesetzt" ? escapeHtml(formatDatum(v[feld])) : escapeHtml(faelligLabel)}
+      </button>`;
+  };
+  const chips = terminChip("geplanterDrehtermin", "🎬", "+ Drehtermin", "Drehtermin planen — erscheint im Kalender")
+              + terminChip("geplantesDatum", "📣", "+ Veröffentlichung", "Veröffentlichung planen — erscheint im Kalender");
+  // Beide ruhig: EIN neutraler Einstieg statt zweier „Kein …"-Chips. Nötig,
+  // weil der Termin-Editor darunter ausschließlich über einen Chip-Klick
+  // aufgeht — ohne ihn wäre in der Pipeline kein Termin mehr setzbar.
+  // Formuliert als Angebot, nicht als Lücke.
   const terminChips = v.status === STATUS.VERWORFEN ? "" : `
-    <div class="pl-termine">
-      <button type="button" class="pl-termin-chip ${drehGesetzt ? "is-set" : "is-offen"}" title="Drehtermin planen — erscheint im Kalender">
-        🎬 ${drehGesetzt ? escapeHtml(formatDatum(v.geplanterDrehtermin)) : "Kein Drehtermin"}
-      </button>
-      <button type="button" class="pl-termin-chip ${pubGesetzt ? "is-set" : "is-offen"}" title="Veröffentlichung planen — erscheint im Kalender">
-        📣 ${pubGesetzt ? escapeHtml(formatDatum(v.geplantesDatum)) : "Kein Termin"}
-      </button>
+    <div class="pl-termine">${chips || `
+      <button type="button" class="pl-termin-chip is-ruhig" title="Termine planen — erscheinen im Kalender">📅 Termine</button>`}
     </div>`;
 
   const terminEdit = v.status === STATUS.VERWORFEN ? "" : `

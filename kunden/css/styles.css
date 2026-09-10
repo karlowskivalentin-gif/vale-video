@@ -931,8 +931,14 @@ a.row-item:hover { background: var(--off-white); }
 }
 .pl-termin-chip:hover { border-color: var(--black); }
 .pl-termin-chip.is-set { background: var(--ok-bg); color: var(--ok); border-color: #bfe0cb; }
-.pl-termin-chip.is-offen { color: var(--muted); border-style: dashed; }
-.pl-termin-chip.is-offen:hover { color: var(--accent); border-color: var(--accent); }
+/* Fällig = jetzt wirklich dran → Einladung in Akzentfarbe. Bewusst KEIN
+   gestrichelter Rahmen mehr: gestrichelt liest sich als Defekt, ein fälliger
+   Termin ist aber eine Aufgabe, die gerade erst entstanden ist. */
+.pl-termin-chip.is-faellig { color: var(--accent-dim); border-color: var(--accent); }
+.pl-termin-chip.is-faellig:hover { background: rgba(226, 98, 44, 0.07); }
+/* Ruhig = noch nicht dran. Nur ein leiser Einstieg zum Termin-Editor. */
+.pl-termin-chip.is-ruhig { color: var(--light); font-weight: 500; }
+.pl-termin-chip.is-ruhig:hover { color: var(--accent); border-color: var(--accent); }
 
 /* Aufklappbarer Termin-Editor unter der Zeile */
 .pl-termine-edit {
