@@ -318,6 +318,17 @@ service cloud.firestore {
       allow write: if istAdmin();
     }
 
+    // ---- contentplan (Content-Kalender PRO KUNDE, Vale 04.10.2026) ----
+    // Fest eingeplante und veröffentlichte Instagram-Posts (Termin, Caption,
+    // Vorschaubild, Status, Link). Geschrieben nur vom Social-Brain-Cockpit
+    // unter Valentins Admin-Login; der Kunde sieht nur seine eigenen —
+    // fail-closed wie kundenformate (kein 'deussen'-Rückfall).
+    match /contentplan/{id} {
+      allow read:  if istAdmin()
+                   || (istKunde() && resource.data.kundeId == kundeVon());
+      allow write: if istAdmin();
+    }
+
     // ---- moodboard (Kanal-Haftnotizen, Admin-only) -------------------
     // Persönliche Pinnwand mit Inspirations-YouTube-Kanälen (was gefällt,
     // was nachahmen). Der Kunde sieht das NIE.

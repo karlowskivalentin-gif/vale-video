@@ -4387,3 +4387,35 @@ body.sb-app-modus { overflow: hidden; background: #0c0e12; }
 .sb-aus h2 { margin: 0 0 0.5rem; }
 .sb-aus pre { background: var(--off-white); border: 1px solid var(--mid); border-radius: var(--radius); padding: 0.6rem 0.8rem; overflow: auto; }
 .sb-hint { color: var(--muted); font-size: 0.85rem; }
+
+/* ---- Content-Kalender (Kunde + Admin, Vale 04.10.2026) ----------------- */
+.ck-naechster { margin-bottom: 1.25rem; border-left: 3px solid var(--accent); }
+.ck-abschnitt { font-size: 1.05rem; margin: 1.5rem 0 0.75rem; }
+.ck-abschnitt .muted { font-weight: 400; }
+.ck-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 1rem; }
+.ck-karte { padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+.ck-bild { position: relative; aspect-ratio: 4 / 5; background: var(--surface-2); }
+.ck-bild img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ck-bild-leer { display: flex; align-items: center; justify-content: center; height: 100%; font-size: 2.2rem; }
+.ck-datum {
+  position: absolute; left: 0.5rem; top: 0.5rem; background: rgba(20,17,13,.78); color: #fff;
+  font-size: 0.78rem; font-weight: 600; padding: 0.2rem 0.5rem; border-radius: var(--radius);
+}
+.ck-inhalt { padding: 0.75rem 0.85rem 0.9rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.ck-status { align-self: flex-start; font-size: 0.75rem; font-weight: 600; padding: 0.15rem 0.5rem; border-radius: 999px; }
+.ck-status--geplant { background: rgba(226,98,44,0.10); color: var(--accent-dim); }
+.ck-status--online { background: var(--ok-bg); color: var(--ok); }
+.ck-status--pause { background: var(--warn-bg); color: var(--warn); }
+.ck-titel { font-size: 0.95rem; margin: 0; line-height: 1.3; }
+.ck-caption {
+  font-size: 0.85rem; line-height: 1.45; color: var(--black);
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.ck-caption.is-offen { display: block; -webkit-line-clamp: unset; }
+.ck-tag { color: #2b5f9e; }
+.ck-caption-mehr { align-self: flex-start; background: none; border: 0; padding: 0; color: var(--muted); font-size: 0.8rem; cursor: pointer; }
+.ck-ort { font-size: 0.8rem; margin: 0; }
+.ck-link { font-size: 0.85rem; font-weight: 600; color: var(--accent-dim); text-decoration: none; }
+.ck-link:hover { text-decoration: underline; }
+.ck-mehr-btn { margin-top: 1rem; }
+@media (max-width: 520px) { .ck-grid { grid-template-columns: 1fr 1fr; gap: 0.6rem; } .ck-inhalt { padding: 0.6rem; } }

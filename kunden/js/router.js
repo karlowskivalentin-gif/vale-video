@@ -15,6 +15,7 @@ import { renderMeineVideos } from "./views/kunde-videos.js";
 import { renderObjektMelden } from "./views/kunde-objekt-melden.js";
 import { renderVideoDetail } from "./views/kunde-video-detail.js";
 import { renderKundeKalender } from "./views/kunde-kalender.js";
+import { renderKundeContentKalender } from "./views/kunde-content-kalender.js";
 import { renderAdminPipeline } from "./views/admin-pipeline.js";
 import { renderAdminArchiv } from "./views/admin-archiv.js";
 import { renderAdminVideoEdit } from "./views/admin-video-edit.js";
@@ -62,6 +63,9 @@ const ROUTES = {
   // Kunde
   "/aufgaben":       { rolle: "kunde", titel: "Aufgaben",        render: renderAufgaben },
   "/meine-videos":   { rolle: "kunde", titel: "Meine Videos",    render: renderMeineVideos },
+  // Content-Kalender (Vale, 04.10.2026): fest eingeplante Instagram-Posts mit Vorschau,
+  // automatisch vom Social-Brain-Cockpit gefüllt (/contentplan, read-only für den Kunden).
+  "/content-kalender": { rolle: "kunde", titel: "Content-Kalender", render: renderKundeContentKalender },
   "/objekt-melden":  { rolle: "kunde", titel: "Objekt melden",   render: renderObjektMelden },
   "/kalender":       { rolle: "kunde", titel: "Kalender",        render: renderKundeKalender },
   "/meine-zahlen":   { rolle: "kunde", titel: "Meine Zahlen",    render: renderKundeSocial },
@@ -94,6 +98,8 @@ const ROUTES = {
   "/admin/kunde-feed": { rolle: "admin", titel: "Kunden-Feed",     render: renderAdminKundeFeed },
   "/admin/webseite": { rolle: "admin", titel: "Webseite",          render: renderAdminWebseite },
   "/admin/social":   { rolle: "admin", titel: "Social",            render: renderAdminSocial },
+  // Was der aktive Kunde unter #/content-kalender sieht (dieselbe View).
+  "/admin/content-kalender": { rolle: "admin", titel: "Content-Kalender", render: renderKundeContentKalender },
   // Social Brain: Live-Cockpit des social-brain-Lernsystems (eigenes Repo, lokaler
   // Server auf localhost:4710). Die View ist nur der Rahmen um den eingebetteten Frame.
   "/admin/social-brain": { rolle: "admin", titel: "Social Brain",   render: renderAdminSocialBrain },
@@ -119,6 +125,8 @@ const ROUTES = {
 const NAV = {
   kunde: [
     { href: "#/aufgaben",      label: "Aufgaben" },
+    // Hervorgehoben direkt neben den Aufgaben: der Kunde soll den Plan auf einen Blick finden.
+    { href: "#/content-kalender", label: "Content-Kalender", hervor: true },
     { href: "#/meine-videos",  label: "Meine Videos" },
     { href: "#/objekt-melden", label: "Objekt melden" },
     { href: "#/kalender",      label: "Kalender" },
@@ -159,7 +167,8 @@ const NAV = {
       { href: "#/admin/kunde-feed", label: "Kunden-Feed" },
       { href: "#/admin/kunde-formate", label: "Formate" },
       { href: "#/admin/webseite",   label: "Webseite" },
-      { href: "#/admin/social",     label: "Social" }
+      { href: "#/admin/social",     label: "Social" },
+      { href: "#/admin/content-kalender", label: "Content-Kalender" }
     ]},
     // Eigene Sachen — nicht unter „Ideen", weil hier nicht gesammelt, sondern
     // produziert wird (und weil später Post-Planung/Zahlen dazukommen sollen).

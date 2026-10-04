@@ -1518,6 +1518,36 @@ export async function loescheKundenformat(id) {
 }
 
 // =====================================================================
+// CONTENTPLAN — Content-Kalender pro Kunde (Vale, 04.10.2026)
+// Fest eingeplante und veröffentlichte Instagram-Posts: Termin, Caption,
+// Vorschaubild (kleines WebP als data-URL, kein Storage auf Spark), Status,
+// Link. Geschrieben wird nur vom Social-Brain-Cockpit unter dem Admin-Login
+// (social-brain/frontend/pipeline.js), der Kunde liest seine eigenen.
+// Dokument-ID: <kundeId>__<post_id>.
+// =====================================================================
+const contentplanCol = () => collection(db, "contentplan");
+
+// Kunde/Admin: Posts eines Kunden live. Sortiert wird im Client (kein Index nötig).
+export function beobachteContentplan(kundeId, callback, onError) {
+  if (!kundeId) { callback([]); return () => {}; }
+  return onSnapshot(query(contentplanCol(), where("kundeId", "==", kundeId)),
+    (snap) => callback(snapToArr(snap)), onError || (() => {}));
+}
+
+// Admin (Cockpit-Abgleich): alle Einträge aller Kunden.
+export async function ladeContentplanAlle() {
+  return snapToArr(await getDocs(contentplanCol()));
+}
+
+export async function speichereContentplan(id, felder) {
+  return setDoc(doc(db, "contentplan", id), { ...felder, aktualisiertAm: serverTimestamp() });
+}
+
+export async function loescheContentplan(id) {
+  return deleteDoc(doc(db, "contentplan", id));
+}
+
+// =====================================================================
 // TRAINING — Valentins eigene Einheiten (Springseil-Timer). Rein privat:
 // die Rules geben `training` und `trainingKonfig` nur dem Admin.
 // Ein Dokument = eine absolvierte Einheit; `trainingKonfig/<art>` hält die
