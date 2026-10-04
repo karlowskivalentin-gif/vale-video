@@ -18,3 +18,15 @@
     Header set Cache-Control "no-cache, must-revalidate"
   </FilesMatch>
 </IfModule>
+
+# Interne Notizen (CLAUDE.md, Handoffs, Prompts) landen beim Deploy mit im
+# Ordner — sie dürfen nie öffentlich abrufbar sein (Vale, 04.10.2026).
+<FilesMatch "\.md$">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+  </IfModule>
+</FilesMatch>
