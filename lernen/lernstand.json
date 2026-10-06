@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "aktualisiert": "2026-10-06T21:12:20.000Z",
+  "aktualisiert": "2026-10-06T21:21:15.618Z",
   "aktuell": "1.1",
   "themen": {
     "1.1": {
@@ -86,6 +86,11 @@
     {
       "datum": "2026-10-06T21:10:11.858Z",
       "text": "Start: Videografie-Lernen im Portal (5 Module, 23 Themen) — Modul 1 Licht beginnt mit 1.1 Lichtrichtung.",
+      "thema": null
+    },
+    {
+      "datum": "2026-10-06T21:21:15.618Z",
+      "text": "Reiter „Lernen“ im Arbeitsportal eingerichtet — Claude trägt den Fortschritt ab jetzt selbst ein.",
       "thema": null
     }
   ]
