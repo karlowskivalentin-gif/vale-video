@@ -30,7 +30,7 @@ Wenn Valentin ein Feature seines Arbeitsportals beim Namen nennt, ist das die Da
 | Feature (so sagt Valentin) | Route                | Datei                     |
 |----------------------------|----------------------|---------------------------|
 | **Roadmap**                | `/admin/roadmap`     | `admin-roadmap.js`        |
-| **Kurs**                   | `/admin/kurs`        | `admin-kurs.js`           |
+| **Lernen** (Videografie, ersetzt „Kurs“) | `/admin/lernen` (alt: `/admin/kurs`) | `admin-lernen.js` |
 | Pipeline                   | `/admin/pipeline`    | `admin-pipeline.js`       |
 | Video bearbeiten           | `/admin/video/:id`   | `admin-video-edit.js`     |
 | Objekte                    | `/admin/objekte`     | `admin-objekte.js`        |
@@ -89,15 +89,22 @@ Kunden-Views (Referenz): `kunde-aufgaben.js`, `kunde-objekt-melden.js`,
   `brandplan.js` und `socialstat.js` — jede Formel steht nur einmal da.
   Gespeichert wird in **einem** Dokument `roadmap/valentin` (Haken, Monatsumsatz,
   Wochen-Aufgaben), Rules: nur `istAdmin()`.
-- `js/kurs-data.js` / `js/kurs-logik.js` — dasselbe Paar für den Lernkurs
-  (8 Module, 36 Lektionen mit Lerninhalt, Verstanden-Check und YouTube-
-  Suchbegriffen). Der Fortschritt liegt im **Feld `kurs` desselben Dokuments**
-  `roadmap/valentin` — kein eigenes Dokument, keine eigene Rule. Der
-  Kurs-Reset fasst deshalb nur `kurs` an und lässt die Roadmap-Haken stehen.
-  Prüfbar mit `node tools/kurs-check.mjs`. Die YouTube-Links sind bewusst
-  **Suchlinks statt Video-IDs** — eine feste ID ist in einem Jahr tot.
-  CSS-Präfix ist `kurs-`, **nicht** `ks-`: das gehört den Post-Kacheln in
-  `kunde-social.js`.
+- `js/videografie-data.js` / `js/videografie-logik.js` — dasselbe Paar für den
+  Reiter **Lernen** (Videografie-Lernstand, ersetzt am 06.10.2026 den alten
+  Sales/Automotive-Kurs): Lehrplan mit 5 Modulen / 23 Themen (Reihenfolge wie im
+  Skill „videografie-lernen“) und die reine Rechenlogik (aktuelles Thema,
+  Fortschritt, offene Übung, Verlauf, Lern-Kalender, YouTube-Vorschaubild).
+  Prüfbar mit `node tools/lernstand-check.mjs`. **Die View liest nur.** Wahrheit
+  ist `../lernen/lernstand.json` (versioniert, nicht deployt), die **Claude** mit
+  `node tools/lernstand.mjs …` pflegt (Aufbau im Kopf der Datei) — in jeder
+  Session, in der Lernfortschritt passiert, ohne Nachfrage. Ins Portal kommt sie
+  über das Social-Brain-Cockpit: `GET /api/lernstand` (nur lesen) +
+  `lernstandSync()` in `social-brain/frontend/pipeline.js` schreibt sie unter
+  Vales Admin-Login nach Firestore **`roadmap/videografie`** (vorhandene
+  Admin-Rule, keine neue). Bewusst KEIN Schreibweg für Claude direkt nach
+  Firestore (kein offener Rule-Pfad, keine CLI-Zugangsdaten — beides hat die
+  Sicherheitsprüfung am 06.10.2026 abgelehnt). CSS-Präfix `lv-`. Der alte
+  Kurs-Fortschritt bleibt im Feld `kurs` von `roadmap/valentin` als Historie.
 - `js/fontprobe.js` — Schrift-Technik der Fonts-Abteilung: Google-Stylesheets in
   den `<head>` hängen und wieder aufräumen, plus die Messung „ist diese
   Schrift auf DIESEM Rechner überhaupt da?“ (Canvas-Breitenvergleich).

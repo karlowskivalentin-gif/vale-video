@@ -1,0 +1,92 @@
+{
+  "version": 1,
+  "aktualisiert": "2026-10-06T21:12:20.000Z",
+  "aktuell": "1.1",
+  "themen": {
+    "1.1": {
+      "status": "in_arbeit",
+      "seit": "2026-10-06",
+      "erledigt_am": null
+    }
+  },
+  "uebungen": [
+    {
+      "id": "f639a450",
+      "thema": "1.1",
+      "titel": "Ein Licht, fünf Richtungen",
+      "dauer": "30–40 min",
+      "aufbau": [
+        "Raum abdunkeln (Rollo zu, Deckenlicht aus) — nur das Amaran soll wirken",
+        "Du sitzt auf einem Stuhl, ca. 1,5 m vor einer ruhigen Wand",
+        "Amaran mit Softbox ca. 1,5 m vom Gesicht, leicht über Augenhöhe",
+        "A6700 aufs Stativ, Halbnahe, alles manuell: 4K 24p (23,976 wie deine Projekte), 1/50, Blende fest (z. B. f/2.8), ISO fest, Weißabgleich fest auf 5600 K, kein S-Log"
+      ],
+      "filmen": [
+        "Kamera bleibt stehen, nur das Licht wandert: frontal (neben der Kamera), 45° seitlich, 90° (Split), schräg hinten (135°), von oben",
+        "Je Position 10 Sekunden, dabei den Kopf einmal langsam von links nach rechts drehen",
+        "Die fünf Clips in Resolve nebeneinanderlegen und vergleichen"
+      ],
+      "fertig_wenn": [
+        "5 Clips mit identischen Kameraeinstellungen — nur die Lichtposition ist anders",
+        "Bei 45° ist das Licht-Dreieck auf der Schattenwange zu sehen (Rembrandt)",
+        "Du kannst zu jedem Clip in einem Satz sagen, welche Stimmung er hat und wann du ihn nutzen würdest"
+      ],
+      "immobilien": "Dasselbe gilt im Raum: Licht quer zur Kamera (Fenster seitlich) zeigt die Struktur von Holzboden, Putz und Stoffen, frontales Licht macht den Raum flach. Beim nächsten Dreh bewusst quer zum Fenster filmen.",
+      "gegeben_am": "2026-10-06",
+      "status": "offen",
+      "erledigt_am": null,
+      "notiz": null
+    }
+  ],
+  "videos": [
+    {
+      "id": "2ac9a8fc",
+      "datum": "2026-10-06",
+      "thema": "1.1",
+      "titel": "10ish Cinematic Lighting Setups... ONLY ONE LIGHT",
+      "kanal": "Potato Jet",
+      "url": "https://www.youtube.com/watch?v=iiUTTk67kXE",
+      "laenge": "16:56",
+      "warum": "Ein einziges Licht, das Schritt für Schritt um die Person wandert — du siehst bei jeder Position Aufbau und Ergebnis und kannst es 1:1 mit dem Amaran nachstellen (ca. 440.000 Aufrufe).",
+      "rolle": "haupt",
+      "gesehen": false,
+      "bewertung": null
+    },
+    {
+      "id": "fbe3038a",
+      "datum": "2026-10-06",
+      "thema": "1.1",
+      "titel": "Lighting 101: Direction of Light",
+      "kanal": "RocketJump Film School",
+      "url": "https://www.youtube.com/watch?v=wZStU4RRGYY",
+      "laenge": "6:36",
+      "warum": "Kurz und genau auf das Thema: was frontal, seitlich, hinten und oben mit einem Gesicht macht.",
+      "rolle": "alternative",
+      "gesehen": false,
+      "bewertung": null
+    },
+    {
+      "id": "88e9d79d",
+      "datum": "2026-10-06",
+      "thema": "1.1",
+      "titel": "Lighting 101: Intro to Light Placement",
+      "kanal": "Aputure",
+      "url": "https://www.youtube.com/watch?v=nqMQZG68Wkc",
+      "laenge": "4:22",
+      "warum": "Vom Hersteller deines Amaran: Lichtposition in 4 Minuten, gut zum Wiederholen.",
+      "rolle": "alternative",
+      "gesehen": false,
+      "bewertung": null
+    }
+  ],
+  "quiz": [],
+  "schwachstellen": [],
+  "praxis": [],
+  "log": [
+    {
+      "datum": "2026-10-06T21:10:11.858Z",
+      "text": "Start: Videografie-Lernen im Portal (5 Module, 23 Themen) — Modul 1 Licht beginnt mit 1.1 Lichtrichtung.",
+      "thema": null
+    }
+  ]
+}

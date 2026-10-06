@@ -44,7 +44,7 @@ import { renderAdminSocial } from "./views/admin-social.js";
 import { renderAdminSocialBrain } from "./views/admin-socialbrain.js";
 import { renderKundeSocial } from "./views/kunde-social.js";
 import { renderAdminRoadmap } from "./views/admin-roadmap.js";
-import { renderAdminKurs } from "./views/admin-kurs.js";
+import { renderAdminLernen } from "./views/admin-lernen.js";
 import { renderAdminPrototyp } from "./views/admin-prototyp.js";
 
 // --- Zustand -----------------------------------------------------------
@@ -77,9 +77,12 @@ const ROUTES = {
   // Eigene Geschaefts-Roadmap: Phasen, Meilensteine, Monatsumsatz. Steht
   // vorn, weil es die Frage "was ist als Naechstes dran" beantwortet.
   "/admin/roadmap":  { rolle: "admin", titel: "Roadmap",          render: renderAdminRoadmap },
-  // Lernkurs: 8 Module, 36 Lektionen. Fortschritt liegt im kurs-Feld von
-  // roadmap/valentin — daher direkt neben der Roadmap.
-  "/admin/kurs":     { rolle: "admin", titel: "Kurs",             render: renderAdminKurs },
+  // Lernen: Videografie-Lernstand (ersetzt den alten Kurs, Vale 06.10.2026).
+  // Claude trägt den Fortschritt selbst ein (tools/lernstand.mjs), das Cockpit
+  // überträgt ihn nach roadmap/videografie — die View liest nur.
+  "/admin/lernen":   { rolle: "admin", titel: "Lernen",           render: renderAdminLernen },
+  // Alte Adresse des Kurses — Lesezeichen landen beim Lernen.
+  "/admin/kurs":     { rolle: "admin", titel: "Lernen",           render: renderAdminLernen },
   "/admin/pipeline": { rolle: "admin", titel: "Pipeline",         render: renderAdminPipeline },
   "/admin/archiv":   { rolle: "admin", titel: "Archiv",           render: renderAdminArchiv },
   "/admin/video":    { rolle: "admin", titel: "Video bearbeiten", render: renderAdminVideoEdit, param: true },
@@ -143,7 +146,7 @@ const NAV = {
   // sichtbar, alles andere liegt thematisch in Menüs.
   admin: [
     { href: "#/admin/roadmap",  label: "Roadmap"  },
-    { href: "#/admin/kurs",     label: "Kurs"     },
+    { href: "#/admin/lernen",   label: "Lernen"   },
     { href: "#/admin/pipeline", label: "Pipeline" },
     // Hervorgehoben (hervor: true): das Cockpit, in dem man Claude Code beim
     // Analysieren zusieht — bewusst kein Menüpunkt, sondern direkt sichtbar.

@@ -4305,58 +4305,14 @@ a.ks-post:hover { border-color: var(--accent); }
   .rm-bar-fill { transition: none; }
 }
 
-/* =====================================================================
-   KURS (Admin-View #/admin/kurs)
-   Präfix kurs-. NICHT ks- — das gehört bereits den Post-Kacheln in
-   kunde-social.js (.ks-post, .ks-posts).
-   Baut bewusst auf den rm-Klassen der Roadmap auf: beide Views sollen
-   gleich aussehen, hier steht nur, was zusätzlich nötig ist.
-   ===================================================================== */
-
-/* Gesamtbalken direkt unter der Standzeile */
-.kurs-gesamtbar { margin: 1rem 0 .25rem; }
-.kurs-zaehler { grid-template-columns: repeat(3, 1fr); border-top: 0; padding-top: .6rem; margin-bottom: 1.25rem; }
-
-/* Modul der nächsten Lektion, klein unter dem Titel */
-.kurs-next-modul {
-  display: block; font-size: .74rem; font-weight: 400;
-  color: var(--light); margin-top: .15rem;
-}
-
-/* YouTube-Suchbegriffe als Chips */
-.kurs-suchen { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .3rem; }
-.kurs-suchen a {
-  display: inline-block; font-size: .74rem; line-height: 1.3;
-  padding: .25rem .55rem; border: 1px solid var(--mid); border-radius: 999px;
-  color: var(--accent-dim); text-decoration: none; background: var(--surface);
-}
-.kurs-suchen a:hover, .kurs-suchen a:focus-visible {
-  border-color: var(--accent); color: var(--accent);
-}
-
-/* Nordstern + Hinweiszeile über der Modulliste */
-.kurs-nord-text { font-size: .9rem; color: var(--muted); line-height: 1.6; margin: 0; }
-.kurs-hinweis { font-size: .78rem; color: var(--light); line-height: 1.5; margin: 0 0 .8rem; }
-
-/* Modulkopf innerhalb des aufgeklappten Blocks */
-.kurs-modul-kopf { padding: 0 1rem; }
-.kurs-ziel { font-size: .82rem; color: var(--muted); line-height: 1.5; margin: 0 0 .6rem; }
-.kurs-modulbar { height: 4px; border-radius: 999px; background: var(--mid); overflow: hidden; }
-.kurs-modulbar > div { height: 100%; background: var(--accent); border-radius: 999px; transition: width .35s ease; }
-
-/* Der Kurs-Zähler in der Roadmap-View führt zur Kurs-View */
+/* Der Lern-Zähler in der Roadmap-View führt zur Lernen-View */
 .rm-zaehler-link { text-decoration: none; color: inherit; display: block; }
 .rm-zaehler-link .rm-zahl-lbl { text-decoration: underline; text-underline-offset: 2px; }
 .rm-zaehler-link:hover .rm-zahl { color: var(--accent); }
 
-/* Ab Tablet: Roadmap hat jetzt fünf Zähler, der Kurs drei. */
+/* Ab Tablet: Roadmap hat fünf Zähler. */
 @media (min-width: 640px) {
   .rm-zaehler { grid-template-columns: repeat(5, 1fr); }
-  .kurs-zaehler { grid-template-columns: repeat(3, 1fr); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .kurs-modulbar > div { transition: none; }
 }
 
 
@@ -4427,3 +4383,204 @@ body.pt-app-modus { overflow: hidden; }
 .ck-link:hover { text-decoration: underline; }
 .ck-mehr-btn { margin-top: 1rem; }
 @media (max-width: 520px) { .ck-grid { grid-template-columns: 1fr 1fr; gap: 0.6rem; } .ck-inhalt { padding: 0.6rem; } }
+
+/* =====================================================================
+   LERNEN — Videografie-Lernstand (admin-lernen.js, Vale 06.10.2026)
+   Präfix lv- (ersetzt den alten Kurs, kurs-*). Liest nur.
+   ===================================================================== */
+.lv-kopf { align-items: flex-start; margin-bottom: 1.25rem; }
+.lv-unter { margin: .2rem 0 0; font-size: .88rem; color: var(--muted); }
+.lv-sync { display: inline-flex; align-items: center; gap: .45rem; font-size: .78rem; color: var(--muted);
+  background: var(--surface-2); border: 1px solid var(--mid); border-radius: 999px; padding: .35rem .75rem; white-space: nowrap; }
+.lv-sync:empty { display: none; }
+.lv-sync-punkt { width: .5rem; height: .5rem; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 3px var(--ok-bg); }
+.lv-sync-punkt.is-aus { background: var(--light); box-shadow: none; }
+.lv-hinweis { background: rgba(226,98,44,.08); color: var(--accent-dim); }
+.lv-block { margin-top: 1rem; }
+.lv-mini { font-size: .68rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--light); margin: 0 0 .45rem; }
+.lv-mini--abstand { margin-top: 1.1rem; }
+.lv-leer { font-size: .88rem; color: var(--muted); margin: 0; line-height: 1.5; }
+
+/* --- Jetzt dran ---------------------------------------------------- */
+.lv-jetzt { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 1.75rem; padding: 1.75rem;
+  border-top: 3px solid var(--accent); margin-bottom: 1rem; }
+.lv-jetzt--fertig { display: block; }
+.lv-eyebrow { font-size: .72rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--accent-dim); margin: 0 0 .5rem; }
+.lv-thema { font-size: 1.45rem; line-height: 1.2; font-weight: 700; letter-spacing: -.01em; margin: 0 0 .45rem; display: flex; gap: .6rem; align-items: baseline; }
+.lv-thema-nr { flex: 0 0 auto; font-size: .85rem; font-weight: 700; color: #fff; background: var(--accent); border-radius: 6px; padding: .12rem .45rem; position: relative; top: -.15rem; }
+.lv-kannst { font-size: .95rem; color: var(--muted); line-height: 1.5; margin: 0 0 1.25rem; }
+.lv-uebung { background: var(--surface-2); border: 1px solid var(--mid); border-radius: var(--radius-lg); padding: 1.1rem 1.2rem 1.2rem; }
+.lv-uebung--leer p:last-child { margin: 0; font-size: .9rem; color: var(--muted); }
+.lv-uebung-kopf { display: flex; justify-content: space-between; align-items: center; gap: .6rem; }
+.lv-uebung-kopf .lv-mini { margin: 0; }
+.lv-pille { font-size: .72rem; color: var(--muted); background: var(--white); border: 1px solid var(--mid); border-radius: 999px; padding: .1rem .55rem; white-space: nowrap; }
+.lv-uebung-titel { font-size: 1.05rem; margin: .45rem 0 .8rem; line-height: 1.35; }
+.lv-ue-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.lv-ue-teil ul, .lv-fertig ul { margin: 0; padding-left: 1.05rem; font-size: .88rem; line-height: 1.5; }
+.lv-ue-teil li + li, .lv-fertig li + li { margin-top: .25rem; }
+.lv-fertig { margin-top: .95rem; padding-top: .85rem; border-top: 1px dashed var(--mid); }
+.lv-fertig ul { list-style: none; padding: 0; }
+.lv-fertig li { position: relative; padding-left: 1.6rem; }
+.lv-fertig li::before { content: ""; position: absolute; left: 0; top: .2rem; width: 1rem; height: 1rem; border-radius: 4px;
+  border: 1.5px solid var(--accent); background: var(--white); }
+.lv-immo { font-size: .85rem; line-height: 1.5; margin: .9rem 0 0; color: var(--black); }
+.lv-immo span { display: inline-block; font-size: .68rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--ok); background: var(--ok-bg); border-radius: 4px; padding: .05rem .4rem; margin-right: .45rem; }
+.lv-equip { display: flex; flex-wrap: wrap; gap: .35rem; margin: .9rem 0 0; }
+.lv-equip span { font-size: .7rem; color: var(--muted); border: 1px solid var(--mid); border-radius: 999px; padding: .1rem .5rem; background: var(--white); }
+
+.lv-video { display: block; color: inherit; }
+.lv-video-bild { position: relative; display: block; aspect-ratio: 16 / 9; border-radius: var(--radius-lg); overflow: hidden; background: #1d1913; }
+.lv-video-bild img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .3s ease; }
+.lv-video:hover .lv-video-bild img { transform: scale(1.03); }
+.lv-play { position: absolute; left: 50%; top: 50%; width: 3.2rem; height: 3.2rem; margin: -1.6rem 0 0 -1.6rem; border-radius: 50%;
+  background: rgba(226,98,44,.92); box-shadow: 0 6px 20px rgba(0,0,0,.3); transition: transform .2s ease; }
+.lv-play::after { content: ""; position: absolute; left: 1.25rem; top: .95rem; border-style: solid; border-width: .65rem 0 .65rem 1rem;
+  border-color: transparent transparent transparent #fff; }
+.lv-video:hover .lv-play { transform: scale(1.08); }
+.lv-video-badge { position: absolute; left: .5rem; top: .5rem; background: rgba(20,17,13,.78); color: #fff; font-size: .72rem;
+  font-weight: 600; padding: .15rem .5rem; border-radius: var(--radius); }
+.lv-video-titel { display: block; font-weight: 600; font-size: .98rem; line-height: 1.35; margin-top: .65rem; }
+.lv-video:hover .lv-video-titel { color: var(--accent-dim); }
+.lv-video-meta { display: block; font-size: .8rem; color: var(--light); margin-top: .15rem; }
+.lv-video-warum { font-size: .86rem; line-height: 1.5; color: var(--muted); margin: .45rem 0 0; }
+.lv-video-leer { border: 1px dashed var(--mid); border-radius: var(--radius-lg); padding: 1rem; }
+.lv-video-leer p:last-child { margin: 0; font-size: .88rem; color: var(--muted); }
+.lv-alt { display: flex; gap: .7rem; align-items: center; padding: .45rem; margin: 0 -.45rem; border-radius: var(--radius); color: inherit; }
+.lv-alt:hover { background: var(--off-black); }
+.lv-alt-bild { flex: 0 0 auto; width: 6.2rem; aspect-ratio: 16 / 9; border-radius: 5px; overflow: hidden; background: #1d1913; }
+.lv-alt-bild img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.lv-alt-text { min-width: 0; display: flex; flex-direction: column; font-size: .78rem; color: var(--light); }
+.lv-alt-text strong { font-size: .85rem; font-weight: 600; color: var(--black); line-height: 1.3;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.lv-danach { font-size: .82rem; color: var(--muted); margin: 1.1rem 0 0; padding-top: .8rem; border-top: 1px solid var(--mid); }
+.lv-start { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: .8rem 1rem; flex-wrap: wrap;
+  padding-top: 1.1rem; border-top: 1px solid var(--mid); }
+.lv-start p { margin: 0; font-size: .86rem; color: var(--muted); }
+.lv-satz { font: inherit; font-size: .9rem; font-weight: 600; color: var(--black); background: rgba(226,98,44,.08);
+  border: 1px solid rgba(226,98,44,.35); border-radius: 999px; padding: .5rem .55rem .5rem 1rem; cursor: pointer;
+  display: inline-flex; align-items: center; gap: .6rem; }
+.lv-satz:hover { border-color: var(--accent); }
+.lv-satz-hinweis { font-size: .66rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: #fff;
+  background: var(--accent); border-radius: 999px; padding: .2rem .55rem; }
+
+/* --- Fortschritt --------------------------------------------------- */
+.lv-stand { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 1.75rem; align-items: center; }
+.lv-ring { position: relative; width: 9.5rem; height: 9.5rem; }
+.lv-ring svg { width: 100%; height: 100%; display: block; }
+.lv-ring circle { fill: none; stroke-width: 10; stroke-linecap: round; }
+.lv-ring-bahn { stroke: var(--dark); }
+.lv-ring-arbeit { stroke: rgba(226,98,44,.28); }
+.lv-ring-fill { stroke: var(--accent); }
+.lv-ring-text { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.lv-ring-text strong { font-size: 1.7rem; font-weight: 700; line-height: 1; }
+.lv-ring-text span { font-size: .7rem; color: var(--light); margin-top: .3rem; max-width: 6rem; line-height: 1.3; }
+.lv-zaehler { grid-template-columns: repeat(5, minmax(0, 1fr)); margin-bottom: 1.1rem; border-top: 0; padding-top: 0; }
+.lv-kal-raster { display: flex; gap: 3px; }
+.lv-kal-woche { display: flex; flex-direction: column; gap: 3px; flex: 1 1 0; max-width: 1.1rem; }
+.lv-kal-tag { display: block; aspect-ratio: 1; border-radius: 3px; background: var(--dark); }
+.lv-kal-tag.s1 { background: rgba(226,98,44,.35); }
+.lv-kal-tag.s2 { background: rgba(226,98,44,.65); }
+.lv-kal-tag.s3 { background: var(--accent); }
+.lv-kal-tag.sx { background: transparent; border: 1px dashed var(--mid); }
+
+/* --- Lernpfad ------------------------------------------------------ */
+.lv-pfad { padding: .5rem 1.5rem 1rem; }
+.lv-modul { padding: 1.1rem 0 1.15rem; border-bottom: 1px solid var(--mid); }
+.lv-modul:last-of-type { border-bottom: 0; }
+.lv-modul-kopf { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; margin-bottom: .75rem; }
+.lv-modul-name { font-size: .95rem; font-weight: 600; }
+.lv-modul-name em { font-style: normal; font-size: .7rem; font-weight: 600; color: var(--accent-dim); background: rgba(226,98,44,.1);
+  border-radius: 999px; padding: .08rem .5rem; margin-left: .5rem; position: relative; top: -.1rem; }
+.lv-modul.is-aktuell .lv-modul-name { color: var(--accent-dim); }
+.lv-modul-prog { font-size: .8rem; color: var(--muted); }
+.lv-stationen { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 0; position: relative; }
+.lv-station { position: relative; font: inherit; background: none; border: 0; padding: 0 .25rem; cursor: pointer; display: flex;
+  flex-direction: column; align-items: center; gap: .45rem; text-align: center; color: var(--muted); }
+/* Verbindungslinie zur nächsten Station */
+.lv-station::before { content: ""; position: absolute; top: 1.05rem; left: calc(50% + 1.1rem); right: calc(-50% + 1.1rem); height: 2px; background: var(--mid); }
+.lv-station:last-child::before { display: none; }
+.lv-station--erledigt::before { background: var(--accent); }
+.lv-punkt { position: relative; z-index: 1; width: 2.2rem; height: 2.2rem; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-size: .82rem; font-weight: 700; border: 2px solid var(--mid); background: var(--white); color: var(--light); transition: transform .15s ease, box-shadow .15s ease; }
+.lv-station:hover .lv-punkt { transform: scale(1.08); }
+.lv-station--erledigt .lv-punkt { background: var(--accent); border-color: var(--accent); color: #fff; }
+.lv-station--in_arbeit .lv-punkt { border-color: var(--accent); color: var(--accent-dim); background: rgba(226,98,44,.08); }
+.lv-station.is-jetzt .lv-punkt { box-shadow: 0 0 0 5px rgba(226,98,44,.18); animation: lv-puls 2.2s ease-in-out infinite; }
+.lv-station.is-gewaehlt .lv-punkt { outline: 2px solid var(--black); outline-offset: 3px; }
+.lv-station-titel { font-size: .72rem; line-height: 1.3; max-width: 7rem; }
+.lv-station--erledigt .lv-station-titel, .lv-station.is-jetzt .lv-station-titel { color: var(--black); }
+.lv-station.is-jetzt .lv-station-titel { font-weight: 600; }
+.lv-station:focus-visible { outline: none; }
+.lv-station:focus-visible .lv-punkt { outline: 2px solid var(--accent); outline-offset: 3px; }
+@keyframes lv-puls { 0%, 100% { box-shadow: 0 0 0 4px rgba(226,98,44,.18); } 50% { box-shadow: 0 0 0 9px rgba(226,98,44,.06); } }
+@media (prefers-reduced-motion: reduce) { .lv-station.is-jetzt .lv-punkt { animation: none; } }
+.lv-detail { margin-top: 1rem; background: var(--surface-2); border: 1px solid var(--mid); border-radius: var(--radius-lg); padding: .9rem 1rem; }
+.lv-detail-kopf { display: flex; justify-content: space-between; gap: .8rem; align-items: center; }
+.lv-detail p { font-size: .88rem; line-height: 1.5; margin: .4rem 0 0; }
+.lv-detail p.lv-detail-daten { color: var(--light); font-size: .8rem; }
+.lv-detail-videos { margin-top: .6rem; }
+.lv-status { font-size: .72rem; font-weight: 600; border-radius: 999px; padding: .12rem .55rem; white-space: nowrap; }
+.lv-status--offen { background: var(--dark); color: var(--muted); }
+.lv-status--in_arbeit { background: rgba(226,98,44,.12); color: var(--accent-dim); }
+.lv-status--erledigt { background: var(--ok-bg); color: var(--ok); }
+.lv-legende { display: flex; flex-wrap: wrap; gap: .4rem 1.1rem; font-size: .75rem; color: var(--muted); margin: .4rem 0 0; padding-top: .9rem; border-top: 1px solid var(--mid); }
+.lv-legende span { display: inline-flex; align-items: center; gap: .35rem; }
+.lv-l { width: .75rem; height: .75rem; border-radius: 50%; display: inline-block; border: 2px solid var(--mid); }
+.lv-l--erledigt { background: var(--accent); border-color: var(--accent); }
+.lv-l--in_arbeit { border-color: var(--accent); background: rgba(226,98,44,.08); }
+
+/* --- Wiederholen + Praxis ------------------------------------------ */
+.lv-zweier { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; }
+.lv-schwach, .lv-praxis { list-style: none; margin: 0; padding: 0; }
+.lv-schwach li { display: flex; justify-content: space-between; gap: .8rem; font-size: .9rem; line-height: 1.45; padding: .55rem 0; border-bottom: 1px solid var(--mid); }
+.lv-schwach li:last-child { border-bottom: 0; }
+.lv-schwach em, .lv-tags span { font-style: normal; font-size: .72rem; font-weight: 600; color: var(--accent-dim); background: rgba(226,98,44,.1); border-radius: 4px; padding: .05rem .4rem; height: fit-content; white-space: nowrap; }
+.lv-sitzt { font-size: .8rem; color: var(--ok); margin: .7rem 0 0; }
+.lv-praxis li { display: flex; gap: .8rem; padding: .55rem 0; border-bottom: 1px solid var(--mid); font-size: .88rem; line-height: 1.45; }
+.lv-praxis li:last-child { border-bottom: 0; }
+.lv-praxis-datum { flex: 0 0 3.6rem; font-size: .78rem; color: var(--light); padding-top: .1rem; }
+.lv-praxis-text { min-width: 0; }
+.lv-tags { display: inline-flex; flex-wrap: wrap; gap: .25rem; margin-left: .4rem; }
+.lv-praxis-notiz { display: block; font-size: .8rem; color: var(--muted); margin-top: .15rem; }
+
+/* --- Verlauf -------------------------------------------------------- */
+.lv-verlauf { list-style: none; margin: 0; padding: .4rem 1.25rem; }
+.lv-ev { display: grid; grid-template-columns: 1.6rem minmax(0, 1fr) auto; gap: .7rem; align-items: center; padding: .55rem 0; border-bottom: 1px solid var(--mid); font-size: .88rem; }
+.lv-ev:last-child { border-bottom: 0; }
+.lv-ev-icon { width: 1.6rem; height: 1.6rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: .72rem; font-weight: 700;
+  background: var(--dark); color: var(--muted); }
+.lv-ev--uebung-fertig .lv-ev-icon, .lv-ev--thema .lv-ev-icon { background: var(--ok-bg); color: var(--ok); }
+.lv-ev--praxis .lv-ev-icon, .lv-ev--video .lv-ev-icon { background: rgba(226,98,44,.12); color: var(--accent-dim); }
+.lv-ev-text { line-height: 1.4; }
+.lv-ev-tag { font-size: .78rem; color: var(--light); white-space: nowrap; }
+
+/* --- Videothek ------------------------------------------------------ */
+.lv-thek { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: .9rem; }
+.lv-thek-karte { overflow: hidden; display: flex; flex-direction: column; color: inherit; transition: transform .15s ease; }
+.lv-thek-karte:hover { transform: translateY(-2px); }
+.lv-thek-bild { position: relative; display: block; aspect-ratio: 16 / 9; background: #1d1913; }
+.lv-thek-bild img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.lv-thek-nr { position: absolute; left: .4rem; top: .4rem; background: var(--accent); color: #fff; font-size: .7rem; font-weight: 700; padding: .05rem .4rem; border-radius: 4px; }
+.lv-thek-titel { font-size: .85rem; font-weight: 600; line-height: 1.3; padding: .6rem .7rem 0;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.lv-thek-meta { font-size: .75rem; color: var(--light); padding: .2rem .7rem .7rem; }
+
+/* --- Schmal --------------------------------------------------------- */
+@media (max-width: 860px) {
+  .lv-jetzt { grid-template-columns: 1fr; gap: 1.5rem; padding: 1.25rem; }
+  .lv-zaehler { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 720px) {
+  .lv-kopf { flex-direction: column; gap: .7rem; }
+  .lv-stand { grid-template-columns: 1fr; justify-items: center; }
+  .lv-stand-rechts { width: 100%; }
+  .lv-ue-grid, .lv-zweier { grid-template-columns: 1fr; }
+  .lv-pfad { padding: .25rem 1rem .9rem; }
+  /* Stationen als senkrechte Liste — acht Punkte nebeneinander passen nicht aufs Handy */
+  .lv-stationen { grid-template-columns: 1fr; gap: .15rem; }
+  .lv-station { flex-direction: row; text-align: left; gap: .75rem; padding: .3rem 0; }
+  .lv-station::before { top: calc(50% + 1.1rem); bottom: calc(-50% + 1.1rem); left: 1.05rem; right: auto; width: 2px; height: auto; }
+  .lv-station-titel { font-size: .85rem; max-width: none; }
+  .lv-thema { font-size: 1.25rem; }
+}

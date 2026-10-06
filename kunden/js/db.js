@@ -1687,7 +1687,10 @@ export async function setzeSocialPostVideo(id, videoId) {
 //                                           eingetragen. Frühere Monate
 //                                           bleiben stehen (Historie).
 //   week     { mode, done: { "<isoweek>:<mode>:<index>": true } }
-//   kurs     { "<lesson-id>": true }         Fortschritt der Kurs-View. Liegt
+//   kurs     { "<lesson-id>": true }         Fortschritt des ALTEN Kurses (bis
+//                                           06.10.2026, ersetzt durch „Lernen“ =
+//                                           roadmap/videografie). Bleibt als
+//                                           Historie stehen. Lag
 //                                           BEWUSST im selben Dokument: so
 //                                           braucht der Kurs keine eigene
 //                                           Collection und keine eigene Rule.
@@ -1728,4 +1731,34 @@ export async function saveRoadmap(partial) {
 //   saveRoadmap({ done: { "p1-web": roadmapFeldWeg() } })
 export function roadmapFeldWeg() {
   return deleteField();
+}
+
+// =====================================================================
+// LERNSTAND Videografie — roadmap/videografie (Vale, 06.10.2026)
+//
+// Liegt bewusst in der roadmap-Collection: deren Rule (nur istAdmin) passt
+// genau, es braucht keine neue Rule. Die Wahrheit ist die Datei
+// vale-video/lernen/lernstand.json, die Claude mit tools/lernstand.mjs
+// pflegt. Hierher übertragen wird sie NUR vom Social-Brain-Cockpit
+// (frontend/pipeline.js, lernstandSync) unter Vales Admin-Login. Das Portal
+// (views/admin-lernen.js) liest nur. Aufbau: Kopf von tools/lernstand.mjs,
+// dazu `sync { am, von }`.
+// =====================================================================
+const lernstandDoc = () => doc(db, "roadmap", "videografie");
+
+export function beobachteLernstand(callback, onError) {
+  return onSnapshot(lernstandDoc(),
+    (snap) => callback(snap.exists() ? snap.data() : null),
+    onError || (() => {}));
+}
+
+export async function getLernstand() {
+  const snap = await getDoc(lernstandDoc());
+  return snap.exists() ? snap.data() : null;
+}
+
+// Ersetzt das ganze Dokument (kein merge): was Claude aus der Datei entfernt
+// hat, soll auch hier verschwinden.
+export async function speichereLernstand(stand) {
+  return setDoc(lernstandDoc(), { ...stand, sync: { am: serverTimestamp(), von: "cockpit" } });
 }

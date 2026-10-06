@@ -15,13 +15,13 @@
 // Gespeichert wird in Firestore (roadmap/valentin), nicht im localStorage:
 // die Haken sollen auf Handy und Rechner identisch sein. Jede Änderung
 // schreibt sofort ihr Teilobjekt — kein „Speichern"-Button.
-import { getRoadmap, saveRoadmap, roadmapFeldWeg } from "../db.js";
+import { getRoadmap, saveRoadmap, roadmapFeldWeg, getLernstand } from "../db.js";
 import { PHASES, WEEK_NORMAL, WEEK_KLAUSUR,
          START, TARGET, DEUSSEN, ACHTZEHN } from "../roadmap-data.js";
 import { escapeHtml, wochenKey, monatKey, monatsLabel } from "../util.js";
 import { fmt, heute, tageBis, aktuellePhase, phaseFortschritt,
          gesamtFortschritt, naechsterSchritt, strahlPos } from "../roadmap-logik.js";
-import { kursProzent } from "../kurs-logik.js";
+import { fortschritt as lernFortschritt } from "../videografie-logik.js";
 
 const BALKEN_MAX = 5000;        // Obergrenze des Umsatzbalkens (= Hauptziel)
 const BALKEN_TICKS = [2000, 3000];
@@ -36,7 +36,7 @@ export function renderAdminRoadmap(container) {
   let done = {};
   let revenue = {};
   let week = { mode: "normal", done: {} };
-  let kurs = {};                  // nur zum Anzeigen des Kurs-Zaehlers
+  let lernstand = null;           // nur zum Anzeigen des Lern-Zaehlers
   // Welche Items sind aufgeklappt? BEWUSST nur zur Laufzeit gehalten und
   // nicht gespeichert: ohne das würde beim Neu-Rendern nach jedem Haken
   // alles wieder zuklappen.
@@ -158,7 +158,7 @@ export function renderAdminRoadmap(container) {
           <div><span class="rm-zahl">${tageBis(DEUSSEN, tag)}</span><span class="rm-zahl-lbl">Tage bis Deussen-Verhandlung</span></div>
           <div><span class="rm-zahl">${tageBis(ACHTZEHN, tag)}</span><span class="rm-zahl-lbl">Tage bis 18</span></div>
           <div><span class="rm-zahl">${gesamtFortschritt(done)} %</span><span class="rm-zahl-lbl">Roadmap gesamt</span></div>
-          <a class="rm-zaehler-link" href="#/admin/kurs"><span class="rm-zahl">${kursProzent(kurs)} %</span><span class="rm-zahl-lbl">Kurs</span></a>
+          <a class="rm-zaehler-link" href="#/admin/lernen"><span class="rm-zahl">${lernFortschritt(lernstand).prozent} %</span><span class="rm-zahl-lbl">Videografie gelernt</span></a>
         </div>
       </section>`;
   }
@@ -361,7 +361,9 @@ export function renderAdminRoadmap(container) {
       done = daten.done;
       revenue = daten.revenue;
       week = { mode: daten.week.mode || "normal", done: daten.week.done || {} };
-      kurs = daten.kurs || {};
+      // Der Lernstand ist Beiwerk: fehlt er oder scheitert das Laden, zeigt
+      // der Zähler 0 % statt die Roadmap zu blockieren.
+      lernstand = await getLernstand().catch(() => null);
 
       // Haken vergangener Wochen wegräumen — „Diese Woche" fängt montags bei
       // null an. Nur lokal entfernen reicht nicht, sonst wachsen die alten
