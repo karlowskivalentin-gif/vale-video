@@ -39,7 +39,7 @@ h1{font-size:clamp(34px,6vw,56px);line-height:1.05;font-weight:800;margin:0;text
 .tabs{display:flex;gap:8px;background:var(--sunk);padding:6px;border-radius:999px;align-self:flex-start;flex-wrap:wrap}
 .tab{font:inherit;font-weight:700;font-size:15px;border:0;background:transparent;color:var(--muted);padding:10px 20px;border-radius:999px;cursor:pointer}
 .tab[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(38,51,26,.12)}
-.steps{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;list-style:none;margin:0;padding-left:0}
+.steps{display:flex;gap:10px;overflow-x:auto;list-style:none;padding:6px;margin:-6px -6px -2px}
 .step{flex:1 0 150px;min-width:0}
 .step button{width:100%;height:100%;text-align:left;font:inherit;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);border-radius:20px;padding:14px 16px;cursor:pointer;display:flex;flex-direction:column;gap:2px;transition:transform .15s ease,border-color .15s ease}
 .step button:hover{border-color:var(--mark);transform:translateY(-2px)}
@@ -57,7 +57,8 @@ button:focus-visible{outline:3px solid var(--mark);outline-offset:2px}
 .guide h3{margin:0;font-size:19px;font-weight:800}
 .shots{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px}
 .shot{display:flex;flex-direction:column;gap:8px;min-width:0}
-.ph{aspect-ratio:4/3;max-width:100%;background:var(--shot);border-radius:16px;display:grid;place-items:center;color:var(--muted);font-size:14px;font-weight:600;border:1.5px dashed var(--line)}
+.ph{aspect-ratio:4/3;max-width:100%;background:var(--shot);border-radius:16px;display:grid;place-items:center;color:var(--muted);font-size:14px;font-weight:600;border:1.5px dashed var(--line);transition:transform .15s ease,border-color .15s ease}
+.shot:hover .ph{border-color:var(--mark);transform:translateY(-2px)}
 .shot span{font-weight:700;font-size:15px}
 .shot span i{font-style:normal;display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--accent);color:var(--accent-ink);font-size:13px;margin-right:8px}
 .prompts{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
@@ -70,7 +71,7 @@ button:focus-visible{outline:3px solid var(--mark);outline-offset:2px}
 .tip{background:var(--accent);color:var(--accent-ink);border-radius:18px;padding:14px 18px;font-weight:600}
 .note{color:var(--muted);font-size:14px;text-align:center;margin:0}
 @media (max-width:560px){.panel{padding:20px;border-radius:22px}.step{flex-basis:140px}}
-@media (prefers-reduced-motion: reduce){.step button{transition:none}.step button:hover{transform:none}}
+@media (prefers-reduced-motion: reduce){.step button,.ph{transition:none}.step button:hover,.shot:hover .ph{transform:none}}
 </style>
 <style>body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
 </head>
