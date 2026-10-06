@@ -4387,6 +4387,14 @@ body.sb-app-modus { overflow: hidden; background: #0c0e12; }
 .sb-aus h2 { margin: 0 0 0.5rem; }
 .sb-aus pre { background: var(--off-white); border: 1px solid var(--mid); border-radius: var(--radius); padding: 0.6rem 0.8rem; overflow: auto; }
 .sb-hint { color: var(--muted); font-size: 0.85rem; }
+/* Prototyp (Vale 06.10.2026): eigene HTML-Seite im selben App-Modus wie Social Brain —
+   unter dem Header füllt der Frame das Fenster, die Seite selbst scrollt im Frame. */
+body.pt-app-modus { overflow: hidden; }
+.pt-app { position: fixed; top: 64px; left: 0; right: 0; bottom: 0; z-index: 40; background: var(--surface); }
+.pt-frame { width: 100%; height: 100%; border: 0; display: block; }
+.pt-extern { position: absolute; right: 0.9rem; bottom: 0.9rem; z-index: 2; font-size: 0.72rem; padding: 0.25rem 0.6rem; border-radius: 999px;
+  background: rgba(12,14,18,0.78); color: #e6e8ee; text-decoration: none; opacity: 0.55; transition: opacity 0.15s ease; }
+.pt-extern:hover, .pt-extern:focus-visible { opacity: 1; }
 
 /* ---- Content-Kalender (Kunde + Admin, Vale 04.10.2026) ----------------- */
 .ck-naechster { margin-bottom: 1.25rem; border-left: 3px solid var(--accent); }

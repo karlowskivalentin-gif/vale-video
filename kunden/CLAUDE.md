@@ -51,6 +51,7 @@ Wenn Valentin ein Feature seines Arbeitsportals beim Namen nennt, ist das die Da
 | **Fonts** (Go-To-Schriften) | `/admin/fonts`      | `admin-fonts.js`          |
 | **Social** (Zahlen der Kunden) | `/admin/social`  | `admin-social.js`         |
 | **Social Brain** (Cockpit, hervorgehobener Tab) | `/admin/social-brain` | `admin-socialbrain.js` — Frame auf `localhost:4710` (Repo `social-brain`, `node frontend/server.js`) |
+| **Prototyp** (letzte Nav-Gruppe) | `/admin/prototyp/:id` | `admin-prototyp.js` — statische HTML-Seite aus `prototypen/<id>/index.html` bildschirmfüllend im Frame (z. B. `lernen-mit-ki`) |
 
 Kunden-Views (Referenz): `kunde-aufgaben.js`, `kunde-objekt-melden.js`,
 `kunde-kalender.js`, `kunde-video-detail.js`, `kunde-social.js` („Meine Zahlen“, Route `/meine-zahlen`).

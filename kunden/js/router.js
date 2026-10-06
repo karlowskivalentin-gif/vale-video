@@ -45,6 +45,7 @@ import { renderAdminSocialBrain } from "./views/admin-socialbrain.js";
 import { renderKundeSocial } from "./views/kunde-social.js";
 import { renderAdminRoadmap } from "./views/admin-roadmap.js";
 import { renderAdminKurs } from "./views/admin-kurs.js";
+import { renderAdminPrototyp } from "./views/admin-prototyp.js";
 
 // --- Zustand -----------------------------------------------------------
 let _user = null;
@@ -116,6 +117,9 @@ const ROUTES = {
   "/admin/fonts":    { rolle: "admin", titel: "Fonts",             render: renderAdminFonts },
   // Privat: eigenes Training (Intervall-Timer + Historie), nur Valentin
   "/admin/springseil": { rolle: "admin", titel: "Springseil",      render: renderAdminSpringseil },
+  // Prototypen: eigenständige HTML-Seiten (prototypen/<id>/) bildschirmfüllend
+  // wie eine eigene Website, z. B. für Präsentationen.
+  "/admin/prototyp": { rolle: "admin", titel: "Prototyp",          render: renderAdminPrototyp, param: true },
   // Kollaborator (externer Mitarbeiter: geteilte + eigene Mindmaps)
   "/gedanken":       { rolle: "kollaborator", titel: "Mindmap",   render: renderAdminGedanken },
   "/todos":          { rolle: "kollaborator", titel: "To-Dos",    render: renderTodos },
@@ -184,6 +188,10 @@ const NAV = {
     // Privat, kein Arbeitskram — deshalb eine eigene Gruppe.
     { gruppe: "Training", kinder: [
       { href: "#/admin/springseil", label: "Springseil" }
+    ]},
+    // Prototypen zum Vorzeigen (eigene HTML-Seiten, im Portal wie eine Website).
+    { gruppe: "Prototyp", kinder: [
+      { href: "#/admin/prototyp/lernen-mit-ki", label: "Lernen mit KI" }
     ]}
   ],
   kollaborator: [
@@ -253,6 +261,7 @@ function resolve(hash) {
   if (pfad.startsWith("/admin/plan/"))  return { route: ROUTES["/admin/plan"],  id: decodeURIComponent(pfad.slice("/admin/plan/".length)), query };
   if (pfad.startsWith("/admin/skript/")) return { route: ROUTES["/admin/skript"], id: decodeURIComponent(pfad.slice("/admin/skript/".length)), query };
   if (pfad.startsWith("/admin/shoot/"))  return { route: ROUTES["/admin/shoot"],  id: decodeURIComponent(pfad.slice("/admin/shoot/".length)), query };
+  if (pfad.startsWith("/admin/prototyp/")) return { route: ROUTES["/admin/prototyp"], id: decodeURIComponent(pfad.slice("/admin/prototyp/".length)), query };
   return { route: ROUTES[pfad] || null, id: null, query };
 }
 

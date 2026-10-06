@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Lernen mit KI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap">
+<style>
+/* Layout: school help page — header with two rules, workflow tabs, clickable step row, one detail panel below */
+:root{
+  --bg:#F3F5EC; --surface:#FDFEFA; --sunk:#E9EEDC; --line:#DCE3CC;
+  --ink:#26331A; --muted:#5E6851; --accent:#D4EE7A; --accent-ink:#26331A;
+  --deep:#26331A; --deep-ink:#F3F5EC; --mark:#5B7A1E; --shot:#DCE3CC;
+  --font:'Manrope', 'Segoe UI', Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#171E10; --surface:#1F2817; --sunk:#283320; --line:#34402A;
+  --ink:#EEF2E3; --muted:#AEB99C; --accent:#D4EE7A; --accent-ink:#1B2412;
+  --deep:#D4EE7A; --deep-ink:#1B2412; --mark:#C7E36A; --shot:#2E3A25; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#171E10; --surface:#1F2817; --sunk:#283320; --line:#34402A;
+  --ink:#EEF2E3; --muted:#AEB99C; --accent:#D4EE7A; --accent-ink:#1B2412;
+  --deep:#D4EE7A; --deep-ink:#1B2412; --mark:#C7E36A; --shot:#2E3A25; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:16px;line-height:1.55}
+.wrap{max-width:1080px;margin:0 auto;padding-inline:20px;padding-block:28px 64px;display:flex;flex-direction:column;gap:28px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.school{font-weight:700;font-size:14px;color:var(--mark);letter-spacing:.02em}
+.proto{font-size:13px;font-weight:700;background:var(--accent);color:var(--accent-ink);padding:4px 12px;border-radius:999px}
+h1{font-size:clamp(34px,6vw,56px);line-height:1.05;font-weight:800;margin:0;text-wrap:balance}
+.lead{font-size:18px;color:var(--muted);max-width:60ch;margin:0}
+.rules{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.rule{background:var(--surface);border:1.5px solid var(--line);border-radius:22px;padding:20px 22px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.rule b{font-size:18px}
+.rule p{margin:0;color:var(--muted)}
+.rule q{font-weight:600;color:var(--ink)}
+.tabs{display:flex;gap:8px;background:var(--sunk);padding:6px;border-radius:999px;align-self:flex-start;flex-wrap:wrap}
+.tab{font:inherit;font-weight:700;font-size:15px;border:0;background:transparent;color:var(--muted);padding:10px 20px;border-radius:999px;cursor:pointer}
+.tab[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(38,51,26,.12)}
+.steps{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;list-style:none;margin:0;padding-left:0}
+.step{flex:1 0 150px;min-width:0}
+.step button{width:100%;height:100%;text-align:left;font:inherit;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);border-radius:20px;padding:14px 16px;cursor:pointer;display:flex;flex-direction:column;gap:2px;transition:transform .15s ease,border-color .15s ease}
+.step button:hover{border-color:var(--mark);transform:translateY(-2px)}
+.step .n{font-size:13px;font-weight:700;color:var(--mark)}
+.step .t{font-size:16px;font-weight:800;line-height:1.25}
+.step button[aria-current="step"]{background:var(--deep);border-color:var(--deep);color:var(--deep-ink)}
+.step button[aria-current="step"] .n{color:var(--accent)}
+:root[data-theme="dark"] .step button[aria-current="step"] .n{color:var(--accent-ink)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .step button[aria-current="step"] .n{color:var(--accent-ink)}}
+button:focus-visible{outline:3px solid var(--mark);outline-offset:2px}
+.panel{background:var(--surface);border:1.5px solid var(--line);border-radius:28px;padding:28px;display:flex;flex-direction:column;gap:22px}
+.panel h2{margin:0;font-size:clamp(24px,3.6vw,32px);line-height:1.15;font-weight:800;text-wrap:balance}
+.panel .intro{margin:0;color:var(--muted);font-size:17px;max-width:65ch}
+.guide{display:flex;flex-direction:column;gap:14px}
+.guide h3{margin:0;font-size:19px;font-weight:800}
+.shots{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px}
+.shot{display:flex;flex-direction:column;gap:8px;min-width:0}
+.ph{aspect-ratio:4/3;max-width:100%;background:var(--shot);border-radius:16px;display:grid;place-items:center;color:var(--muted);font-size:14px;font-weight:600;border:1.5px dashed var(--line)}
+.shot span{font-weight:700;font-size:15px}
+.shot span i{font-style:normal;display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--accent);color:var(--accent-ink);font-size:13px;margin-right:8px}
+.prompts{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.prompt{background:var(--sunk);border-radius:20px;padding:20px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.prompt .when{font-size:13px;font-weight:700;color:var(--mark);text-transform:uppercase;letter-spacing:.06em}
+.prompt h4{margin:0;font-size:18px;font-weight:800}
+.prompt p{margin:0;font-size:16px}
+.ph-word{color:var(--mark);font-weight:800}
+.copy{align-self:flex-start;font:inherit;font-size:14px;font-weight:700;border:0;border-radius:999px;padding:8px 16px;background:var(--accent);color:var(--accent-ink);cursor:pointer}
+.tip{background:var(--accent);color:var(--accent-ink);border-radius:18px;padding:14px 18px;font-weight:600}
+.note{color:var(--muted);font-size:14px;text-align:center;margin:0}
+@media (max-width:560px){.panel{padding:20px;border-radius:22px}.step{flex-basis:140px}}
+@media (prefers-reduced-motion: reduce){.step button{transition:none}.step button:hover{transform:none}}
+</style>
+<style>body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="top">
+    <span class="school">Lore-Lorenz-Schule · Lernen mit KI</span>
+    <span class="proto">Prototyp der SV</span>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:12px">
+    <h1>So lernst du mit KI</h1>
+    <p class="lead">Zwei Abläufe, die in jedem Fach funktionieren. Wähle einen Workflow und klick dich durch die Schritte.</p>
+  </div>
+  <div class="rules">
+    <div class="rule"><b>Erst selbst, dann KI</b><p>Versuch die Aufgabe zuerst allein. So merkst du selbst, wo deine Lücke ist. Erst dann hilft die KI.</p></div>
+    <div class="rule"><b>Kontext schlägt perfekten Prompt</b><p>Die Prompts sind nur ein Start. Schreib ganz normal, auch <q>ich heul gleich, ich versteh nichts</q>. Die KI passt sich an.</p></div>
+  </div>
+
+  <div class="tabs" role="tablist" aria-label="Workflow wählen">
+    <button class="tab" role="tab" id="tab-hausaufgaben" data-wf="hausaufgaben">Hausaufgaben</button>
+    <button class="tab" role="tab" id="tab-klausur" data-wf="klausur">Klausurvorbereitung</button>
+  </div>
+
+  <ol class="steps" id="steps" aria-label="Schritte"></ol>
+  <section class="panel" id="panel" aria-live="polite"></section>
+
+  <p class="note">Prototyp: Die grauen Felder werden durch echte Screenshots ersetzt.</p>
+</div>
+
+<script>
+const WF = {
+  hausaufgaben: [
+    { t:"Selbst versuchen", h:"Schritt 1: Selbst versuchen",
+      intro:"Mach die Aufgabe 10 bis 15 Minuten allein, so weit du kommst. Markiere die Stelle, an der du hängst.",
+      tip:"Das ist der wichtigste Schritt. Hier merkst du selbst, wo deine Lücke ist, ohne dass die KI es dir sagen muss." },
+    { t:"Foto hochladen", h:"Schritt 2: Foto hochladen",
+      intro:"Die KI braucht Kontext. Zeig ihr die Aufgabe und deinen bisherigen Lösungsweg.",
+      guides:[{ title:"So geht's", shots:["Neuen Chat öffnen","Aufgabe und Lösungsweg fotografieren","Foto in den Chat laden"] }] },
+    { t:"Wo stehst du?", h:"Schritt 3: Wähle deinen Prompt",
+      intro:"Je nachdem, wo du stehst, nimmst du eine dieser Vorlagen. Füll nur die grünen Stellen aus.",
+      prompts:[
+        { when:"Ich hänge an einer Stelle", t:"A · Hilfe-Prompt", p:"Ich bin in Klasse [X] und mache [Fach]-Hausaufgaben. Auf dem Bild: Aufgabe und mein Weg bis jetzt. Ich verstehe [was genau nicht]. Mach die Aufgabe nicht für mich. Gib mir nur Hinweise und warte auf meine Antwort. Prüfe am Ende streng, ob ich es verstanden habe." },
+        { when:"Ich verstehe gar nichts", t:"B · Grundlagen-Prompt", p:"Ich verstehe [Thema] in [Fach] gar nicht. Erklär es mir von Grund auf, so einfach wie möglich, mit einem Beispiel aus dem Alltag. Stell mir danach eine ganz leichte Aufgabe und steigere langsam." },
+        { when:"Ich bin fertig", t:"C · Kontroll-Prompt", p:"Hier ist meine fertige Lösung zu [Aufgabe]. Prüf sie, aber verrate nicht die richtige Lösung. Sag mir nur, wo Fehler sind und warum." }
+      ],
+      tip:"Du verstehst die Antwort nicht? Sag es einfach so, wie du es denkst. Zum Beispiel: „Das war mir zu schnell, nochmal langsamer bitte.“" },
+    { t:"Erklär-Check", h:"Schritt 4: Erklär-Check",
+      intro:"Erst wenn du es selbst erklären kannst, hast du es verstanden. Das machst du am Ende immer, egal welchen Weg du genommen hast.",
+      prompts:[{ when:"Immer zum Schluss", t:"Erklär-Prompt", p:"Ich erkläre dir jetzt in eigenen Worten, wie man das löst. Sag mir ehrlich, was fehlt oder falsch ist." }] }
+  ],
+  klausur: [
+    { t:"Material sammeln", h:"Schritt 1: Material sammeln",
+      intro:"Sammle alles aus dem Unterricht als PDF: Notizen, Arbeitsblätter, alte Klausuren und die Themenliste.",
+      guides:[
+        { title:"GoodNotes als PDF", shots:["Notizbuch öffnen","Teilen und als PDF exportieren","In Dateien sichern"] },
+        { title:"OneNote als PDF", shots:["Seite öffnen","Teilen, dann „Kopie senden“","In Dateien sichern"] },
+        { title:"Arbeitsblätter und alte Klausuren", shots:["Blatt flach hinlegen","Mit dem Handy scannen","In Dateien sichern"] }
+      ] },
+    { t:"Projekt anlegen", h:"Schritt 2: Projekt anlegen",
+      intro:"Lege in Claude ein Projekt pro Klausur an und lade alle PDFs hoch. Dann kennt die KI deinen kompletten Unterricht.",
+      guides:[{ title:"So geht's", shots:["„Projekte“ öffnen","Neues Projekt, z. B. „Bio Klausur 2“","Alle PDFs als Dateien hinzufügen"] }],
+      tip:"Bleib für die ganze Klausur im selben Chat. Dann kennt die KI deinen Plan und deinen Fortschritt." },
+    { t:"Analyse", h:"Schritt 3: Analyse",
+      intro:"Lass die KI zusammenfassen, was drankommt. Prüf dann selbst, ob das mit der Themenliste übereinstimmt.",
+      prompts:[{ when:"Einmal am Anfang", t:"Analyse-Prompt", p:"In den Dateien sind alle Unterrichtsmaterialien für meine [Fach]-Klausur am [Datum] zum Thema [Thema]. Fass zusammen: Welche Themen kommen dran, welche Aufgabentypen, was ist besonders wichtig? Ich prüfe, ob du es richtig verstanden hast." }] },
+    { t:"Lernplan", h:"Schritt 4: Lernplan",
+      intro:"Die KI plant deine Zeit bis zur Klausur, mit Einstufungstest und Wiederholungen.",
+      prompts:[{ when:"Direkt nach der Analyse", t:"Lernplan-Prompt", p:"Erstelle mir einen Lernplan von heute bis zum [Datum]. Ich habe pro Tag [X] Minuten. Starte mit einem kurzen Test, um zu sehen, wo ich stehe. Plane Wiederholungen ein und am Ende eine Probeklausur." }] },
+    { t:"Lernen bis zur Klausur", h:"Schritt 5: Lernen bis zur Klausur",
+      intro:"Ab jetzt gehst du jeden Tag in denselben Chat. Je nach Situation nimmst du eine dieser Vorlagen.",
+      prompts:[
+        { when:"Jeden Tag", t:"Lern-Session", p:"Heute ist [Montag], lass uns mit dem Plan weitermachen. Frag mich ab, statt mir alles zu erklären. Erklär nur, wenn ich falsch liege." },
+        { when:"Bei Lücken", t:"Übungsaufgaben", p:"Bei [Thema] bin ich noch unsicher. Gib mir 5 Übungsaufgaben im Stil meiner Materialien, eine nach der anderen. Korrigiere jede, bevor die nächste kommt." },
+        { when:"Vor der Klausur", t:"Probeklausur", p:"Erstelle eine Probeklausur im Stil der alten Klausuren, [X] Minuten. Zeig mir die Lösungen erst, wenn ich meine Antworten geschickt habe. Bewerte dann streng und sag mir, was ich wiederholen muss." }
+      ] }
+  ]
+};
+
+const state = { wf:"hausaufgaben", step:0 };
+try { const s = JSON.parse(localStorage.getItem("lmk-state")||"null"); if (s && WF[s.wf]) { state.wf = s.wf; state.step = Math.min(s.step|0, WF[s.wf].length-1); } } catch(e) {}
+const h = location.hash.replace("#","");
+if (WF[h]) { state.wf = h; state.step = 0; }
+
+const esc = s => s.replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const mark = s => esc(s).replace(/\[([^\]]+)\]/g, '<span class="ph-word">[$1]</span>');
+
+function render(){
+  document.querySelectorAll(".tab").forEach(b => b.setAttribute("aria-selected", b.dataset.wf === state.wf));
+  const steps = WF[state.wf];
+  document.getElementById("steps").innerHTML = steps.map((s,i) =>
+    `<li class="step"><button data-i="${i}" ${i===state.step?'aria-current="step"':''}><span class="n">Schritt ${i+1}</span><span class="t">${esc(s.t)}</span></button></li>`).join("");
+  const s = steps[state.step];
+  let html = `<h2>${esc(s.h)}</h2><p class="intro">${esc(s.intro)}</p>`;
+  (s.guides||[]).forEach(g => {
+    html += `<div class="guide"><h3>${esc(g.title)}</h3><div class="shots">` +
+      g.shots.map((c,i) => `<div class="shot"><div class="ph">Screenshot folgt</div><span><i>${i+1}</i>${esc(c)}</span></div>`).join("") +
+      `</div></div>`;
+  });
+  if (s.prompts) {
+    html += `<div class="prompts">` + s.prompts.map((p,i) =>
+      `<div class="prompt"><span class="when">${esc(p.when)}</span><h4>${esc(p.t)}</h4><p id="p-${i}">„${mark(p.p)}“</p><button class="copy" data-copy="${i}">Prompt kopieren</button></div>`).join("") + `</div>`;
+  }
+  if (s.tip) html += `<div class="tip">${esc(s.tip)}</div>`;
+  const panel = document.getElementById("panel");
+  panel.innerHTML = html;
+  panel.querySelectorAll(".copy").forEach(btn => btn.addEventListener("click", () => {
+    const text = s.prompts[+btn.dataset.copy].p;
+    const done = () => { btn.textContent = "Kopiert"; setTimeout(() => btn.textContent = "Prompt kopieren", 1600); };
+    const fallback = () => { const r = document.createRange(); r.selectNodeContents(document.getElementById("p-"+btn.dataset.copy)); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); btn.textContent = "Markiert, jetzt kopieren"; };
+    try { navigator.clipboard.writeText(text).then(done, fallback); } catch(e) { fallback(); }
+  }));
+  try { localStorage.setItem("lmk-state", JSON.stringify(state)); } catch(e) {}
+}
+
+document.querySelectorAll(".tab").forEach(b => b.addEventListener("click", () => { state.wf = b.dataset.wf; state.step = 0; render(); }));
+document.getElementById("steps").addEventListener("click", e => {
+  const b = e.target.closest("button[data-i]"); if (!b) return;
+  state.step = +b.dataset.i; render();
+});
+render();
+</script>
+
+</body>
+</html>
