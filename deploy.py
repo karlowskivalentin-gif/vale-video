@@ -42,8 +42,9 @@ INCLUDE_ROOT_FILES_EXT = (".html", ".css", ".js", ".ico", ".png", ".jpg",
 # firestore.rules wird in der Firebase-Console veroeffentlicht, nicht aufs Hosting.
 EXCLUDE_NAMES = {".git", ".gitignore", "config", "deploy.py", "node_modules",
                  ".vscode", ".idea", "__pycache__", "firestore.rules"}
+# .md: CLAUDE.md, Handoffs und Prompt-Notizen sind Arbeitsdateien, keine Website.
 EXCLUDE_EXT = (".mp4", ".mov", ".avi", ".mkv", ".prproj", ".drp",
-               ".py", ".php", ".log", ".tmp", ".rules")
+               ".py", ".php", ".log", ".tmp", ".rules", ".md")
 
 
 def load_secrets(path):

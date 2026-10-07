@@ -273,3 +273,12 @@
   .contact-right { padding: 4rem 1.5rem; justify-content: flex-start; }
   .form-row { grid-template-columns: 1fr; gap: 2rem; }
 }
+
+/* iPhone: Kleinst-Labels auf lesbare ~11 px anheben */
+@media (max-width: 600px) {
+  .contact-detail-label, .field-error,
+  .form-field input:focus ~ label,
+  .form-field input:not(:placeholder-shown) ~ label,
+  .form-field textarea:focus ~ label,
+  .form-field textarea:not(:placeholder-shown) ~ label { font-size: 0.7rem; }
+}

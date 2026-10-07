@@ -478,3 +478,9 @@
     padding: 5rem 1.5rem;
   }
 }
+
+/* iPhone: Kleinst-Labels auf lesbare ~11 px anheben */
+@media (max-width: 600px) {
+  .pricing-proof span, .pricing-proof strong, .pricing-num, .pricing-kicker, .featured-badge,
+  .process-step span, .social-recommend span { font-size: 0.7rem; }
+}

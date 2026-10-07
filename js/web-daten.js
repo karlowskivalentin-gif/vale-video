@@ -29,17 +29,16 @@ const firebaseConfig = {
 const db = getFirestore(initializeApp(firebaseConfig));
 
 // Spiegel von STATISCHE_PROJEKTE in kunden/js/views/admin-webseite.js.
-// Die sieben handgebauten Projektseiten bleiben statisches HTML; hier stehen
+// Die sechs handgebauten Projektseiten bleiben statisches HTML; hier stehen
 // nur ihre Eckdaten, damit der Startseiten-Baukasten sie referenzieren kann.
 // ÄNDERUNGEN IMMER AN BEIDEN STELLEN.
 export const STATISCHE_PROJEKTE = {
-  "projekt-amsterdam.html":   { titel: "Amsterdam by Day",       tag: "Persönlich · Cinematic Travel",  thumb: "assets/images/thumb-amsterdam.webp" },
+  "projekt-roestzeit.html":   { titel: "Kaffee Röstzeit — 10 Jahre", tag: "Auftrag · Imagefilm · Reels",  thumb: "assets/images/thumb-roestzeit.webp" },
+  "projekt-deussen.html":     { titel: "Deussen Immobilien",     tag: "Auftrag · Social Reels · laufend", thumb: "assets/images/thumb-deussen.webp" },
   "projekt-schneider.html":   { titel: "Café Schneider Benrath", tag: "Auftrag · Imagefilm · Interview", thumb: "assets/images/thumb-schneider.webp" },
-  "projekt-zicke.html":       { titel: "Bistro Zicke Düsseldorf", tag: "Auftrag · Imagefilm",           thumb: "assets/images/thumb-zicke.webp" },
   "projekt-clubpilates.html": { titel: "Club Pilates × Fibo 2026", tag: "Auftrag · Event · Reel",       thumb: "assets/images/thumb-clubpilates.webp" },
   "projekt-cathy.html":       { titel: "Cathy Hummels Interview", tag: "Auftrag · Interview · Reel",    thumb: "assets/images/thumb-cathy.webp" },
-  "projekt-goldhaus.html":    { titel: "Goldhaus",                tag: "Auftrag · Imagefilm",           thumb: "assets/images/thumb-goldhaus.webp" },
-  "projekt-pia.html":         { titel: "Pia — Urdenbach",         tag: "Persönlich · Objektfilm",       thumb: "assets/images/thumb-pia.webp" }
+  "projekt-goldhaus.html":    { titel: "Goldhaus",                tag: "Auftrag · Imagefilm",           thumb: "assets/images/thumb-goldhaus.webp" }
 };
 
 export function escapeHtml(s) {
@@ -108,7 +107,7 @@ export async function ladeOrdner() {
   }
 }
 
-// Einsortierung der sieben handgebauten Projektseiten: { ref → ordnerId }.
+// Einsortierung der handgebauten Projektseiten: { ref → ordnerId }.
 // Enthält keine Inhalte — die Seiten selbst sind und bleiben statisches HTML.
 export async function ladeStatischZuordnung() {
   try {
@@ -196,7 +195,7 @@ export function aktivierePlayer(wurzel) {
       const yt = youtubeId(url), vi = vimeoId(url), tt = tiktokId(url);
 
       if (yt) {
-        ziel.innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${escapeHtml(yt)}?autoplay=1&rel=0&modestbranding=1"
+        ziel.innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${escapeHtml(yt)}?autoplay=1&rel=0&modestbranding=1&playsinline=1"
           title="${escapeHtml(document.title)}" allowfullscreen
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>`;
       } else if (vi) {

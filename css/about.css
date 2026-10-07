@@ -318,3 +318,8 @@
     justify-self: start;
   }
 }
+
+/* iPhone: Kleinst-Labels auf lesbare ~11 px anheben */
+@media (max-width: 600px) {
+  .proof-card span, .process-item span { font-size: 0.7rem; }
+}

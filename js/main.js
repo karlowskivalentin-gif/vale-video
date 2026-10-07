@@ -3,7 +3,8 @@ function playYT(wrapperId, videoId) {
   const wrap = document.getElementById(wrapperId);
   if (!wrap) return;
   const iframe = wrap.querySelector('iframe');
-  iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1`;
+  // playsinline: iPhone spielt im Player auf der Seite statt sofort im Vollbild
+  iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1&playsinline=1`;
   wrap.classList.add('active');
 }
 
@@ -51,12 +52,55 @@ document.querySelectorAll('.service-item, .work-card, .process-item, .pricing-ti
   observer.observe(el);
 });
 
+// ── Mobil-Menü
+// Auf schmalen Screens blendet css/style.css die Textlinks aus; hier entstehen
+// Burger-Knopf und Aufklapp-Panel mit Kopien dieser Links. Gebaut per JS,
+// damit nicht jede Seite ihr eigenes Menü-Markup braucht.
+(function initMobilMenue() {
+  const nav = document.querySelector('nav');
+  const links = nav && nav.querySelector('.nav-links');
+  if (!links) return;                                   // z. B. Impressum mit eigener Nav
+
+  const panel = document.createElement('div');
+  panel.className = 'nav-panel';
+  panel.id = 'navPanel';
+  links.querySelectorAll('a:not(.nav-cta)').forEach((a) => panel.appendChild(a.cloneNode(true)));
+  // CTA zusätzlich ins Menü — sichtbar nur auf sehr schmalen Screens (CSS)
+  const cta = links.querySelector('.nav-cta');
+  if (cta) {
+    const kopie = cta.cloneNode(true);
+    kopie.className = 'nav-panel-cta';
+    panel.appendChild(kopie);
+  }
+
+  const knopf = document.createElement('button');
+  knopf.type = 'button';
+  knopf.className = 'nav-toggle';
+  knopf.setAttribute('aria-controls', 'navPanel');
+  knopf.innerHTML = '<span></span><span></span>';
+
+  const setze = (offen) => {
+    nav.classList.toggle('ist-offen', offen);
+    knopf.setAttribute('aria-expanded', String(offen));
+    knopf.setAttribute('aria-label', offen ? 'Menü schließen' : 'Menü öffnen');
+  };
+  setze(false);
+  knopf.addEventListener('click', () => setze(!nav.classList.contains('ist-offen')));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') setze(false); });
+  document.addEventListener('click', (e) => { if (!nav.contains(e.target)) setze(false); });
+
+  nav.appendChild(knopf);
+  nav.appendChild(panel);
+})();
+
 // ── Navbar: hide/show on scroll
 let lastScroll = 0;
 const nav = document.querySelector('nav');
 
 window.addEventListener('scroll', () => {
   const current = window.scrollY;
+  // Offenes Mobil-Menü nicht wegscrollen — es würde unter dem Finger verschwinden
+  if (nav.classList.contains('ist-offen')) { lastScroll = current; return; }
   if (current > lastScroll && current > 100) {
     nav.style.transform = 'translateY(-100%)';
     nav.style.transition = 'transform 0.4s ease';

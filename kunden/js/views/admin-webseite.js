@@ -24,19 +24,20 @@ import { escapeHtml } from "../util.js";
 import { erkennePlattform } from "../embeds.js";
 import { youtubeId, vimeoId } from "../drive.js";
 
-// Die sieben handgebauten Projektseiten. Sie bleiben statisches HTML im
+// Die sechs handgebauten Projektseiten. Sie bleiben statisches HTML im
 // Eltern-Repo — hier stehen nur ihre Eckdaten, damit sie im Baukasten mit den
 // neuen Posts mischbar sind, ohne sie nach Firestore migrieren zu müssen.
 // ACHTUNG: Diese Liste existiert gespiegelt in ../../js/web-daten.js (die
 // öffentliche Seite kennt das Portal nicht). Änderungen an beiden Stellen.
+// Amsterdam, Pia und Bistro Zicke sind seit dem Refresh im Oktober 2026 raus
+// (ihre Seiten leiten aufs Portfolio um).
 export const STATISCHE_PROJEKTE = [
-  { ref: "projekt-amsterdam.html",   titel: "Amsterdam by Day",      tag: "Persönlich · Cinematic Travel", thumb: "assets/images/thumb-amsterdam.webp",   kategorie: "persoenlich" },
+  { ref: "projekt-roestzeit.html",   titel: "Kaffee Röstzeit — 10 Jahre", tag: "Auftrag · Imagefilm · Reels", thumb: "assets/images/thumb-roestzeit.webp", kategorie: "imagefilm" },
+  { ref: "projekt-deussen.html",     titel: "Deussen Immobilien",     tag: "Auftrag · Social Reels · laufend", thumb: "assets/images/thumb-deussen.webp",  kategorie: "reels" },
   { ref: "projekt-schneider.html",   titel: "Café Schneider Benrath", tag: "Auftrag · Imagefilm · Interview", thumb: "assets/images/thumb-schneider.webp", kategorie: "imagefilm" },
-  { ref: "projekt-zicke.html",       titel: "Bistro Zicke Düsseldorf", tag: "Auftrag · Imagefilm",          thumb: "assets/images/thumb-zicke.webp",       kategorie: "imagefilm" },
   { ref: "projekt-clubpilates.html", titel: "Club Pilates × Fibo 2026", tag: "Auftrag · Event · Reel",      thumb: "assets/images/thumb-clubpilates.webp", kategorie: "reels" },
   { ref: "projekt-cathy.html",       titel: "Cathy Hummels Interview", tag: "Auftrag · Interview · Reel",   thumb: "assets/images/thumb-cathy.webp",       kategorie: "reels" },
-  { ref: "projekt-goldhaus.html",    titel: "Goldhaus",               tag: "Auftrag · Imagefilm",           thumb: "assets/images/thumb-goldhaus.webp",    kategorie: "imagefilm" },
-  { ref: "projekt-pia.html",         titel: "Pia — Urdenbach",        tag: "Persönlich · Objektfilm",       thumb: "assets/images/thumb-pia.webp",         kategorie: "persoenlich" }
+  { ref: "projekt-goldhaus.html",    titel: "Goldhaus",               tag: "Auftrag · Imagefilm",           thumb: "assets/images/thumb-goldhaus.webp",    kategorie: "imagefilm" }
 ];
 
 const KAT_LABEL = {
@@ -265,7 +266,7 @@ export function renderAdminWebseite(container) {
   }
 
   // Alle Elemente eines Abschnitts — Posts UND statische Projektseiten,
-  // damit auch die sieben Referenzseiten einsortierbar sind.
+  // damit auch die statischen Referenzseiten einsortierbar sind.
   function elementeVon(ordnerId) {
     const ausPosts = posts
       .filter((p) => (p.ordnerId || null) === ordnerId)

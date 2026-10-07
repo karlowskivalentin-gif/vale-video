@@ -23,6 +23,10 @@
   color: var(--muted);
 }
 
+/* Mit „Zurück“-Link davor (Leistungsseiten) steckt der Abstand zur
+   Navigation schon im Link — sonst stünde der Titel sehr weit unten. */
+.back-link + .portfolio-hero { padding-top: 5rem; }
+
 /* Leistungs-Hero: kompakterer Titel, bricht lange Namen sauber um statt zu überlaufen */
 .portfolio-title--service {
   font-size: clamp(2.5rem, 6.5vw, 5.5rem);
@@ -443,6 +447,14 @@
   overflow: hidden;
 }
 
+/* Reels tragen ihre Hook-Caption in der Bildmitte — der Play-Button rückt
+   ins untere Drittel, damit der Hook im Vorschaubild lesbar bleibt. */
+.detail-video.portrait .yt-play { top: 78%; }
+
+/* Film und Reels auf einer Seite (z. B. Röstzeit): kein doppelter Abstand */
+.detail-video:has(+ .detail-video.portrait) { padding-bottom: 3rem; }
+.detail-video + .detail-video.portrait { padding-top: 0; }
+
 /* Landscape (16:9) */
 .yt-wrap {
   width: 100%;
@@ -486,6 +498,8 @@
 }
 
 /* Back link */
+/* Oben genug Luft für die feste Navigation (Desktop ~79 px) — vorher lag
+   der Link mit 3rem Abstand komplett unter ihr und war unsichtbar. */
 .back-link {
   display: inline-flex;
   align-items: center;
@@ -495,7 +509,7 @@
   font-size: 0.72rem;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  padding: 3rem 3rem 0;
+  padding: 7rem 3rem 1.5rem;
   transition: color 0.3s ease, gap 0.3s ease;
 }
 
@@ -625,11 +639,19 @@
   .detail-meta { order: 3; }
   .video-quality-hint { font-size: 1.3rem; margin-top: 1.5rem; order: 1; }
   .detail-video { padding: 0 1.5rem 3rem; order: 1; }
-  .back-link { padding: 2rem 1.5rem 0; }
+  .back-link { padding: 6.75rem 1.5rem 1.25rem; }
+  .portfolio-hero { padding: 8.5rem 1.5rem 3rem; }
+  .back-link + .portfolio-hero { padding-top: 2rem; }
   .detail-video.portrait { flex-direction: column; align-items: center; }
   .detail-video.portrait .yt-item,
   .detail-video.portrait .yt-wrap { width: 100%; max-width: 320px; height: auto; aspect-ratio: 9/16; }
   .video-quality-hint { padding: 0 1.5rem; }
+  /* Auf dem Handy steht der Titel weiter oben im Bild — dort ist es hell.
+     Kräftigerer Verlauf, damit die orange Zeile darüber lesbar bleibt. */
+  .detail-hero-gradient {
+    background: linear-gradient(to top, rgba(20,17,13,0.9) 0%, rgba(20,17,13,0.6) 60%, rgba(20,17,13,0.2) 100%);
+  }
+  .detail-tag { text-shadow: 0 1px 8px rgba(0,0,0,0.45); }
 }
 
 /* ── Player-Fassade für Posts aus dem Portal (js/web-daten.js) ──
@@ -682,4 +704,10 @@ body.ist-vorschau nav { position: static; }
 
 @media (max-width: 900px) {
   .work-abschnitt-kopf { padding: 0 1.5rem 1.2rem; }
+}
+
+/* iPhone: Kleinst-Labels (0,6–0,65 rem) auf lesbare ~11 px anheben */
+@media (max-width: 600px) {
+  .detail-tag, .meta-block p:first-child, .yt-play-label, .yt-label,
+  .nav-direction, .project-num, .project-tag { font-size: 0.7rem; }
 }

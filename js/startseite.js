@@ -6,7 +6,7 @@
 //                   Portal. So kann der Baukasten einen unveröffentlichten
 //                   Entwurf zeigen, ohne dass der öffentlich lesbar sein muss.
 //
-// Die sieben Kacheln im HTML bleiben als Fallback stehen: Solange nichts
+// Die Kacheln im HTML bleiben als Fallback stehen: Solange nichts
 // geladen ist (oder Firestore nicht antwortet), sieht die Seite genau so aus
 // wie bisher. Ersetzt wird erst, wenn wirklich eine Anordnung vorliegt.
 import { ladeStartseite, ladeWebvideo, postBild, STATISCHE_PROJEKTE, escapeHtml } from "./web-daten.js";

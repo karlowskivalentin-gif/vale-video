@@ -1,7 +1,7 @@
 // Portfolio: gliedert die Seite in die Abschnitte, die Valentin im Portal
 // angelegt hat. Zwei Quellen fließen zusammen:
 //
-//   - die sieben handgebauten Projektkarten, die als statisches HTML im
+//   - die handgebauten Projektkarten, die als statisches HTML im
 //     Markup stehen (SEO-Basis — ohne JS sieht ein Crawler sie weiterhin alle)
 //   - die Video-Posts aus Firestore
 //
@@ -9,7 +9,7 @@
 // gebaut. So bleiben ihre Links, Bilder und Texte exakt erhalten.
 //
 // Schlägt das Laden fehl (offline, Firestore weg), passiert schlicht nichts:
-// die Seite bleibt das eine Grid mit allen sieben Projekten.
+// die Seite bleibt das eine Grid mit allen statischen Projekten.
 import { ladeWebvideos, ladeOrdner, ladeStatischZuordnung, postBild, escapeHtml } from "./web-daten.js";
 
 const grid = document.getElementById("workGrid");
